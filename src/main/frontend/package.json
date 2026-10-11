@@ -30,7 +30,7 @@
     "fallow": "3.33.1",
     "prettier": "3.9.10",
     "tailwindcss": "^4",
-    "typescript": "^5",
+    "typescript": "^7",
     "typescript-eslint": "8.71.1"
   }
 }
