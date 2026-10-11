@@ -25,10 +25,14 @@ for analysis alone or `npm run format` to apply Prettier's formatting.
 ESLint uses TypeScript's project service to reject unhandled promises, misused async callbacks,
 and unsafe `any` operations. TypeScript also enables `noUncheckedIndexedAccess` and
 `exactOptionalPropertyTypes`.
+Type checking uses the native TypeScript 7 compiler. ESLint and Fallow use the TypeScript 6
+compiler API through Microsoft's `@typescript/typescript6` compatibility package.
+This follows the [official side-by-side setup](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6-0).
 
 Fallow checks unused code and dependencies, import cycles, duplication, and complexity
-across the whole frontend. It needs no Git history or baseline. Its only dependency
-exception is `@tailwindcss/turbopack`, which Next.js loads by its string name in configuration.
+across the whole frontend. It needs no Git history or baseline. Its dependency exceptions
+are `@tailwindcss/turbopack`, which Next.js loads by its string name in configuration,
+and `@typescript/native`, whose aliased `tsc` executable Fallow does not associate with the package.
 Generated files, caches, and Maven's downloaded Node installation are excluded.
 
 GitHub Actions runs these same builds on pushes and pull requests. Keep
