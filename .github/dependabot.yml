@@ -1,0 +1,43 @@
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      spring:
+        patterns:
+          - "org.springframework*"
+          - "io.spring*"
+      test-dependencies:
+        patterns:
+          - "org.testcontainers*"
+          - "org.wiremock*"
+
+  - package-ecosystem: npm
+    directory: /src/main/frontend
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      radix-ui:
+        patterns:
+          - "@radix-ui/*"
+      dev-dependencies:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday

@@ -1,0 +1,26 @@
+{
+  "name": "Required build and security checks",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "required_status_checks": [
+          { "context": "Backend checks", "integration_id": 15368 },
+          { "context": "Frontend checks", "integration_id": 15368 },
+          { "context": "Secret scan", "integration_id": 15368 },
+          { "context": "Dependency review", "integration_id": 15368 }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+title = "Geobook secrets"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Downloaded tools, dependencies, and generated build output"
+paths = [
+  '''(^|/)target/''',
+  '''(^|/)src/main/frontend/(node_modules|node|\.next|\.fallow|out|build|coverage)/''',
+]

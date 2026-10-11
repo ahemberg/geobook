@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+<suppressions>
+    <!-- Spotless owns import ordering, wrapping, and indentation. -->
+    <suppress checks="CustomImportOrder|LineLength|Indentation" files=".*"/>
+    <!-- Do not require boilerplate Javadoc on every Spring bean or entry point. -->
+    <suppress checks="MissingJavadocType|MissingJavadocMethod" files=".*"/>
+</suppressions>
