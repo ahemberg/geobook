@@ -20,6 +20,11 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    ignore:
+      # Keep typings on the Node major pinned in .nvmrc and pom.xml.
+      - dependency-name: "@types/node"
+        update-types:
+          - version-update:semver-major
     groups:
       radix-ui:
         patterns:

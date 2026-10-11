@@ -33,6 +33,8 @@ Generated files, caches, and Maven's downloaded Node installation are excluded.
 
 GitHub Actions runs these same builds on pushes and pull requests. Keep
 `src/main/frontend/.nvmrc` and `node.version` in `pom.xml` synchronized.
+Keep `@types/node` on that same Node major. Dependabot updates its minor and patch
+versions; change its major when upgrading the runtime.
 
 The relevant tool documentation is [Fallow CI](https://fallow.tools/docs/integrations/ci/),
 [Checkstyle's build gate](https://maven.apache.org/plugins/maven-checkstyle-plugin/check-mojo.html),
