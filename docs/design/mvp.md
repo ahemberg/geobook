@@ -38,3 +38,9 @@ The mobile layouts and supporting flows are approved as described here. They hav
 ## Implementation handoff
 
 Start with [Upload one GPX track and see it on the map](https://github.com/ahemberg/geobook/issues/24). Deliver that working path in this visual direction, then continue through the implementation tickets and their dependencies. Use the approved integration-first Spring Boot, Vitest and Playwright test strategy from the build specification.
+
+## Local design tooling
+
+Install Impeccable for this project using its `install --project --providers=codex,claude --yes` command, then run `/impeccable hooks on`. Approve the new project hooks in Codex through `/hooks`. The hooks check UI edits and run a deeper pass at session end.
+
+The shared Codex manifest skips execution when the local skill is absent. Downloaded skills, binaries, Claude's local settings and hook consent stay outside Git. The project hook commands passed manual checks; automatic triggering in T3 and Claude remains unverified.

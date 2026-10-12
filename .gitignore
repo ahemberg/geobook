@@ -13,3 +13,9 @@
 .impeccable/questions/
 .impeccable/mocks/decision/*
 !.impeccable/mocks/decision/pick.html
+
+# Locally installed design tooling.
+.agents/skills/impeccable/
+.claude/skills/impeccable/
+.claude/agents/impeccable-*.md
+.claude/settings.local.json
