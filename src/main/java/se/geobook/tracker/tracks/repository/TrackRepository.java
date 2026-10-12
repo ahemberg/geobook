@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 import se.geobook.tracker.tracks.domain.DateRange;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
+import se.geobook.tracker.tracks.domain.PointCountry;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
@@ -111,7 +112,7 @@ public class TrackRepository {
     }
     List<PointLocalTime.Attribution> local = prepared.local();
     jdbc.batchUpdate(
-        "INSERT INTO track_point VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO track_point VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
           @Override
           public void setValues(java.sql.PreparedStatement statement, int index)
@@ -131,6 +132,8 @@ public class TrackRepository {
             statement.setString(11, attribution.timeStatus());
             statement.setString(12, attribution.boundaryVersion());
             statement.setString(13, attribution.tzdbVersion());
+            statement.setString(14, prepared.countries().get(index));
+            statement.setString(15, PointCountry.VERSION);
           }
 
           @Override
@@ -280,10 +283,10 @@ public class TrackRepository {
         Integer.class);
   }
 
-  public List<Track.Point> points(long id, DateRange range) {
+  public List<Track.Point> points(long id, DateRange range, String country) {
     return jdbc.query(
-        "SELECT * FROM track_point WHERE track_id = ?"
-            + " AND (? IS NULL OR local_date BETWEEN ? AND ?) ORDER BY ordinal",
+        "SELECT * FROM track_point WHERE track_id = ? AND (? IS NULL OR local_date BETWEEN ? AND ?)"
+            + " AND (? IS NULL OR country_code = ?) ORDER BY ordinal",
         (row, index) ->
             new Track.Point(
                 row.getInt("ordinal"),
@@ -298,7 +301,9 @@ public class TrackRepository {
         id,
         range.from(),
         range.from(),
-        range.through());
+        range.through(),
+        country,
+        country);
   }
 
   private static Recording.Point sourcePoint(ResultSet row) throws SQLException {

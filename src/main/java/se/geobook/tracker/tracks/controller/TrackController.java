@@ -94,10 +94,34 @@ class TrackController {
   List<TrackResponses.Overview> overview(
       @RequestParam(required = false) String from,
       @RequestParam(required = false) String to,
-      @RequestParam(defaultValue = "") String search) {
-    return collection.overview(new DateRange(from, to), search).stream()
+      @RequestParam(defaultValue = "") String search,
+      @RequestParam(required = false) String country) {
+    return collection.overview(new DateRange(from, to), search, country).stream()
         .map(TrackResponses::from)
         .toList();
+  }
+
+  @GetMapping("/api/visits")
+  VisitResponses.Reviewable visits(
+      @RequestParam(required = false) String from, @RequestParam(required = false) String to) {
+    DateRange range = new DateRange(from, to);
+    return new VisitResponses.Reviewable(
+        collection.visits(range).stream().map(VisitResponses::from).toList(),
+        collection.unresolvedVisits(range));
+  }
+
+  @GetMapping("/api/countries")
+  List<VisitResponses.Summary> countries(
+      @RequestParam(required = false) String from, @RequestParam(required = false) String to) {
+    return collection.countries(new DateRange(from, to)).stream()
+        .map(VisitResponses::from)
+        .toList();
+  }
+
+  @PatchMapping("/api/visits/review")
+  Map<String, Boolean> review(@RequestBody JsonNode input) {
+    collection.review(VisitResponses.read(input));
+    return Map.of("saved", true);
   }
 
   @GetMapping("/api/tracks/years")

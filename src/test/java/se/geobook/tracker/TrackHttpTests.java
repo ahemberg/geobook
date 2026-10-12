@@ -608,6 +608,15 @@ class TrackHttpTests {
       JsonNode full =
           JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks/1").body());
       assertThat(full.get("name").asText()).isEqualTo("Existing recording");
+      assertThat(
+              JsonMapper.builder()
+                  .build()
+                  .readTree(get(client, base(app) + "/api/visits").body())
+                  .get("candidates")
+                  .get(0)
+                  .get("country")
+                  .asText())
+          .isEqualTo("SWE");
       assertThat(full.get("colour").asText()).isEqualTo("#123456");
       assertThat(full.get("points").get(0).get("time").asText()).isEqualTo("2025-06-18T22:00:00Z");
       assertThat(full.get("points").get(0).get("localDate").asText()).isEqualTo("2025-06-19");
@@ -659,6 +668,225 @@ class TrackHttpTests {
         assertThat(filtered.get(index).get("startTime")).isEqualTo(all.get(index).get("startTime"));
         assertThat(filtered.get(index).get("pointCount").asInt()).isEqualTo(1);
       }
+    }
+  }
+
+  @Test
+  void countryCandidatesUseRecordedPositionsAndLocalDays()
+      throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      upload(
+          client,
+          base(app),
+          gpx(
+              """
+              <trk><name>Country evidence</name><trkseg>
+              <trkpt lat="59.34" lon="18.04"><time>2025-06-18T22:30:00Z</time></trkpt>
+              <trkpt lat="52.52" lon="13.405"><time>2025-06-20T10:00:00Z</time></trkpt>
+              <trkpt lat="0" lon="-30"><time>2025-06-21T10:00:00Z</time></trkpt>
+              </trkseg></trk>\
+              """));
+      HttpResponse<byte[]> response = get(client, base(app) + "/api/visits");
+      assertThat(response.statusCode()).isEqualTo(200);
+      JsonNode visits = JsonMapper.builder().build().readTree(response.body());
+      assertThat(visits.get("candidates").size()).isEqualTo(2);
+      assertThat(visits.get("candidates").toString())
+          .contains("Sweden", "Germany", "2025-06-19", "pending")
+          .doesNotContain("Denmark");
+      assertThat(visits.get("candidates").get(0).get("tracks").get(0).get("name").asText())
+          .isEqualTo("Country evidence");
+      assertThat(visits.get("unresolvedPoints").asInt()).isEqualTo(1);
+      assertThat(get(client, base(app) + "/api/countries").body())
+          .isEqualTo("[]".getBytes(StandardCharsets.UTF_8));
+    }
+  }
+
+  @Test
+  void reviewedVisitsSurviveRestartAndDeduplicateLiveCountryDays()
+      throws IOException, InterruptedException {
+    byte[] original =
+        gpx(
+            """
+            <trk><name>Sweden and Germany</name><trkseg>
+            <trkpt lat="59.34" lon="18.04"><time>2025-06-18T22:30:00Z</time></trkpt>
+            <trkpt lat="52.52" lon="13.405"><time>2025-06-19T00:00:00Z</time></trkpt>
+            <trkpt lat="59.35" lon="18.04"><time>2025-06-19T00:01:00Z</time></trkpt>
+            <trkpt lat="59.34" lon="18.04"><time>2025-06-20T10:00:00Z</time></trkpt>
+            <trkpt lat="59.34" lon="18.04"><time>2025-06-21T10:00:00Z</time></trkpt>
+            </trkseg></trk>\
+            """);
+    JsonMapper mapper = JsonMapper.builder().build();
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      try (ConfigurableApplicationContext app = start()) {
+        upload(client, base(app), original);
+        upload(
+            client,
+            base(app),
+            gpx(
+                """
+                <trk><name>Another Swedish recording</name><trkseg>
+                <trkpt lat="59.36" lon="18.04"><time>2025-06-19T12:00:00Z</time></trkpt>
+                </trkseg></trk>\
+                """));
+        JsonNode candidates =
+            mapper.readTree(get(client, base(app) + "/api/visits").body()).get("candidates");
+        assertThat(candidates.size()).isEqualTo(4);
+        assertThat(candidates.get(3).get("tracks").size()).isEqualTo(2);
+        assertThat(
+                patch(
+                        client,
+                        base(app) + "/api/visits/review",
+                        """
+                        {"state":"confirmed","visits":[{"country":"SWE","date":"2025-06-19"},{"country":"SWE","date":"2025-06-20"}]}
+                        """)
+                    .statusCode())
+            .isEqualTo(200);
+        assertThat(
+                patch(
+                        client,
+                        base(app) + "/api/visits/review",
+                        """
+                        {"state":"excluded","visits":[{"country":"DEU","date":"2025-06-19"}]}
+                        """)
+                    .statusCode())
+            .isEqualTo(200);
+        // An invalid batch must roll back the earlier valid decision too.
+        assertThat(
+                patch(
+                        client,
+                        base(app) + "/api/visits/review",
+                        """
+                        {"state":"excluded","visits":[{"country":"SWE","date":"2025-06-19"},{"country":"SWE","date":"2020-01-01"}]}
+                        """)
+                    .statusCode())
+            .isEqualTo(400);
+      }
+      try (ConfigurableApplicationContext app = start()) {
+        upload(client, base(app), original);
+        JsonNode summaries = mapper.readTree(get(client, base(app) + "/api/countries").body());
+        assertThat(summaries.size()).isEqualTo(1);
+        assertThat(summaries.get(0).get("country").asText()).isEqualTo("SWE");
+        assertThat(summaries.get(0).get("firstVisit").asText()).isEqualTo("2025-06-19");
+        assertThat(summaries.get(0).get("latestVisit").asText()).isEqualTo("2025-06-20");
+        assertThat(summaries.get(0).get("recordedDays").asInt()).isEqualTo(2);
+        JsonNode review = mapper.readTree(get(client, base(app) + "/api/visits").body());
+        assertThat(review.get("candidates").get(0).get("state").asText()).isEqualTo("pending");
+        assertThat(review.get("candidates").get(2).get("state").asText()).isEqualTo("excluded");
+        JsonNode filtered =
+            mapper.readTree(
+                get(client, base(app) + "/api/countries?from=2025-06-20&to=2025-06-20").body());
+        assertThat(filtered.get(0).get("recordedDays").asInt()).isEqualTo(1);
+        assertThat(filtered.get(0).get("firstVisit")).isEqualTo(filtered.get(0).get("latestVisit"));
+        JsonNode tracks =
+            mapper.readTree(
+                get(client, base(app) + "/api/tracks?country=SWE&from=2025-06-19&to=2025-06-19")
+                    .body());
+        assertThat(tracks.size()).isEqualTo(2);
+        assertThat(tracks.get(1).get("geometry").toString())
+            .isEqualTo("[[[59.34,18.04]],[[59.35,18.04]]]");
+        assertThat(
+                mapper
+                    .readTree(get(client, base(app) + "/api/tracks?country=DEU").body())
+                    .get(0)
+                    .get("pointCount")
+                    .asInt())
+            .isEqualTo(1);
+        assertThat(
+                mapper
+                    .readTree(get(client, base(app) + "/api/tracks/1").body())
+                    .get("points")
+                    .size())
+            .isEqualTo(5);
+        assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(original);
+        assertThat(get(client, base(app) + "/api/tracks?country=INVALID").statusCode())
+            .isEqualTo(400);
+        assertThat(
+                patch(
+                        client,
+                        base(app) + "/api/visits/review",
+                        """
+                        {"state":"pending","visits":[{"country":"SWE","date":"2025-06-19"}]}
+                        """)
+                    .statusCode())
+            .isEqualTo(200);
+        assertThat(
+                mapper
+                    .readTree(get(client, base(app) + "/api/countries").body())
+                    .get(0)
+                    .get("recordedDays")
+                    .asInt())
+            .isEqualTo(1);
+      }
+    }
+  }
+
+  @Test
+  void removalRecomputesCountryEvidenceWithoutLosingReviewDecisions()
+      throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      byte[] first =
+          gpx(
+              "<trk><name>Morning</name><trkseg><trkpt lat='59.34' lon='18.04'>"
+                  + "<time>2025-06-19T10:00:00Z</time></trkpt></trkseg></trk>");
+      byte[] second =
+          gpx(
+              "<trk><name>Evening</name><trkseg><trkpt lat='59.35' lon='18.04'>"
+                  + "<time>2025-06-19T18:00:00Z</time></trkpt></trkseg></trk>");
+      assertThat(upload(client, base(app), first).statusCode()).isEqualTo(201);
+      assertThat(upload(client, base(app), second).statusCode()).isEqualTo(201);
+      assertThat(
+              patch(
+                      client,
+                      base(app) + "/api/visits/review",
+                      """
+                      {"state":"confirmed","visits":[{"country":"SWE","date":"2025-06-19"}]}
+                      """)
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(
+              delete(client, base(app) + "/api/tracks/1", trackRevision(client, base(app), 1))
+                  .statusCode())
+          .isEqualTo(200);
+      JsonNode remaining =
+          mapper.readTree(get(client, base(app) + "/api/visits").body()).get("candidates");
+      assertThat(remaining.size()).isEqualTo(1);
+      assertThat(remaining.get(0).get("state").asText()).isEqualTo("confirmed");
+      assertThat(remaining.get(0).get("tracks").size()).isEqualTo(1);
+      assertThat(
+              mapper
+                  .readTree(get(client, base(app) + "/api/countries").body())
+                  .get(0)
+                  .get("recordedDays")
+                  .asInt())
+          .isEqualTo(1);
+      assertThat(
+              delete(
+                      client,
+                      base(app) + "/api/originals/2",
+                      preview(client, base(app), 2).get("revision").asText())
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(mapper.readTree(get(client, base(app) + "/api/countries").body()).isEmpty())
+          .isTrue();
+      assertThat(
+              mapper
+                  .readTree(get(client, base(app) + "/api/visits").body())
+                  .get("candidates")
+                  .isEmpty())
+          .isTrue();
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(first);
+      assertThat(upload(client, base(app), first).statusCode()).isEqualTo(201);
+      assertThat(
+              mapper
+                  .readTree(get(client, base(app) + "/api/visits").body())
+                  .get("candidates")
+                  .get(0)
+                  .get("state")
+                  .asText())
+          .isEqualTo("confirmed");
     }
   }
 

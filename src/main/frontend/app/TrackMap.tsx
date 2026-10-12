@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import type { MapConfig, Overview } from './api';
+import type { Country, MapConfig, MapTrack } from './api';
 import { mapGeometry } from './mapGeometry';
 
 export default function TrackMap({
@@ -9,13 +9,16 @@ export default function TrackMap({
   importedIds,
   config,
   position,
+  country: scope,
 }: {
-  tracks: Overview[];
+  tracks: MapTrack[];
+  country: Country | null;
   selectedId: number | null;
   importedIds: number[];
   config: MapConfig;
   position: L.LatLngTuple | null;
 }) {
+  const country = selectedId === null ? scope : null;
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const [tileFailed, setTileFailed] = useState(false);
@@ -52,22 +55,21 @@ export default function TrackMap({
     const map = mapRef.current;
     if (!map) return;
     const layer = L.featureGroup().addTo(map);
+    const longitude = country ? (country.bounds[0][1] + country.bounds[1][1]) / 2 : undefined;
     for (const track of tracks.filter((track) => track.visible)) {
-      drawTrack(track, selectedId, layer);
-      for (const gap of track.gaps ?? []) {
-        L.polyline(mapGeometry([gap])[0] ?? [], {
-          color: '#68716d',
-          weight: 2,
-          dashArray: '6 6',
-          className: 'recording-gap',
-        })
-          .bindTooltip('Missing recording')
-          .addTo(layer);
-      }
+      drawTrack(track, selectedId, layer, longitude);
+      drawGaps(track, layer, longitude);
     }
 
-    const fitKey = JSON.stringify([selectedId, importedIds, tracks.map((track) => track.id)]);
-    const bounds = trackBounds(fittedTracks(tracks, selectedId, importedIds));
+    const fitKey = JSON.stringify([
+      selectedId,
+      importedIds,
+      country?.country,
+      tracks.map((track) => [track.id, track.geometry]),
+    ]);
+    const bounds = country
+      ? L.latLngBounds(country.bounds)
+      : trackBounds(fittedTracks(tracks, selectedId, importedIds));
     if (fitKey !== fitted.current && bounds.isValid()) {
       map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16, animate: false });
       fitted.current = fitKey;
@@ -75,7 +77,7 @@ export default function TrackMap({
     return () => {
       layer.remove();
     };
-  }, [tracks, selectedId, importedIds, config]);
+  }, [tracks, selectedId, importedIds, config, country]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -102,7 +104,8 @@ export default function TrackMap({
 
   function fitAll() {
     mapRef.current?.invalidateSize();
-    const bounds = trackBounds(tracks);
+    const longitude = country ? (country.bounds[0][1] + country.bounds[1][1]) / 2 : undefined;
+    const bounds = trackBounds(tracks, longitude);
     if (bounds.isValid()) mapRef.current?.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
   }
 
@@ -131,8 +134,13 @@ export default function TrackMap({
   );
 }
 
-function drawTrack(track: Overview, selectedId: number | null, layer: L.FeatureGroup) {
-  for (const line of mapGeometry(track.geometry)) {
+function drawTrack(
+  track: MapTrack,
+  selectedId: number | null,
+  layer: L.FeatureGroup,
+  longitude?: number,
+) {
+  for (const line of mapGeometry(track.geometry, longitude)) {
     if (line.length === 1 && line[0]) {
       L.circleMarker(line[0], { radius: 4, color: track.colour, fillOpacity: 1 }).addTo(layer);
     } else {
@@ -144,18 +152,31 @@ function drawTrack(track: Overview, selectedId: number | null, layer: L.FeatureG
     }
   }
 }
-function trackBounds(tracks: Overview[]) {
+
+function drawGaps(track: MapTrack, layer: L.FeatureGroup, longitude = track.geometry[0]?.[0]?.[1]) {
+  for (const gap of mapGeometry(track.gaps ?? [], longitude)) {
+    L.polyline(gap, {
+      color: '#68716d',
+      weight: 2,
+      dashArray: '6 6',
+      className: 'recording-gap',
+    })
+      .bindTooltip('Missing recording')
+      .addTo(layer);
+  }
+}
+function trackBounds(tracks: MapTrack[], longitude?: number) {
   const bounds = L.latLngBounds([]);
   for (const track of tracks) {
     if (!track.visible) continue;
-    for (const line of mapGeometry(track.geometry)) {
+    for (const line of mapGeometry(track.geometry, longitude)) {
       for (const point of line) bounds.extend(point);
     }
   }
   return bounds;
 }
 
-function fittedTracks(tracks: Overview[], selectedId: number | null, importedIds: number[]) {
+function fittedTracks(tracks: MapTrack[], selectedId: number | null, importedIds: number[]) {
   if (importedIds.length) return tracks.filter((track) => importedIds.includes(track.id));
   return selectedId === null ? tracks : tracks.filter((track) => track.id === selectedId);
 }
