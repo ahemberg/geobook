@@ -24,6 +24,14 @@ final class GpxReader {
   private GpxReader() {}
 
   static Recording read(byte[] bytes) {
+    List<Element> tracks = tracks(bytes);
+    if (tracks.size() != SINGLE_TRACK) {
+      throw new IllegalArgumentException("Choose an export containing exactly one track.");
+    }
+    return recording(tracks.getFirst());
+  }
+
+  static List<Element> tracks(byte[] bytes) {
     try {
       DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
       factory.setNamespaceAware(true);
@@ -50,7 +58,11 @@ final class GpxReader {
               .contains(root.getNamespaceURI())) {
         throw new IllegalArgumentException("Choose a GPX 1.0 or 1.1 export.");
       }
-      return recording(root);
+      List<Element> tracks = children(root, "trk");
+      if (tracks.isEmpty()) {
+        throw new IllegalArgumentException("The export contains no tracks.");
+      }
+      return tracks;
 
     } catch (ParserConfigurationException | SAXException | IOException exception) {
       throw new IllegalArgumentException(
@@ -58,19 +70,12 @@ final class GpxReader {
     }
   }
 
-  private static Recording recording(Element root) {
-    List<Element> tracks = children(root, "trk");
-    if (tracks.size() != SINGLE_TRACK) {
-      throw new IllegalArgumentException("Choose an export containing exactly one track.");
-    }
-    Element track = tracks.getFirst();
+  static Recording recording(Element track) {
     List<Element> segments = children(track, "trkseg");
     List<Recording.Point> points = readPoints(segments);
-    String name = text(track, "name");
+    String name = java.util.Objects.requireNonNullElse(text(track, "name"), "Unnamed track");
     return new Recording(
-        name == null || name.isBlank() ? "Unnamed track" : name.strip(),
-        segments.size(),
-        List.copyOf(points));
+        name.isBlank() ? "Unnamed track" : name, segments.size(), List.copyOf(points));
   }
 
   private static List<Recording.Point> readPoints(List<Element> segments) {
@@ -95,11 +100,15 @@ final class GpxReader {
     String elevation = text(element, "ele");
     String time = text(element, "time");
     try {
+      BigDecimal recordedElevation = elevation == null ? null : new BigDecimal(elevation);
+      if (recordedElevation != null && !Double.isFinite(recordedElevation.doubleValue())) {
+        throw new IllegalArgumentException("A recorded elevation is out of range.");
+      }
       return new Recording.Point(
           segment,
           latitude,
           longitude,
-          elevation == null ? null : new BigDecimal(elevation),
+          recordedElevation,
           time == null ? null : Instant.parse(time));
     } catch (NumberFormatException | DateTimeParseException exception) {
       throw new IllegalArgumentException(
@@ -129,10 +138,8 @@ final class GpxReader {
       return null;
     }
     Element scalar = matches.getFirst();
-    for (Node node = scalar.getFirstChild(); node != null; node = node.getNextSibling()) {
-      if (node instanceof Element) {
-        throw new IllegalArgumentException("A GPX " + name + " value contains unexpected markup.");
-      }
+    if (scalar.getElementsByTagName("*").getLength() > 0) {
+      throw new IllegalArgumentException("A GPX " + name + " value contains unexpected markup.");
     }
     return scalar.getTextContent().strip();
   }

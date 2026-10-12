@@ -7,6 +7,7 @@
     <suppress checks="CustomImportOrder|LineLength|Indentation" files=".*"/>
     <!-- Do not require boilerplate Javadoc on every Spring bean or entry point. -->
     <suppress checks="MissingJavadocType|MissingJavadocMethod" files=".*"/>
-    <!-- Flyway discovers Java migrations by V&lt;version&gt;__&lt;description&gt;. -->
-    <suppress files="V3__attribute_existing_points.java" checks="TypeName"/>
+    <!-- Flyway discovers Java migration versions from this required class name. -->
+    <suppress checks="TypeName" files="V2__ImportIdentity.java"/>
+    <suppress checks="TypeName" files="V4__attribute_existing_points.java"/>
 </suppressions>

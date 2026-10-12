@@ -2,6 +2,8 @@ package se.geobook.tracker;
 
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -14,7 +16,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 // Public JSON uses the conventional id field.
-@SuppressWarnings("PMD.ShortVariable")
+// Persistence and its response records share the source and attribution types here.
+@SuppressWarnings({"PMD.ShortVariable", "PMD.CouplingBetweenObjects"})
 @Service
 class TrackCollection {
   private final java.util.concurrent.locks.ReentrantLock writerLock =
@@ -27,7 +30,7 @@ class TrackCollection {
     this.transactions = transactions;
   }
 
-  record Imported(long trackId, long originalId) {}
+  record Imported(long trackId, long originalId, boolean duplicate) {}
 
   record Summary(long id, String name, String colour) {}
 
@@ -56,8 +59,36 @@ class TrackCollection {
 
   record Original(String filename, byte[] bytes) {}
 
-  Imported upload(String filename, byte[] bytes) {
-    Recording recording = GpxReader.read(bytes);
+  long retainOriginal(String filename, byte[] bytes) {
+    String identity = ContentIdentity.original(bytes);
+    writerLock.lock();
+    try {
+      return Objects.requireNonNull(
+          transactions.execute(
+              status -> {
+                List<Long> existing =
+                    jdbc.queryForList(
+                        "SELECT id FROM original_export WHERE content_hash = ? ORDER BY id LIMIT 1",
+                        Long.class,
+                        identity);
+                if (!existing.isEmpty()) {
+                  return existing.getFirst();
+                }
+                jdbc.update(
+                    "INSERT INTO original_export(filename, bytes, content_hash) VALUES (?, ?, ?)",
+                    filename,
+                    bytes,
+                    identity);
+                return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
+              }));
+    } finally {
+      writerLock.unlock();
+    }
+  }
+
+  // Each track commits atomically; parsing and progress writes do not hold SQLite's writer lock.
+  Imported save(long originalId, Recording recording) {
+    String identity = ContentIdentity.recording(recording);
     List<PointLocalTime.Attribution> local =
         recording.points().stream()
             .map(
@@ -67,22 +98,23 @@ class TrackCollection {
                         point.longitude().doubleValue(),
                         point.time()))
             .toList();
-    return save(filename, bytes, recording, local);
-  }
-
-  // SQLite has one writer; parsing stays outside the serialized transaction.
-  private Imported save(
-      String filename, byte[] bytes, Recording recording, List<PointLocalTime.Attribution> local) {
     writerLock.lock();
     try {
       return transactions.execute(
           status -> {
+            List<Long> existing =
+                jdbc.queryForList(
+                    "SELECT id FROM track WHERE content_hash = ? ORDER BY id LIMIT 1",
+                    Long.class,
+                    identity);
+            if (!existing.isEmpty()) {
+              long trackId = existing.getFirst();
+              jdbc.update(
+                  "INSERT OR IGNORE INTO track_original VALUES (?, ?)", trackId, originalId);
+              return new Imported(trackId, originalId, true);
+            }
             jdbc.update(
-                "INSERT INTO original_export(filename, bytes) VALUES (?, ?)", filename, bytes);
-            long originalId =
-                Objects.requireNonNull(
-                    jdbc.queryForObject("SELECT last_insert_rowid()", Long.class));
-            jdbc.update("INSERT INTO track(name) VALUES (?)", recording.name());
+                "INSERT INTO track(name, content_hash) VALUES (?, ?)", recording.name(), identity);
             long trackId =
                 Objects.requireNonNull(
                     jdbc.queryForObject("SELECT last_insert_rowid()", Long.class));
@@ -95,7 +127,7 @@ class TrackCollection {
                 new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
                   @Override
                   public void setValues(java.sql.PreparedStatement statement, int index)
-                      throws java.sql.SQLException {
+                      throws SQLException {
                     Recording.Point point = recording.points().get(index);
                     statement.setLong(1, trackId);
                     statement.setInt(2, index);
@@ -119,7 +151,7 @@ class TrackCollection {
                     return recording.points().size();
                   }
                 });
-            return new Imported(trackId, originalId);
+            return new Imported(trackId, originalId, false);
           });
     } finally {
       writerLock.unlock();
@@ -196,6 +228,14 @@ class TrackCollection {
         Integer.class);
   }
 
+  static List<Recording.Point> points(JdbcTemplate jdbc, long id) {
+    return jdbc.query(
+        "SELECT segment, latitude, longitude, elevation, recorded_time FROM track_point WHERE"
+            + " track_id = ? ORDER BY ordinal",
+        (row, index) -> sourcePoint(row),
+        id);
+  }
+
   private List<OrderedPoint> points(long id, DateRange range) {
     return jdbc.query(
         "SELECT * FROM track_point WHERE track_id = ?"
@@ -204,16 +244,7 @@ class TrackCollection {
             new OrderedPoint(
                 row.getInt("ordinal"),
                 new PointView(
-                    new Recording.Point(
-                        row.getInt("segment"),
-                        new BigDecimal(row.getString("latitude")),
-                        new BigDecimal(row.getString("longitude")),
-                        row.getString("elevation") == null
-                            ? null
-                            : new BigDecimal(row.getString("elevation")),
-                        row.getString("recorded_time") == null
-                            ? null
-                            : Instant.parse(row.getString("recorded_time"))),
+                    sourcePoint(row),
                     new PointLocalTime.Attribution(
                         row.getString("timezone"),
                         row.getString("local_date"),
@@ -225,6 +256,17 @@ class TrackCollection {
         range.from(),
         range.from(),
         range.through());
+  }
+
+  private static Recording.Point sourcePoint(ResultSet row) throws SQLException {
+    return new Recording.Point(
+        row.getInt("segment"),
+        new BigDecimal(row.getString("latitude")),
+        new BigDecimal(row.getString("longitude")),
+        row.getString("elevation") == null ? null : new BigDecimal(row.getString("elevation")),
+        row.getString("recorded_time") == null
+            ? null
+            : Instant.parse(row.getString("recorded_time")));
   }
 
   private static List<List<List<BigDecimal>>> geometry(List<OrderedPoint> points) {

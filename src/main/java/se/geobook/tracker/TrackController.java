@@ -24,22 +24,52 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 class TrackController {
   private final TrackCollection collection;
+  private final TrackImporter importer;
 
-  TrackController(TrackCollection collection) {
+  TrackController(TrackCollection collection, TrackImporter importer) {
     this.collection = collection;
+    this.importer = importer;
   }
 
   @PostMapping(value = "/api/tracks", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   ResponseEntity<TrackCollection.Imported> upload(@RequestParam("file") MultipartFile file)
       throws IOException {
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(importer.upload(filename(file), file.getBytes()));
+  }
+
+  @PostMapping(value = "/api/imports", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  void imports(
+      @RequestParam("file") List<MultipartFile> files,
+      jakarta.servlet.http.HttpServletResponse response)
+      throws IOException {
+    response.setContentType("application/x-ndjson");
+    response.setCharacterEncoding(StandardCharsets.UTF_8);
+    response.setHeader("X-Accel-Buffering", "no");
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    tools.jackson.databind.json.JsonMapper mapper =
+        tools.jackson.databind.json.JsonMapper.builder().build();
+    for (MultipartFile file : files) {
+      importer.importFile(
+          filename(file),
+          file.getBytes(),
+          event -> {
+            response.getOutputStream().write(mapper.writeValueAsBytes(event));
+            response.getOutputStream().write('\n');
+            response.flushBuffer();
+          });
+    }
+  }
+
+  private static String filename(MultipartFile file) {
     String supplied = file.getOriginalFilename();
     String filename = supplied == null ? "recording.gpx" : supplied.replace('\\', '/');
     filename = filename.substring(filename.lastIndexOf('/') + 1).replaceAll("[\\p{Cntrl}]", "_");
     if (filename.isBlank()) {
       filename = "recording.gpx";
     }
-    return ResponseEntity.status(HttpStatus.CREATED)
-        .body(collection.upload(filename, file.getBytes()));
+    return filename;
   }
 
   @GetMapping("/api/tracks")

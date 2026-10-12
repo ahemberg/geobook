@@ -3,10 +3,12 @@ import { request } from './api';
 import type { Detail, MapConfig, Overview } from './api';
 import TrackMap from './TrackMap';
 import DateFilter from './DateFilter';
+import { useUpload, UploadFeedback } from './Upload';
 
 export default function App() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reload, setReload] = useState(0);
+  const [importedIds, setImportedIds] = useState<number[]>([]);
   const [range, setRange] = useState<{ from: string; to: string } | null>(null);
   const { detail, detailError } = useRecording(selectedId, reload);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -19,20 +21,24 @@ export default function App() {
       clear();
     }
     setSelectedId(null);
+    setImportedIds([]);
   }
 
   function select(id: number) {
+    setImportedIds([]);
     if (selectedId === id) setReload((value) => value + 1);
     setSelectedId(id);
   }
 
-  const { upload, uploading, imported, uploadError } = useUpload((trackId) => {
+  const uploadState = useUpload((trackIds) => {
     setRange(null);
     clear();
-    select(trackId);
+    setImportedIds(trackIds);
+    setSelectedId(trackIds.length === 1 ? (trackIds[0] ?? null) : null);
     setReload((value) => value + 1);
   });
-
+  const { upload, uploading } = uploadState;
+  const mapStatus = loadError ? 'Map unavailable' : 'Loading map…';
   const mapTracks = detail
     ? [
         ...tracks.filter((track) => track.id !== detail.id),
@@ -59,11 +65,12 @@ export default function App() {
           ref={fileInput}
           className="file-input"
           type="file"
+          multiple
           accept=".gpx,application/gpx+xml,application/xml,text/xml"
           aria-label="Choose GPX file"
           disabled={uploading}
           onChange={(event) => {
-            void upload(event.target.files?.[0]);
+            void upload(Array.from(event.target.files ?? []));
             event.target.value = '';
           }}
         />
@@ -74,7 +81,7 @@ export default function App() {
         <span className="track-count">Tracks: {tracks.length}</span>
       </div>
       <DateFilter range={range} years={years} apply={filter} />
-      <UploadFeedback uploading={uploading} imported={imported} uploadError={uploadError} />
+      <UploadFeedback {...uploadState} />
       {loadError && (
         <div className="notice error" role="alert">
           {loadError}
@@ -94,9 +101,14 @@ export default function App() {
         />
         <div className="map-workspace">
           {config ? (
-            <TrackMap tracks={mapTracks} selectedId={selectedId} config={config} />
+            <TrackMap
+              tracks={mapTracks}
+              selectedId={selectedId}
+              importedIds={importedIds}
+              config={config}
+            />
           ) : (
-            <div className="map-placeholder">{loadError ? 'Map unavailable' : 'Loading map…'}</div>
+            <div className="map-placeholder">{mapStatus}</div>
           )}
           {selectedId !== null && (
             <SelectedRecording
@@ -162,9 +174,11 @@ function TrackLibrary({
                 : 'Upload a GPX recording to see it on your map. Your original export stays unchanged.'}
             </p>
             <button className="primary" disabled={uploading} onClick={chooseFile}>
-              Choose a GPX file
+              Choose GPX files
             </button>
-            <p className="hint">One track per file. Up to 32 MB and 250,000 points.</p>
+            <p className="hint">
+              Single tracks or collections. Up to 32 MB per file and 250,000 points per track.
+            </p>
           </div>
         )}
         <ul className="track-list">
@@ -363,67 +377,4 @@ function useRecording(selectedId: number | null, reload: number) {
   return result?.id === selectedId && result?.reload === reload
     ? result
     : { detail: null, detailError: '' };
-}
-
-function useUpload(onImported: (trackId: number) => void) {
-  const [uploadError, setUploadError] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [imported, setImported] = useState<{ trackId: number; originalId: number } | null>(null);
-  async function upload(file: File | undefined) {
-    if (!file) return;
-    setUploadError('');
-    setImported(null);
-    if (file.size > 32 * 1024 * 1024) {
-      setUploadError('Choose a GPX file no larger than 32 MB.');
-      return;
-    }
-    setUploading(true);
-    const body = new FormData();
-    body.append('file', file);
-    try {
-      const result = await request<{ trackId: number; originalId: number }>('/api/tracks', {
-        method: 'POST',
-        body,
-      });
-      setImported(result);
-      onImported(result.trackId);
-    } catch (error) {
-      setUploadError(error instanceof Error ? error.message : 'Upload failed. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  return { upload, uploading, imported, uploadError };
-}
-
-function UploadFeedback({
-  uploading,
-  imported,
-  uploadError,
-}: {
-  uploading: boolean;
-  imported: { originalId: number } | null;
-  uploadError: string;
-}) {
-  return (
-    <>
-      {uploading && (
-        <div className="notice" role="status">
-          Importing your recording. Keep this page open.
-        </div>
-      )}
-      {imported && (
-        <div className="notice success" role="status">
-          Track imported.
-          <a href={`/api/originals/${imported.originalId}`}>Download original export</a>
-        </div>
-      )}
-      {uploadError && (
-        <div className="notice error" role="alert">
-          {uploadError}
-        </div>
-      )}
-    </>
-  );
 }
