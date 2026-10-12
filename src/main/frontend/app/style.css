@@ -465,6 +465,78 @@ p {
   padding: 8px 16px;
 }
 
+.scope {
+  flex-wrap: wrap;
+}
+.date-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.date-filter label,
+.point-controls label {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+input,
+select {
+  min-height: 44px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #9baca4;
+  border-radius: 6px;
+  font: inherit;
+  background: var(--surface);
+  color: #20312d;
+  caret-color: var(--blue);
+}
+.date-filter [aria-pressed='true'] {
+  background: var(--selection);
+  color: var(--blue);
+}
+.date-filter p {
+  flex-basis: 100%;
+}
+.point-controls {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.point-controls input {
+  width: 90px;
+}
+.track-detail > a {
+  display: inline-block;
+  margin-right: 16px;
+}
+@media (max-width: 700px) {
+  .date-filter {
+    padding: 12px 16px;
+  }
+  .date-filter label {
+    flex: 1 1 130px;
+  }
+}
+.date-toggle {
+  display: none;
+}
+@media (max-width: 700px) {
+  .date-toggle {
+    display: block;
+    margin: 8px 16px;
+  }
+  .date-controls:not(.expanded) .date-filter {
+    display: none;
+  }
+}
+
 .import-feedback {
   border-bottom: 1px solid var(--line);
   overflow-wrap: anywhere;

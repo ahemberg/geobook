@@ -7,6 +7,7 @@ export type Overview = {
   visible: boolean;
   startTime: string | null;
   pointCount: number;
+  unknownDateCount: number;
   geometry: LatLngTuple[][];
 };
 
@@ -17,12 +18,17 @@ export type Detail = {
   visible: boolean;
   segmentCount: number;
   originalIds: number[];
+  geometry: LatLngTuple[][];
   points: {
     segment: number;
     latitude: number;
     longitude: number;
     elevation: number | null;
     time: string | null;
+    timezone: string | null;
+    localDate: string | null;
+    localTime: string | null;
+    timeStatus: 'resolved' | 'untimed' | 'unresolved';
   }[];
 };
 

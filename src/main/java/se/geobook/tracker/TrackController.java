@@ -23,7 +23,8 @@ import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.JsonNode;
 
 // Path variables match the public id contract.
-@SuppressWarnings("PMD.ShortVariable")
+// Keep the track endpoints and their shared request-error handling together.
+@SuppressWarnings({"PMD.ShortVariable", "PMD.TooManyMethods"})
 @RestController
 class TrackController {
   private final TrackCollection collection;
@@ -76,8 +77,16 @@ class TrackController {
   }
 
   @GetMapping("/api/tracks")
-  List<TrackCollection.Overview> overview(@RequestParam(defaultValue = "") String search) {
-    return collection.overview(search);
+  List<TrackCollection.Overview> overview(
+      @RequestParam(required = false) String from,
+      @RequestParam(required = false) String to,
+      @RequestParam(defaultValue = "") String search) {
+    return collection.overview(new DateRange(from, to), search);
+  }
+
+  @GetMapping("/api/tracks/years")
+  List<Integer> years() {
+    return collection.years();
   }
 
   @GetMapping("/api/tracks/{id}")

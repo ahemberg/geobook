@@ -1,6 +1,9 @@
 package se.geobook.tracker;
 
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -15,7 +18,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 // Public JSON uses the conventional id field.
-@SuppressWarnings("PMD.ShortVariable")
+// Persistence and its response records share the source and attribution types here.
+@SuppressWarnings({"PMD.ShortVariable", "PMD.CouplingBetweenObjects", "PMD.TooManyMethods"})
 @Service
 class TrackCollection {
   private static final String COLOUR_COLUMN = "colour";
@@ -40,7 +44,14 @@ class TrackCollection {
       boolean visible,
       Instant startTime,
       int pointCount,
+      int unknownDateCount,
       List<List<List<BigDecimal>>> geometry) {}
+
+  record PointView(
+      @JsonUnwrapped Recording.Point source,
+      @JsonUnwrapped PointLocalTime.Attribution attribution) {}
+
+  private record OrderedPoint(int ordinal, PointView point) {}
 
   record Detail(
       long id,
@@ -48,7 +59,8 @@ class TrackCollection {
       String colour,
       boolean visible,
       int segmentCount,
-      List<Recording.Point> points,
+      List<PointView> points,
+      List<List<List<BigDecimal>>> geometry,
       List<Long> originalIds) {}
 
   record Original(String filename, byte[] bytes) {}
@@ -83,6 +95,15 @@ class TrackCollection {
   // Each track commits atomically; parsing and progress writes do not hold SQLite's writer lock.
   Imported save(long originalId, Recording recording) {
     String identity = ContentIdentity.recording(recording);
+    List<PointLocalTime.Attribution> local =
+        recording.points().stream()
+            .map(
+                point ->
+                    PointLocalTime.resolve(
+                        point.latitude().doubleValue(),
+                        point.longitude().doubleValue(),
+                        point.time()))
+            .toList();
     writerLock.lock();
     try {
       return transactions.execute(
@@ -136,11 +157,11 @@ class TrackCollection {
               jdbc.update("INSERT INTO track_segment VALUES (?, ?)", trackId, i);
             }
             jdbc.batchUpdate(
-                "INSERT INTO track_point VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO track_point VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
                   @Override
                   public void setValues(java.sql.PreparedStatement statement, int index)
-                      throws java.sql.SQLException {
+                      throws SQLException {
                     Recording.Point point = recording.points().get(index);
                     statement.setLong(1, trackId);
                     statement.setInt(2, index);
@@ -150,6 +171,13 @@ class TrackCollection {
                     statement.setString(
                         6, point.elevation() == null ? null : point.elevation().toString());
                     statement.setString(7, point.time() == null ? null : point.time().toString());
+                    PointLocalTime.Attribution attribution = local.get(index);
+                    statement.setString(8, attribution.timezone());
+                    statement.setString(9, attribution.localDate());
+                    statement.setString(10, attribution.localTime());
+                    statement.setString(11, attribution.timeStatus());
+                    statement.setString(12, attribution.boundaryVersion());
+                    statement.setString(13, attribution.tzdbVersion());
                   }
 
                   @Override
@@ -164,7 +192,7 @@ class TrackCollection {
     }
   }
 
-  List<Overview> overview(String search) {
+  List<Overview> overview(DateRange range, String search) {
     // shortcut: overview geometry is unsimplified; optimize it with the benchmark in #31.
     return jdbc
         .query(
@@ -184,20 +212,21 @@ class TrackCollection {
                     .contains(search.strip().toLowerCase(Locale.ROOT)))
         .map(
             track -> {
-              List<Recording.Point> points = points(track.id());
+              List<OrderedPoint> points = points(track.id(), range);
               return new Overview(
                   track.id(),
                   track.name(),
                   track.colour(),
                   track.visible(),
-                  points.stream()
-                      .map(Recording.Point::time)
-                      .filter(Objects::nonNull)
-                      .min(Instant::compareTo)
-                      .orElse(null),
+                  startTime(track.id()),
                   points.size(),
+                  (int)
+                      points.stream()
+                          .filter(point -> point.point().attribution().localDate() == null)
+                          .count(),
                   geometry(points));
             })
+        .filter(track -> track.pointCount() > 0)
         .sorted(
             Comparator.comparing(
                     Overview::startTime, Comparator.nullsLast(Comparator.reverseOrder()))
@@ -220,6 +249,7 @@ class TrackCollection {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Track not found.");
     }
     Summary track = tracks.getFirst();
+    List<OrderedPoint> points = points(id, new DateRange(null, null));
     return new Detail(
         id,
         track.name(),
@@ -228,9 +258,23 @@ class TrackCollection {
         Objects.requireNonNull(
             jdbc.queryForObject(
                 "SELECT count(*) FROM track_segment WHERE track_id = ?", Integer.class, id)),
-        points(id),
+        points.stream().map(OrderedPoint::point).toList(),
+        geometry(points),
         jdbc.queryForList(
             "SELECT original_id FROM track_original WHERE track_id = ?", Long.class, id));
+  }
+
+  private Instant startTime(long id) {
+    return jdbc
+        .queryForList(
+            "SELECT recorded_time FROM track_point WHERE track_id = ? AND recorded_time IS NOT"
+                + " NULL",
+            String.class,
+            id)
+        .stream()
+        .map(Instant::parse)
+        .min(Instant::compareTo)
+        .orElse(null);
   }
 
   Summary update(long id, TrackControls controls) {
@@ -276,33 +320,62 @@ class TrackCollection {
     return originals.getFirst();
   }
 
-  private List<Recording.Point> points(long id) {
-    return points(jdbc, id);
+  List<Integer> years() {
+    return jdbc.queryForList(
+        "SELECT DISTINCT CAST(substr(local_date, 1, 4) AS INTEGER) FROM track_point"
+            + " WHERE local_date IS NOT NULL ORDER BY 1 DESC",
+        Integer.class);
   }
 
   static List<Recording.Point> points(JdbcTemplate jdbc, long id) {
     return jdbc.query(
         "SELECT segment, latitude, longitude, elevation, recorded_time FROM track_point WHERE"
             + " track_id = ? ORDER BY ordinal",
-        (row, index) ->
-            new Recording.Point(
-                row.getInt("segment"),
-                new BigDecimal(row.getString("latitude")),
-                new BigDecimal(row.getString("longitude")),
-                row.getString("elevation") == null
-                    ? null
-                    : new BigDecimal(row.getString("elevation")),
-                row.getString("recorded_time") == null
-                    ? null
-                    : Instant.parse(row.getString("recorded_time"))),
+        (row, index) -> sourcePoint(row),
         id);
   }
 
-  private static List<List<List<BigDecimal>>> geometry(List<Recording.Point> points) {
+  private List<OrderedPoint> points(long id, DateRange range) {
+    return jdbc.query(
+        "SELECT * FROM track_point WHERE track_id = ?"
+            + " AND (? IS NULL OR local_date BETWEEN ? AND ?) ORDER BY ordinal",
+        (row, index) ->
+            new OrderedPoint(
+                row.getInt("ordinal"),
+                new PointView(
+                    sourcePoint(row),
+                    new PointLocalTime.Attribution(
+                        row.getString("timezone"),
+                        row.getString("local_date"),
+                        row.getString("local_time"),
+                        row.getString("time_status"),
+                        row.getString("boundary_version"),
+                        row.getString("tzdb_version")))),
+        id,
+        range.from(),
+        range.from(),
+        range.through());
+  }
+
+  private static Recording.Point sourcePoint(ResultSet row) throws SQLException {
+    return new Recording.Point(
+        row.getInt("segment"),
+        new BigDecimal(row.getString("latitude")),
+        new BigDecimal(row.getString("longitude")),
+        row.getString("elevation") == null ? null : new BigDecimal(row.getString("elevation")),
+        row.getString("recorded_time") == null
+            ? null
+            : Instant.parse(row.getString("recorded_time")));
+  }
+
+  private static List<List<List<BigDecimal>>> geometry(List<OrderedPoint> points) {
     List<List<List<BigDecimal>>> lines = new ArrayList<>();
     Recording.Point previous = null;
-    for (Recording.Point point : points) {
+    int ordinal = -1;
+    for (OrderedPoint ordered : points) {
+      Recording.Point point = ordered.point().source();
       if (previous == null
+          || ordered.ordinal() != ordinal + 1
           || previous.segment() != point.segment()
           || previous.time() != null
               && point.time() != null
@@ -312,6 +385,7 @@ class TrackCollection {
       }
       lines.getLast().add(List.of(point.latitude(), point.longitude()));
       previous = point;
+      ordinal = ordered.ordinal();
     }
     return lines;
   }

@@ -50,6 +50,7 @@ test('upload shows the saved track and a download of the original export', async
           ),
         );
       }
+      if (url === '/api/tracks/years') return Promise.resolve(Response.json([]));
       if (url === '/api/map-config')
         return Promise.resolve(
           Response.json({
@@ -103,7 +104,7 @@ test('a rejected upload explains the problem and allows another file', async () 
         );
       return Promise.resolve(
         Response.json(
-          url === '/api/tracks'
+          url === '/api/tracks' || url === '/api/tracks/years'
             ? []
             : {
                 url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -146,6 +147,7 @@ test('search and editing use saved responses and explain failures', async () => 
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string, options?: RequestInit) => {
+      if (url === '/api/tracks/years') return Promise.resolve(Response.json([]));
       if (options?.method === 'PATCH') {
         if (failSave)
           return Promise.resolve(
@@ -219,6 +221,7 @@ test('a delayed collection load cannot overwrite a saved visibility change', asy
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string, options?: RequestInit) => {
+      if (url === '/api/tracks/years') return Promise.resolve(Response.json([]));
       if (options?.method === 'PATCH')
         return Promise.resolve(Response.json({ ...track, visible: false }));
       if (url === '/api/tracks') {
@@ -302,7 +305,7 @@ test('batch progress keeps per-track results and continues after a failed file',
       }
       return Promise.resolve(
         Response.json(
-          url === '/api/tracks'
+          url === '/api/tracks' || url === '/api/tracks/years'
             ? []
             : { url: '/tiles/{z}/{x}/{y}', attribution: 'Test', attributionUrl: '/copyright' },
         ),
@@ -340,7 +343,7 @@ test('an interrupted result stream reports uncertainty and allows a safe retry',
         );
       return Promise.resolve(
         Response.json(
-          url === '/api/tracks'
+          url === '/api/tracks' || url === '/api/tracks/years'
             ? []
             : { url: '/tiles/{z}/{x}/{y}', attribution: 'Test', attributionUrl: '/copyright' },
         ),
@@ -357,4 +360,269 @@ test('an interrupted result stream reports uncertainty and allows a safe retry',
   );
   expect(screen.getByRole('alert')).toHaveTextContent('skip duplicates');
   expect(screen.getByRole('button', { name: 'Upload GPX' })).toBeEnabled();
+});
+
+test('local-date filters open a complete recording and uploads reset All time', async () => {
+  const track = {
+    id: 1,
+    name: 'Midnight walk',
+    colour: '#ad466a',
+    visible: true,
+    startTime: null,
+    pointCount: 1,
+    unknownDateCount: 0,
+    geometry: [[[59.321, 18.071]]],
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string, options?: RequestInit) => {
+      if (options?.method === 'POST') return Promise.resolve(importedResponse());
+      if (url === '/api/map-config')
+        return Promise.resolve(
+          Response.json({
+            url: '/tiles/{z}/{x}/{y}.png',
+            attribution: 'Test tiles',
+            attributionUrl: 'https://example.org',
+          }),
+        );
+      if (url === '/api/tracks/years') return Promise.resolve(Response.json([2025]));
+      if (url === '/api/tracks/1')
+        return Promise.resolve(
+          Response.json({
+            ...track,
+            segmentCount: 1,
+            originalIds: [1],
+            points: [
+              {
+                segment: 0,
+                latitude: 59.32,
+                longitude: 18.07,
+                elevation: null,
+                time: '2025-06-18T21:59:00Z',
+                timezone: 'Europe/Stockholm',
+                localTime: '2025-06-18T23:59:00+02:00',
+                timeStatus: 'resolved',
+              },
+              {
+                segment: 0,
+                latitude: 59.321,
+                longitude: 18.071,
+                elevation: null,
+                time: '2025-06-18T22:00:00Z',
+                timezone: 'Europe/Stockholm',
+                localTime: '2025-06-19T00:00:00+02:00',
+                timeStatus: 'resolved',
+              },
+            ],
+          }),
+        );
+      return Promise.resolve(Response.json([track]));
+    }),
+  );
+  const user = userEvent.setup();
+  render(<App />);
+  await user.selectOptions(await screen.findByLabelText('Year'), '2025');
+  expect(await screen.findByText('2025-01-01 to 2025-12-31')).toBeVisible();
+  // Native date inputs use an ISO value independent of the browser's display locale.
+  fireEvent.change(screen.getByLabelText('From'), { target: { value: '2025-06-19' } });
+  fireEvent.change(screen.getByLabelText('To'), { target: { value: '2025-06-19' } });
+  await user.click(screen.getByRole('button', { name: 'Apply dates' }));
+  await waitFor(() =>
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/tracks?from=2025-06-19&to=2025-06-19',
+      expect.anything(),
+    ),
+  );
+  await user.click(await screen.findByRole('button', { name: /Midnight walk.*matching points/ }));
+  expect(await screen.findByText(/Complete recording · 2 points/)).toBeVisible();
+  expect(screen.getByText('2025-06-18 23:59:00+02:00')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Next point' }));
+  expect(screen.getByText('2025-06-19 00:00:00+02:00')).toBeVisible();
+  await user.upload(screen.getByLabelText('Choose GPX file'), new File(['fixture'], 'walk.gpx'));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'All time' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    ),
+  );
+});
+
+test('empty date ranges and invalid endpoints have clear recovery', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string) =>
+      Promise.resolve(
+        Response.json(
+          url === '/api/map-config'
+            ? {
+                url: '/tiles/{z}/{x}/{y}.png',
+                attribution: 'Test tiles',
+                attributionUrl: 'https://example.org',
+              }
+            : [],
+        ),
+      ),
+    ),
+  );
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByText('Your travels start here');
+  await user.click(screen.getByRole('button', { name: 'Apply dates' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Choose both dates');
+  fireEvent.change(screen.getByLabelText('From'), { target: { value: '2025-06-20' } });
+  fireEvent.change(screen.getByLabelText('To'), { target: { value: '2025-06-19' } });
+  await user.click(screen.getByRole('button', { name: 'Apply dates' }));
+  expect(screen.getByRole('alert')).toHaveTextContent('start on or before the end');
+  fireEvent.change(screen.getByLabelText('To'), { target: { value: '2025-06-21' } });
+  await user.click(screen.getByRole('button', { name: 'Apply dates' }));
+  expect(await screen.findByText('No recorded points in these dates')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'All time' }));
+  expect(await screen.findByText('Your travels start here')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'All time' }));
+  expect(screen.getByText('Your travels start here')).toBeVisible();
+});
+
+test('an upload finishing after a filter change still resets All time', async () => {
+  let finishUpload: (response: Response) => void = () => {
+    throw new Error('Upload has not started');
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string, options?: RequestInit) => {
+      if (options?.method === 'POST')
+        return new Promise<Response>((resolve) => {
+          finishUpload = resolve;
+        });
+      if (url === '/api/map-config')
+        return Promise.resolve(
+          Response.json({
+            url: '/tiles/{z}/{x}/{y}.png',
+            attribution: 'Test tiles',
+            attributionUrl: 'https://example.org',
+          }),
+        );
+      if (url === '/api/tracks/1')
+        return Promise.resolve(
+          Response.json({
+            id: 1,
+            name: 'Imported walk',
+            colour: '#ad466a',
+            points: [],
+            geometry: [],
+            originalIds: [],
+            segmentCount: 0,
+          }),
+        );
+      return Promise.resolve(Response.json(url === '/api/tracks/years' ? [2025] : []));
+    }),
+  );
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByText('Your travels start here');
+  await user.upload(screen.getByLabelText('Choose GPX file'), new File(['fixture'], 'walk.gpx'));
+  await user.selectOptions(screen.getByLabelText('Year'), '2025');
+  await screen.findByText('2025-01-01 to 2025-12-31');
+  finishUpload(importedResponse());
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'All time' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    ),
+  );
+});
+
+function importedResponse() {
+  return new Response(
+    [
+      JSON.stringify({
+        status: 'imported',
+        completed: 1,
+        total: 1,
+        name: 'Imported walk',
+        trackId: 1,
+        originalId: 1,
+        warnings: [],
+      }),
+      JSON.stringify({ status: 'complete', completed: 1, total: 1, warnings: [] }),
+      '',
+    ].join('\n'),
+  );
+}
+
+test('batch completion restores All time after the last new track has arrived', async () => {
+  let finishImport: () => void = () => {
+    throw new Error('Import has not started');
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string, options?: RequestInit) => {
+      if (options?.method === 'POST')
+        return Promise.resolve(
+          new Response(
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    JSON.stringify({
+                      status: 'imported',
+                      completed: 1,
+                      total: 1,
+                      name: 'Imported walk',
+                      trackId: 1,
+                      originalId: 1,
+                      warnings: [],
+                    }) + '\n',
+                  ),
+                );
+                finishImport = () => {
+                  controller.enqueue(
+                    new TextEncoder().encode(
+                      JSON.stringify({ status: 'complete', completed: 1, total: 1, warnings: [] }) +
+                        '\n',
+                    ),
+                  );
+                  controller.close();
+                };
+              },
+            }),
+          ),
+        );
+      if (url === '/api/map-config')
+        return Promise.resolve(
+          Response.json({
+            url: '/tiles/{z}/{x}/{y}.png',
+            attribution: 'Test tiles',
+            attributionUrl: 'https://example.org',
+          }),
+        );
+      if (url === '/api/tracks/1')
+        return Promise.resolve(
+          Response.json({
+            id: 1,
+            name: 'Imported walk',
+            colour: '#ad466a',
+            points: [],
+            geometry: [],
+            originalIds: [],
+            segmentCount: 0,
+          }),
+        );
+      return Promise.resolve(Response.json(url === '/api/tracks/years' ? [2025] : []));
+    }),
+  );
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByText('Your travels start here');
+  await user.upload(screen.getByLabelText('Choose GPX file'), new File(['fixture'], 'walk.gpx'));
+  await screen.findByRole('heading', { name: 'Imported walk' });
+  await user.selectOptions(screen.getByLabelText('Year'), '2025');
+  await screen.findByText('2025-01-01 to 2025-12-31');
+  finishImport();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'All time' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    ),
+  );
+  expect(await screen.findByRole('heading', { name: 'Imported walk' })).toBeVisible();
 });

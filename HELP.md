@@ -95,7 +95,7 @@ manual choices; source colour metadata is ignored. Names accept 1 to 200 charact
 control characters, and manual colours use six-digit hex values.
 
 The map breaks solid lines at source segments and timestamp gaps over five minutes.
-Date attribution and filtering follow in #27; no local dates are inferred in this slice.
+Date filters use each point's local calendar date; see Point-local dates below.
 
 Configure an OSM-based raster provider through Spring properties or their environment forms:
 
@@ -154,3 +154,29 @@ See [typed ESLint](https://typescript-eslint.io/getting-started/typed-linting/),
 [Gitleaks](https://github.com/gitleaks/gitleaks),
 [Dependency Review](https://github.com/actions/dependency-review-action), and
 [GitHub rulesets](https://docs.github.com/en/rest/repos/rules#create-a-repository-ruleset).
+
+## Point-local dates
+
+Use From and To to include both endpoint dates, select a recorded year, or use
+All time. Each point uses its own location's historical clock rules. The library
+shows matching point counts; Open complete recording shows every ordered point,
+including those outside the filter. Previous point, Next point and the Point
+number inspect local time, coordinates and recorded elevation. Closing the track
+returns to the filtered map. A successful upload resets All time.
+
+Untimed and unresolved points appear under All time. Point details label missing
+times as Date unknown and failed attribution as Local time unresolved, retaining
+the recorded UTC timestamp when available. Filtered lines break at omitted points,
+source segments and intervals over five minutes.
+
+The application bundles Timeshape 2026b.29 and timezone-boundary-builder 2026b.
+Historical rules come from the JDK's offline IANA tzdb. Each derived result stores
+both resource versions separately from source measurements. Distribution notices,
+source links and attribution limits are served at `/notices/timezones.md` and linked
+from recording details. Current geographic boundaries do not reconstruct historical
+borders. Overlaps and generic ocean zones remain unresolved.
+
+On first startup after this update, Flyway attributes existing points in a
+transaction. Allow the migration to finish before using the application. Later
+resource updates do not automatically rewrite those results. Pi memory use and
+large-collection performance remain release checks under issue #31.

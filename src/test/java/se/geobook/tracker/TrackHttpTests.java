@@ -9,7 +9,12 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Objects;
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.builder.SpringApplicationBuilder;
@@ -330,14 +335,14 @@ class TrackHttpTests {
 
   @Test
   void upgradingExistingCollectionKeepsIdsControlsAndOriginals()
-      throws IOException, InterruptedException, java.sql.SQLException {
+      throws IOException, InterruptedException, SQLException {
     byte[] original =
         gpx("<trk><name>Source name</name><trkseg><trkpt lat='1.00' lon='2'/></trkseg></trk>");
     String url = "jdbc:sqlite:" + directory.resolve("geobook.db");
-    org.flywaydb.core.Flyway.configure().dataSource(url, null, null).target("1").load().migrate();
+    Flyway.configure().dataSource(url, null, null).target("1").load().migrate();
     // Seed the previous schema as an upgrade fixture; verify the migrated state only through HTTP.
-    try (java.sql.Connection connection = java.sql.DriverManager.getConnection(url);
-        java.sql.Statement statement = connection.createStatement();
+    try (Connection connection = DriverManager.getConnection(url);
+        Statement statement = connection.createStatement();
         java.sql.PreparedStatement insert =
             connection.prepareStatement("INSERT INTO original_export VALUES (7, 'old.gpx', ?)")) {
       insert.setBytes(1, original);
@@ -360,6 +365,216 @@ class TrackHttpTests {
       assertThat(detail.get("colour").asText()).isEqualTo("#123456");
       assertThat(detail.get("visible").asBoolean()).isTrue();
       assertThat(get(client, base(app) + "/api/originals/7").body()).isEqualTo(original);
+    }
+  }
+
+  // Known Stockholm dates span midnight; filtering must not truncate the recording itself.
+  @Test
+  void filtersInclusivePointLocalDatesAndOpensCompleteRecording()
+      throws IOException, InterruptedException {
+    byte[] original =
+        """
+        <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+          <trk><name>Local midnight</name><trkseg>
+            <trkpt lat="59.32" lon="18.07"><time>2025-06-18T21:59:00Z</time></trkpt>
+            <trkpt lat="59.321" lon="18.071"><time>2025-06-18T22:00:00Z</time></trkpt>
+            <trkpt lat="59.322" lon="18.072"><time>2025-06-19T21:59:00Z</time></trkpt>
+            <trkpt lat="59.323" lon="18.073"><time>2025-06-19T22:00:00Z</time></trkpt>
+          </trkseg></trk>
+        </gpx>
+        """
+            .getBytes(StandardCharsets.UTF_8);
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(upload(client, base(app), original).statusCode()).isEqualTo(201);
+      JsonNode overview =
+          JsonMapper.builder()
+              .build()
+              .readTree(
+                  get(client, base(app) + "/api/tracks?from=2025-06-19&to=2025-06-19").body());
+      assertThat(overview.get(0).get("pointCount").asInt()).isEqualTo(2);
+      assertThat(overview.get(0).get("geometry").toString())
+          .isEqualTo("[[[59.321,18.071]],[[59.322,18.072]]]");
+      JsonNode detail =
+          JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(detail.get("points").size()).isEqualTo(4);
+      assertThat(detail.get("points").get(1).get("timezone").asText())
+          .isEqualTo("Europe/Stockholm");
+      assertThat(detail.get("points").get(1).get("localTime").asText())
+          .isEqualTo("2025-06-19T00:00:00+02:00");
+      assertThat(detail.get("points").get(1).get("boundaryVersion").asText()).isEqualTo("2026b");
+      assertThat(detail.get("points").get(1).get("tzdbVersion").asText()).isNotBlank();
+    }
+  }
+
+  // Re-entering the same local date across a timezone border must not join filtered portions.
+  @Test
+  void timezoneCrossingsKeepFilteredPortionsSeparate() throws IOException, InterruptedException {
+    byte[] original =
+        """
+        <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+          <trk><name>Arizona Utah border</name><trkseg>
+            <trkpt lat="36.99" lon="-111.5"><time>2025-06-19T06:30:00Z</time></trkpt>
+            <trkpt lat="37.01" lon="-111.5"><time>2025-06-19T06:31:00Z</time></trkpt>
+            <trkpt lat="36.99" lon="-111.5"><time>2025-06-19T06:32:00Z</time></trkpt>
+            <trkpt lat="36.98" lon="-111.5"/>
+            <trkpt lat="36.97" lon="-111.5"><time>2025-06-19T06:33:00Z</time></trkpt>
+          </trkseg><trkseg>
+            <trkpt lat="36.96" lon="-111.5"><time>2025-06-19T06:33:00Z</time></trkpt>
+            <trkpt lat="36.95" lon="-111.5"><time>2025-06-19T06:38:00Z</time></trkpt>
+            <trkpt lat="36.94" lon="-111.5"><time>2025-06-19T06:43:01Z</time></trkpt>
+          </trkseg></trk>
+        </gpx>
+        """
+            .getBytes(StandardCharsets.UTF_8);
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(upload(client, base(app), original).statusCode()).isEqualTo(201);
+      JsonNode overview =
+          JsonMapper.builder()
+              .build()
+              .readTree(
+                  get(client, base(app) + "/api/tracks?from=2025-06-18&to=2025-06-18").body());
+      assertThat(overview.get(0).get("pointCount").asInt()).isEqualTo(6);
+      assertThat(overview.get(0).get("geometry").toString())
+          .isEqualTo(
+              "[[[36.99,-111.5]],[[36.99,-111.5]],[[36.97,-111.5]],"
+                  + "[[36.96,-111.5],[36.95,-111.5]],[[36.94,-111.5]]]");
+      JsonNode full =
+          JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(full.get("points").size()).isEqualTo(8);
+      assertThat(full.get("points").get(0).get("timezone").asText()).isEqualTo("America/Phoenix");
+      assertThat(full.get("points").get(1).get("timezone").asText()).isEqualTo("America/Denver");
+      assertThat(full.get("geometry").size()).isEqualTo(3);
+      assertThat(
+              new String(
+                  get(client, base(app) + "/api/tracks/years").body(), StandardCharsets.UTF_8))
+          .isEqualTo("[2025]");
+    }
+  }
+
+  @Test
+  void historicalClockRulesAndUnknownDatesReachTheHttpContract()
+      throws IOException, InterruptedException {
+    byte[] original =
+        """
+        <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+          <trk><trkseg>
+            <trkpt lat="59.32" lon="18.07"><time>2025-03-30T00:59:00Z</time></trkpt>
+            <trkpt lat="59.32" lon="18.07"><time>2025-03-30T01:00:00Z</time></trkpt>
+            <trkpt lat="55.75" lon="37.62"><time>2012-01-01T20:30:00Z</time></trkpt>
+            <trkpt lat="55.75" lon="37.62"><time>2015-01-01T20:30:00Z</time></trkpt>
+            <trkpt lat="0" lon="0"><time>2025-03-30T00:00:00Z</time></trkpt>
+            <trkpt lat="59.32" lon="18.07"/>
+          </trkseg></trk>
+        </gpx>
+        """
+            .getBytes(StandardCharsets.UTF_8);
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(upload(client, base(app), original).statusCode()).isEqualTo(201);
+      JsonNode points =
+          JsonMapper.builder()
+              .build()
+              .readTree(get(client, base(app) + "/api/tracks/1").body())
+              .get("points");
+      assertThat(points.get(0).get("localTime").asText()).isEqualTo("2025-03-30T01:59:00+01:00");
+      assertThat(points.get(1).get("localTime").asText()).isEqualTo("2025-03-30T03:00:00+02:00");
+      assertThat(points.get(2).get("localTime").asText()).isEqualTo("2012-01-02T00:30:00+04:00");
+      assertThat(points.get(3).get("localTime").asText()).isEqualTo("2015-01-01T23:30:00+03:00");
+      assertThat(points.get(4).get("timeStatus").asText()).isEqualTo("unresolved");
+      assertThat(points.get(5).get("timeStatus").asText()).isEqualTo("untimed");
+      JsonNode all =
+          JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks").body());
+      assertThat(all.get(0).get("unknownDateCount").asInt()).isEqualTo(2);
+      JsonNode filtered =
+          JsonMapper.builder()
+              .build()
+              .readTree(
+                  get(client, base(app) + "/api/tracks?from=2025-03-30&to=2025-03-30").body());
+      assertThat(filtered.get(0).get("pointCount").asInt()).isEqualTo(2);
+      assertThat(get(client, base(app) + "/api/tracks?from=2025-02-29&to=2025-03-01").statusCode())
+          .isEqualTo(400);
+      assertThat(
+              new String(
+                  get(client, base(app) + "/api/tracks?from=2025-02-29&to=2025-03-01").body(),
+                  StandardCharsets.UTF_8))
+          .contains("valid calendar date");
+    }
+  }
+
+  // Seed the old public storage format, then verify its upgraded behavior through HTTP.
+  @Test
+  void upgradesExistingRecordingsWithoutChangingTheirSource()
+      throws SQLException, IOException, InterruptedException {
+    String url = "jdbc:sqlite:" + directory.resolve("geobook.db");
+    Flyway.configure().dataSource(url, null, null).target("1").load().migrate();
+    try (Connection connection = DriverManager.getConnection(url);
+        Statement statement = connection.createStatement()) {
+      statement.executeUpdate("INSERT INTO original_export VALUES (1, 'old.gpx', X'010203')");
+      statement.executeUpdate("INSERT INTO track VALUES (1, 'Existing recording', '#123456')");
+      statement.executeUpdate("INSERT INTO track_original VALUES (1, 1)");
+      statement.executeUpdate("INSERT INTO track_segment VALUES (1, 0)");
+      statement.executeUpdate(
+          "INSERT INTO track_point VALUES (1, 0, 0, '59.32', '18.07', NULL,"
+              + " '2025-06-18T22:00:00Z')");
+    }
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonNode full =
+          JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(full.get("name").asText()).isEqualTo("Existing recording");
+      assertThat(full.get("colour").asText()).isEqualTo("#123456");
+      assertThat(full.get("points").get(0).get("time").asText()).isEqualTo("2025-06-18T22:00:00Z");
+      assertThat(full.get("points").get(0).get("localDate").asText()).isEqualTo("2025-06-19");
+      assertThat(get(client, base(app) + "/api/originals/1").body())
+          .isEqualTo(new byte[] {1, 2, 3});
+      JsonNode filtered =
+          JsonMapper.builder()
+              .build()
+              .readTree(
+                  get(client, base(app) + "/api/tracks?from=2025-06-19&to=2025-06-19").body());
+      assertThat(filtered.get(0).get("pointCount").asInt()).isEqualTo(1);
+    }
+  }
+
+  @Test
+  void dateFilteringKeepsFullRecordingStartTimesAndOrder()
+      throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      upload(
+          client,
+          base(app),
+          gpx(
+              """
+              <trk><name>Earlier recording</name><trkseg>
+                <trkpt lat="59.32" lon="18.07"><time>2025-06-01T10:00:00Z</time></trkpt>
+                <trkpt lat="59.32" lon="18.07"><time>2025-06-20T10:00:00Z</time></trkpt>
+              </trkseg></trk>
+              """));
+      upload(
+          client,
+          base(app),
+          gpx(
+              """
+              <trk><name>Later recording</name><trkseg>
+                <trkpt lat="59.32" lon="18.07"><time>2025-06-19T09:00:00Z</time></trkpt>
+                <trkpt lat="59.32" lon="18.07"><time>2025-06-20T09:00:00Z</time></trkpt>
+              </trkseg></trk>
+              """));
+      JsonNode all =
+          JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks").body());
+      JsonNode filtered =
+          JsonMapper.builder()
+              .build()
+              .readTree(
+                  get(client, base(app) + "/api/tracks?from=2025-06-20&to=2025-06-20").body());
+      assertThat(filtered.get(0).get("name").asText()).isEqualTo("Later recording");
+      for (int index = 0; index < 2; index++) {
+        assertThat(filtered.get(index).get("startTime")).isEqualTo(all.get(index).get("startTime"));
+        assertThat(filtered.get(index).get("pointCount").asInt()).isEqualTo(1);
+      }
     }
   }
 

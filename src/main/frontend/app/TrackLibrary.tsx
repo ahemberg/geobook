@@ -4,6 +4,7 @@ import type { Controls, Overview } from './api';
 
 export default function TrackLibrary({
   tracks,
+  filtered,
   selectedId,
   select,
   onSaved,
@@ -13,6 +14,7 @@ export default function TrackLibrary({
   chooseFile,
 }: {
   tracks: Overview[];
+  filtered: boolean;
   selectedId: number | null;
   select: (id: number) => void;
   onSaved: (saved: Controls) => void;
@@ -32,6 +34,17 @@ export default function TrackLibrary({
   const matches = tracks.filter((track) =>
     track.name.toLowerCase().includes(search.trim().toLowerCase()),
   );
+  const emptyMessage = filtered
+    ? {
+        title: 'No recorded points in these dates',
+        description:
+          'Try another range or All time. Points with unknown dates appear under All time.',
+      }
+    : {
+        title: 'Your travels start here',
+        description:
+          'Upload a GPX recording to see it on your map. Your original export stays unchanged.',
+      };
   return (
     <aside className={`library ${libraryOpen ? 'expanded' : ''}`} id="tracks" tabIndex={-1}>
       <div className="library-heading">
@@ -53,10 +66,8 @@ export default function TrackLibrary({
         )}
         {empty && (
           <div className="empty-state">
-            <h3>Your travels start here</h3>
-            <p>
-              Upload a GPX recording to see it on your map. Your original export stays unchanged.
-            </p>
+            <h3>{emptyMessage.title}</h3>
+            <p>{emptyMessage.description}</p>
             <button className="primary" disabled={uploading} onClick={chooseFile}>
               Choose a GPX file
             </button>
@@ -86,6 +97,7 @@ export default function TrackLibrary({
             <TrackRow
               key={track.id}
               track={track}
+              filtered={filtered}
               selected={track.id === selectedId}
               select={() => select(track.id)}
               onSaved={saved}
@@ -99,11 +111,13 @@ export default function TrackLibrary({
 
 function TrackRow({
   track,
+  filtered,
   selected,
   select,
   onSaved,
 }: {
   track: Overview;
+  filtered: boolean;
   selected: boolean;
   select: () => void;
   onSaved: (saved: Controls) => void;
@@ -157,8 +171,13 @@ function TrackRow({
                 : `Date unknown · Track ${track.id}`}
             </span>
             <span>
-              {track.pointCount.toLocaleString()} recorded points{!track.visible && ' · Hidden'}
+              {track.pointCount.toLocaleString()} {filtered ? 'matching' : 'recorded'} points
+              {!track.visible && ' · Hidden'}
             </span>
+            {track.unknownDateCount > 0 && (
+              <span>{track.unknownDateCount} points with date unknown</span>
+            )}
+            <span>Open complete recording</span>
           </span>
         </button>
         <button

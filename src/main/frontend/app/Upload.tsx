@@ -56,6 +56,7 @@ export function useUpload(onImported: (trackIds: number[]) => void) {
         ]);
       }
     }
+    if (imported.length > 0) onImported(imported);
     setUploading(false);
     setFinished(true);
   }
