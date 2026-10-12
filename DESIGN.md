@@ -84,7 +84,7 @@ components:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
     rounded: "{rounded.row}"
-    padding: "16px 20px"
+    padding: "14px 0"
   track-row-selected:
     backgroundColor: "{colors.selection}"
   track-detail:
@@ -101,7 +101,7 @@ components:
 
 Geobook puts a detailed travel map beside a compact library. A blue header anchors the page; white panels and pale blue selection keep saved recordings easy to scan. Source Sans 3 carries headings, controls and recording details.
 
-This system records the rendered upload, date-filter and point-inspection implementation. The [approved MVP brief](docs/design/mvp.md) remains the authority for later search, country filters, track editing and playback. Those controls are not implemented conventions yet.
+This system records the rendered upload, date-filter, track-library controls and point-inspection implementation. The [approved MVP brief](docs/design/mvp.md) remains the authority for later country filters and playback.
 
 **Key Characteristics:**
 
@@ -159,11 +159,13 @@ The header contains the Geobook wordmark, a static Map label and Upload GPX alig
 
 ### Track rows
 
-A full-width button contains a saved-colour swatch, wrapping track name and recorded or matching point count. It offers to open the complete recording and identifies points with unknown dates. Selection uses the pale blue fill and `aria-pressed`. The swatch stays the same size when names wrap.
+Rows contain an independent visibility checkbox, a selection button and a labelled Edit button. The selection button contains the saved-colour swatch, wrapping track name, recorded date and recorded or matching point count. Untimed rows show Date unknown and the track ID. Rows offer to open the complete recording and identify points with unknown dates. Selection uses the pale blue fill and `aria-pressed`. The swatch stays the same size when names wrap.
+
+Search filters the library by name. Edit expands an inline form with name and native colour inputs, Save changes and Cancel. Visibility saves independently of an editing draft. A failed save keeps the previous saved choice and shows its error beneath the row. Closing the editor restores focus to Edit, or to search if a renamed track no longer matches.
 
 ### Recording details
 
-A white panel beneath the map contains a heading, complete point and segment counts, gap guidance and original-export downloads. It explains that the map shows the complete recording, including points outside the date filter. Previous point, Next point and a numbered input inspect each point's local time, timezone, coordinates and recorded elevation, with explicit unknown values. Close track floats right on desktop and precedes the heading on mobile. This panel has no playback or elevation plot yet.
+A white panel beneath the map contains a heading, complete point and segment counts, gap guidance and original-export downloads. It explains that the recording includes points outside the date filter and that hidden tracks stay off the map. Previous point, Next point and a numbered input inspect each point's local time, timezone, coordinates and recorded elevation, with explicit unknown values. Close track floats right on desktop and precedes the heading on mobile. This panel has no playback or elevation plot yet.
 
 ### Map and notices
 
@@ -182,6 +184,6 @@ Upload and loading feedback use full-width notice strips. Tile failure uses a wa
 
 ### Don't:
 
-- Don't treat planned search, country filters or playback as existing components.
+- Don't treat planned country filters or playback as existing components.
 - Don't substitute schematic geography for the application's detailed map.
 - Don't use track colour alone to communicate an error or warning.

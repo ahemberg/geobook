@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
-import type { Detail, MapConfig, Overview } from './api';
+import type { Controls, Detail, MapConfig, Overview } from './api';
 import TrackMap from './TrackMap';
 import DateFilter from './DateFilter';
+import TrackLibrary from './TrackLibrary';
 import { useUpload, UploadFeedback } from './Upload';
 
 export default function App() {
@@ -13,7 +14,10 @@ export default function App() {
   const { detail, detailError } = useRecording(selectedId, reload);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const { tracks, years, config, loading, loadError, clear } = useOverview(range, reload);
+  const { tracks, years, config, loading, loadError, empty, clear, onSaved } = useOverview(
+    range,
+    reload,
+  );
 
   function filter(next: { from: string; to: string } | null) {
     if (next !== range) {
@@ -39,12 +43,11 @@ export default function App() {
   });
   const { upload, uploading } = uploadState;
   const mapStatus = loadError ? 'Map unavailable' : 'Loading map…';
-  const mapTracks = detail
-    ? [
-        ...tracks.filter((track) => track.id !== detail.id),
-        { ...detail, pointCount: detail.points.length, unknownDateCount: 0 },
-      ]
-    : tracks;
+  const mapTracks = tracks.map((track) => ({
+    ...track,
+    geometry: track.id === detail?.id ? detail.geometry : track.geometry,
+  }));
+  const selectedName = tracks.find((track) => track.id === selectedId)?.name;
 
   return (
     <>
@@ -92,10 +95,11 @@ export default function App() {
         <TrackLibrary
           tracks={tracks}
           filtered={range !== null}
+          onSaved={onSaved}
           selectedId={selectedId}
           select={select}
           loading={loading}
-          loadError={loadError}
+          empty={empty}
           uploading={uploading}
           chooseFile={() => fileInput.current?.click()}
         />
@@ -114,6 +118,7 @@ export default function App() {
             <SelectedRecording
               key={`${selectedId}-${reload}`}
               detail={detail}
+              name={selectedName}
               detailError={detailError}
               close={() => {
                 setSelectedId(null);
@@ -126,94 +131,13 @@ export default function App() {
   );
 }
 
-function TrackLibrary({
-  tracks,
-  filtered,
-  selectedId,
-  select,
-  loading,
-  loadError,
-  uploading,
-  chooseFile,
-}: {
-  tracks: Overview[];
-  filtered: boolean;
-  selectedId: number | null;
-  select: (id: number) => void;
-  loading: boolean;
-  loadError: string;
-  uploading: boolean;
-  chooseFile: () => void;
-}) {
-  const [libraryOpen, setLibraryOpen] = useState(false);
-  return (
-    <aside className={`library ${libraryOpen ? 'expanded' : ''}`} id="tracks" tabIndex={-1}>
-      <div className="library-heading">
-        <h2>Tracks</h2>
-        <button
-          className="library-toggle"
-          aria-expanded={libraryOpen}
-          aria-controls="track-list"
-          onClick={() => setLibraryOpen((open) => !open)}
-        >
-          {libraryOpen ? 'Hide library' : 'Show library'}
-        </button>
-      </div>
-      <div id="track-list" className="library-content">
-        {loading && (
-          <p className="library-copy" role="status">
-            Loading your tracks…
-          </p>
-        )}
-        {!loading && !loadError && tracks.length === 0 && (
-          <div className="empty-state">
-            <h3>{filtered ? 'No recorded points in these dates' : 'Your travels start here'}</h3>
-            <p>
-              {filtered
-                ? 'Try another range or All time. Points with unknown dates appear under All time.'
-                : 'Upload a GPX recording to see it on your map. Your original export stays unchanged.'}
-            </p>
-            <button className="primary" disabled={uploading} onClick={chooseFile}>
-              Choose GPX files
-            </button>
-            <p className="hint">
-              Single tracks or collections. Up to 32 MB per file and 250,000 points per track.
-            </p>
-          </div>
-        )}
-        <ul className="track-list">
-          {tracks.map((track) => (
-            <li key={track.id}>
-              <button
-                className={`track-row ${track.id === selectedId ? 'selected' : ''}`}
-                aria-pressed={track.id === selectedId}
-                onClick={() => select(track.id)}
-              >
-                <span className="swatch" style={{ backgroundColor: track.colour }} />
-                <span className="track-label">
-                  <strong>{track.name}</strong>
-                  <span>
-                    {track.pointCount.toLocaleString()} {filtered ? 'matching' : 'recorded'} points
-                  </span>
-                  {track.unknownDateCount > 0 && (
-                    <span>{track.unknownDateCount} points with date unknown</span>
-                  )}
-                  <span>Open complete recording</span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </aside>
-  );
-}
-
 function SelectedRecording({
+  name,
   detail,
   detailError,
   close,
 }: {
+  name: string | undefined;
   detail: Detail | null;
   detailError: string;
   close: () => void;
@@ -227,13 +151,13 @@ function SelectedRecording({
       {!detail && !detailError && <p role="status">Opening complete recording…</p>}
       {detail && (
         <>
-          <h2>{detail.name}</h2>
+          <h2>{name ?? detail.name}</h2>
           <p>
             Complete recording · {detail.points.length.toLocaleString()} points ·{' '}
             {detail.segmentCount} {detail.segmentCount === 1 ? 'segment' : 'segments'}
           </p>
           <p className="hint">
-            The map shows this complete recording, including points outside the date filter.
+            Includes points outside the date filter. Hidden tracks stay off the map.
           </p>
           <PointDetails points={detail.points} />
           <a href="/notices/timezones.md">Timezone data and limitations</a>
@@ -310,8 +234,17 @@ function useOverview(range: { from: string; to: string } | null, reload: number)
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [years, setYears] = useState<number[]>([]);
+  const savedControls = useRef(new Map<number, Controls>());
+  function onSaved(saved: Controls) {
+    savedControls.current.set(saved.id, saved);
+    setTracks((current) =>
+      current.map((track) => (track.id === saved.id ? { ...track, ...saved } : track)),
+    );
+  }
+
   useEffect(() => {
     const controller = new AbortController();
+    savedControls.current.clear();
     const query = range ? `?${new URLSearchParams(range).toString()}` : '';
     Promise.all([
       request<Overview[]>(`/api/tracks${query}`, { signal: controller.signal }),
@@ -320,7 +253,7 @@ function useOverview(range: { from: string; to: string } | null, reload: number)
     ])
       .then(([saved, savedYears, mapConfig]) => {
         if (controller.signal.aborted) return;
-        setTracks(saved);
+        setTracks(saved.map((track) => ({ ...track, ...savedControls.current.get(track.id) })));
         setYears(savedYears);
         setConfig(mapConfig);
         setLoadError('');
@@ -337,10 +270,12 @@ function useOverview(range: { from: string; to: string } | null, reload: number)
 
   return {
     tracks,
+    onSaved,
     years,
     config,
     loading,
     loadError,
+    empty: !loading && !loadError && tracks.length === 0,
     clear: () => {
       setTracks([]);
       setLoading(true);

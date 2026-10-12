@@ -387,6 +387,83 @@ p {
     right: 10px;
   }
 }
+.library-search,
+.track-editor {
+  display: grid;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+.library-search input,
+.track-editor input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid #9baca4;
+  border-radius: 6px;
+  background: var(--surface);
+  color: inherit;
+  padding: 8px;
+  caret-color: var(--blue);
+}
+.track-editor label {
+  display: grid;
+  gap: 6px;
+}
+.track-item {
+  display: flex;
+  align-items: center;
+}
+.track-list > li {
+  border-bottom: 1px solid var(--line);
+}
+.track-list > li.selected {
+  background: var(--selection);
+}
+.track-item .track-row {
+  flex: 1;
+  min-width: 0;
+  padding: 14px 0;
+  border: 0;
+  background: transparent;
+}
+.track-item .track-row:hover {
+  background: var(--selection);
+}
+.track-visibility {
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.track-visibility input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--blue);
+}
+.track-edit {
+  margin: 0 8px;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+}
+.track-editor .colour-control {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.colour-control input {
+  width: 60px;
+  padding: 4px;
+}
+.editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.row-feedback {
+  padding: 8px 16px;
+}
 
 .scope {
   flex-wrap: wrap;

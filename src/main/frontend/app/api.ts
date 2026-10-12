@@ -4,6 +4,8 @@ export type Overview = {
   id: number;
   name: string;
   colour: string;
+  visible: boolean;
+  startTime: string | null;
   pointCount: number;
   unknownDateCount: number;
   geometry: LatLngTuple[][];
@@ -13,6 +15,7 @@ export type Detail = {
   id: number;
   name: string;
   colour: string;
+  visible: boolean;
   segmentCount: number;
   originalIds: number[];
   geometry: LatLngTuple[][];
@@ -43,3 +46,5 @@ export async function request<T>(url: string, options?: RequestInit): Promise<T>
   }
   return response.json() as Promise<T>;
 }
+
+export type Controls = Pick<Overview, 'id' | 'name' | 'colour' | 'visible'>;

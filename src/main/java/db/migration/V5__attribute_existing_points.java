@@ -10,7 +10,7 @@ import se.geobook.tracker.PointLocalTime;
 
 // Flyway names migrations by version and description.
 @SuppressWarnings("PMD.ClassNamingConventions")
-public class V4__attribute_existing_points extends BaseJavaMigration {
+public class V5__attribute_existing_points extends BaseJavaMigration {
   @Override
   public void migrate(Context context) throws SQLException {
     // Bound memory during upgrades; Flyway commits the whole migration atomically.
