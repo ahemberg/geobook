@@ -181,7 +181,7 @@ returns to the filtered map. A successful upload resets All time.
 Untimed and unresolved points appear under All time. Point details label missing
 times as Date unknown and failed attribution as Local time unresolved, retaining
 the recorded UTC timestamp when available. Filtered lines break at omitted points,
-source segments and intervals over five minutes.
+source segments and intervals over the saved gap threshold.
 
 The application bundles Timeshape 2026b.29 and timezone-boundary-builder 2026b.
 Historical rules come from the JDK's offline IANA tzdb. Each derived result stores
