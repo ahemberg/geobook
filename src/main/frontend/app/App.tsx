@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { request } from './api';
-import type { Controls, Country, DateRange, Detail, MapConfig, Overview } from './api';
+import type { Controls, Country, DateRange, Detail, MapConfig, MapTrack, Overview } from './api';
 import TrackMap from './TrackMap';
 import DateFilter from './DateFilter';
 import Countries from './Countries';
+import OriginalArchive from './OriginalArchive';
 import TrackLibrary from './TrackLibrary';
 import { useUpload, UploadFeedback } from './Upload';
 
+type View = 'map' | 'countries' | 'originals';
+
 export default function App() {
   const [country, setCountry] = useState<Country | null>(null);
-  const [showCountries, setShowCountries] = useState(false);
+  const [view, setView] = useState<View>('map');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reload, setReload] = useState(0);
   const [importedIds, setImportedIds] = useState<number[]>([]);
@@ -22,6 +25,14 @@ export default function App() {
     reload,
     country,
   );
+
+  function removed() {
+    setSelectedId(null);
+    setImportedIds([]);
+    clear();
+    setReload((value) => value + 1);
+    document.getElementById('tracks')?.focus();
+  }
 
   function filter(next: DateRange) {
     if (next !== range) {
@@ -40,7 +51,7 @@ export default function App() {
 
   const uploadState = useUpload((trackIds) => {
     setCountry(null);
-    setShowCountries(false);
+    setView('map');
     setRange(null);
     clear();
     setImportedIds(trackIds);
@@ -53,77 +64,79 @@ export default function App() {
     setCountry(next);
     setSelectedId(null);
     setImportedIds([]);
-    setShowCountries(false);
+    setView('map');
     clear();
   }
   const selectedName = tracks.find((track) => track.id === selectedId)?.name;
 
   return (
     <>
-      <AppHeader
-        showCountries={showCountries}
-        setShowCountries={setShowCountries}
-        uploadState={uploadState}
-        fileInput={fileInput}
-      />
-      <TravelScope
-        range={range}
-        country={country}
-        count={tracks.length}
-        clearCountry={() => explore(null)}
-      />
-      <DateFilter range={range} years={years} apply={filter} />
+      <AppHeader view={view} setView={setView} uploadState={uploadState} fileInput={fileInput} />
       <UploadFeedback {...uploadState} />
-      {loadError && (
-        <div className="notice error" role="alert">
-          {loadError}
-          <button onClick={() => setReload((value) => value + 1)}>Retry loading</button>
-        </div>
-      )}
-      {showCountries && (
-        <Countries
-          key={`${range?.from}-${range?.to}-${reload}`}
-          range={range}
-          explore={explore}
-          openRecording={(id) => {
-            select(id);
-            setShowCountries(false);
-          }}
-        />
-      )}
-      <main className="workspace" hidden={showCountries}>
-        <TrackLibrary
-          tracks={tracks}
-          filtered={range !== null || country !== null}
-          onSaved={onSaved}
-          selectedId={selectedId}
-          select={select}
-          loading={loading}
-          empty={empty}
-          uploading={uploading}
-          chooseFile={() => fileInput.current?.click()}
-        />
-        <div className="map-workspace">
-          <TrackMap
-            tracks={mapTracks}
-            selectedId={selectedId}
-            importedIds={importedIds}
-            config={config}
-            country={selectedId === null ? country : null}
-            loadError={loadError}
+      {view === 'originals' ? (
+        <OriginalArchive reload={reload} onRemoved={removed} />
+      ) : (
+        <>
+          <TravelScope
+            range={range}
+            country={country}
+            count={tracks.length}
+            clearCountry={() => explore(null)}
           />
-          <SelectedRecording
-            open={selectedId !== null}
-            key={`${selectedId}-${reload}`}
-            detail={detail}
-            name={selectedName}
-            detailError={detailError}
-            close={() => {
-              setSelectedId(null);
-            }}
-          />
-        </div>
-      </main>
+          <DateFilter range={range} years={years} apply={filter} />
+          {loadError && (
+            <div className="notice error" role="alert">
+              {loadError}
+              <button onClick={() => setReload((value) => value + 1)}>Retry loading</button>
+            </div>
+          )}
+          {view === 'countries' && (
+            <Countries
+              key={`${range?.from}-${range?.to}-${reload}`}
+              range={range}
+              explore={explore}
+              openRecording={(id) => {
+                select(id);
+                setView('map');
+              }}
+            />
+          )}
+          <main className="workspace" hidden={view !== 'map'}>
+            <TrackLibrary
+              tracks={tracks}
+              filtered={range !== null || country !== null}
+              onSaved={onSaved}
+              onRemoved={removed}
+              selectedId={selectedId}
+              select={select}
+              loading={loading}
+              empty={empty}
+              uploading={uploading}
+              chooseFile={() => fileInput.current?.click()}
+            />
+            <div className="map-workspace">
+              <TrackMap
+                tracks={mapTracks}
+                selectedId={selectedId}
+                importedIds={importedIds}
+                config={config}
+                country={country}
+                loadError={loadError}
+              />
+              <SelectedRecording
+                open={selectedId !== null}
+                key={`${selectedId}-${reload}`}
+                detail={detail}
+                name={selectedName}
+                detailError={detailError}
+                close={() => {
+                  setSelectedId(null);
+                }}
+              />
+            </div>
+          </main>
+        </>
+      )}
     </>
   );
 }
@@ -155,31 +168,38 @@ function TravelScope({
 }
 
 function AppHeader({
-  showCountries,
-  setShowCountries,
+  view,
+  setView,
   uploadState,
   fileInput,
 }: {
-  showCountries: boolean;
-  setShowCountries: (show: boolean) => void;
+  view: View;
+  setView: (view: View) => void;
   uploadState: ReturnType<typeof useUpload>;
   fileInput: RefObject<HTMLInputElement | null>;
 }) {
   const { upload, uploading } = uploadState;
   return (
     <>
-      <a className="skip-link" href={showCountries ? '#country-visits' : '#tracks'}>
-        {showCountries ? 'Skip to country visits' : 'Skip to tracks'}
+      <a
+        className="skip-link"
+        href={`#${{ map: 'tracks', countries: 'country-visits', originals: 'originals' }[view]}`}
+      >
+        Skip to{' '}
+        {{ map: 'tracks', countries: 'country visits', originals: 'original exports' }[view]}
       </a>
       <header className="app-header">
         <span className="brand">Geobook</span>
-        <nav className="main-nav" aria-label="Explore">
-          <button aria-pressed={!showCountries} onClick={() => setShowCountries(false)}>
-            Map
-          </button>
-          <button aria-pressed={showCountries} onClick={() => setShowCountries(true)}>
-            Countries
-          </button>
+        <nav aria-label="Main navigation">
+          {(['map', 'countries', 'originals'] as const).map((destination) => (
+            <button
+              key={destination}
+              aria-current={view === destination ? 'page' : undefined}
+              onClick={() => setView(destination)}
+            >
+              {{ map: 'Map', countries: 'Countries', originals: 'Original exports' }[destination]}
+            </button>
+          ))}
         </nav>
         <button
           className="upload-button"
@@ -206,18 +226,13 @@ function AppHeader({
   );
 }
 
-function completeMapTracks(tracks: Overview[], detail: Detail | null): Overview[] {
-  const result = tracks.map((track) => ({
+function completeMapTracks(tracks: Overview[], detail: Detail | null): MapTrack[] {
+  const result: MapTrack[] = tracks.map((track) => ({
     ...track,
     geometry: track.id === detail?.id ? detail.geometry : track.geometry,
   }));
   if (detail && !result.some((track) => track.id === detail.id)) {
-    result.push({
-      ...detail,
-      startTime: null,
-      pointCount: detail.points.length,
-      unknownDateCount: 0,
-    });
+    result.push(detail);
   }
   return result;
 }

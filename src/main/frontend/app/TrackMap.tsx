@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import type { Country, MapConfig, Overview } from './api';
+import type { Country, MapConfig, MapTrack } from './api';
 import { mapGeometry } from './mapGeometry';
 
 export default function TrackMap({
@@ -8,16 +8,17 @@ export default function TrackMap({
   selectedId,
   importedIds,
   config,
-  country,
+  country: scope,
   loadError,
 }: {
-  tracks: Overview[];
+  tracks: MapTrack[];
   selectedId: number | null;
   importedIds: number[];
   config: MapConfig | null;
   loadError: string;
   country: Country | null;
 }) {
+  const country = selectedId === null ? scope : null;
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const [tileFailed, setTileFailed] = useState(false);
@@ -101,7 +102,7 @@ export default function TrackMap({
 }
 
 function drawTrack(
-  track: Overview,
+  track: MapTrack,
   selectedId: number | null,
   layer: L.FeatureGroup,
   longitude?: number,
@@ -118,7 +119,7 @@ function drawTrack(
     }
   }
 }
-function trackBounds(tracks: Overview[], longitude?: number) {
+function trackBounds(tracks: MapTrack[], longitude?: number) {
   const bounds = L.latLngBounds([]);
   for (const track of tracks) {
     if (!track.visible) continue;
@@ -129,7 +130,7 @@ function trackBounds(tracks: Overview[], longitude?: number) {
   return bounds;
 }
 
-function fittedTracks(tracks: Overview[], selectedId: number | null, importedIds: number[]) {
+function fittedTracks(tracks: MapTrack[], selectedId: number | null, importedIds: number[]) {
   if (importedIds.length) return tracks.filter((track) => importedIds.includes(track.id));
   return selectedId === null ? tracks : tracks.filter((track) => track.id === selectedId);
 }
