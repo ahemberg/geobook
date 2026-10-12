@@ -51,6 +51,8 @@ test('upload shows the saved track and a download of the original export', async
         );
       }
       if (url === '/api/tracks/years') return Promise.resolve(Response.json([]));
+      if (url === '/api/playback-settings')
+        return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')
         return Promise.resolve(
           Response.json({
@@ -158,6 +160,8 @@ test('search and editing use saved responses and explain failures', async () => 
         track = { ...track, ...(changes as Partial<typeof track>) };
         return Promise.resolve(Response.json(track));
       }
+      if (url === '/api/playback-settings')
+        return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')
         return Promise.resolve(
           Response.json({
@@ -188,15 +192,19 @@ test('search and editing use saved responses and explain failures', async () => 
   await user.clear(screen.getByLabelText('Track name'));
   await user.type(screen.getByLabelText('Track name'), 'Unsaved draft');
   await user.click(screen.getByRole('checkbox', { name: 'Show Evening waterfront on map' }));
-  await waitFor(() => expect(screen.getByRole('checkbox')).not.toBeChecked());
+  await waitFor(() =>
+    expect(screen.getByRole('checkbox', { name: /^Show .* on map$/ })).not.toBeChecked(),
+  );
   expect(screen.getByLabelText('Track name')).toHaveValue('Unsaved draft');
   await user.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.getByRole('button', { name: 'Edit Evening waterfront' })).toHaveFocus();
-  await waitFor(() => expect(screen.getByRole('checkbox')).not.toBeChecked());
+  await waitFor(() =>
+    expect(screen.getByRole('checkbox', { name: /^Show .* on map$/ })).not.toBeChecked(),
+  );
   failSave = true;
-  await user.click(screen.getByRole('checkbox'));
+  await user.click(screen.getByRole('checkbox', { name: /^Show .* on map$/ }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Could not save. Try again.');
-  expect(screen.getByRole('checkbox')).not.toBeChecked();
+  expect(screen.getByRole('checkbox', { name: /^Show .* on map$/ })).not.toBeChecked();
   failSave = false;
   await user.click(screen.getByRole('button', { name: 'Edit Evening waterfront' }));
   await user.clear(screen.getByLabelText('Track name'));
@@ -253,10 +261,12 @@ test('a delayed collection load cannot overwrite a saved visibility change', asy
   await user.click(row);
   await user.click(row);
   await waitFor(() => expect(finishLoad).toBeDefined());
-  await user.click(screen.getByRole('checkbox'));
-  await waitFor(() => expect(screen.getByRole('checkbox')).not.toBeChecked());
+  await user.click(screen.getByRole('checkbox', { name: /^Show .* on map$/ }));
+  await waitFor(() =>
+    expect(screen.getByRole('checkbox', { name: /^Show .* on map$/ })).not.toBeChecked(),
+  );
   await act(() => Promise.resolve(finishLoad?.(Response.json([track]))));
-  expect(screen.getByRole('checkbox')).not.toBeChecked();
+  expect(screen.getByRole('checkbox', { name: /^Show .* on map$/ })).not.toBeChecked();
 });
 
 test('batch progress keeps per-track results and continues after a failed file', async () => {
@@ -377,6 +387,8 @@ test('local-date filters open a complete recording and uploads reset All time', 
     'fetch',
     vi.fn((url: string, options?: RequestInit) => {
       if (options?.method === 'POST') return Promise.resolve(importedResponse());
+      if (url === '/api/playback-settings')
+        return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')
         return Promise.resolve(
           Response.json({
@@ -493,6 +505,8 @@ test('an upload finishing after a filter change still resets All time', async ()
         return new Promise<Response>((resolve) => {
           finishUpload = resolve;
         });
+      if (url === '/api/playback-settings')
+        return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')
         return Promise.resolve(
           Response.json({
@@ -587,6 +601,8 @@ test('batch completion restores All time after the last new track has arrived', 
             }),
           ),
         );
+      if (url === '/api/playback-settings')
+        return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')
         return Promise.resolve(
           Response.json({

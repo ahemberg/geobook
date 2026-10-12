@@ -14,9 +14,11 @@ public record Track(long id, String name, String colour, boolean visible) {
       Instant startTime,
       int pointCount,
       int unknownDateCount,
-      List<List<List<BigDecimal>>> geometry) {
+      List<List<List<BigDecimal>>> geometry,
+      List<List<List<BigDecimal>>> gaps) {
     public Overview {
       geometry = List.copyOf(TrackGeometry.copy(geometry));
+      gaps = List.copyOf(TrackGeometry.copy(gaps));
     }
   }
 
@@ -28,10 +30,12 @@ public record Track(long id, String name, String colour, boolean visible) {
       int segmentCount,
       List<Point> points,
       List<List<List<BigDecimal>>> geometry,
+      List<List<List<BigDecimal>>> gaps,
       List<Long> originalIds) {
     public Detail {
       points = List.copyOf(points);
       geometry = List.copyOf(TrackGeometry.copy(geometry));
+      gaps = List.copyOf(TrackGeometry.copy(gaps));
       originalIds = List.copyOf(originalIds);
     }
   }

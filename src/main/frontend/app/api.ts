@@ -9,6 +9,7 @@ export type Overview = {
   pointCount: number;
   unknownDateCount: number;
   geometry: LatLngTuple[][];
+  gaps: LatLngTuple[][];
 };
 
 export type Detail = {
@@ -19,6 +20,7 @@ export type Detail = {
   segmentCount: number;
   originalIds: number[];
   geometry: LatLngTuple[][];
+  gaps: LatLngTuple[][];
   points: {
     segment: number;
     latitude: number;
@@ -48,3 +50,5 @@ export async function request<T>(url: string, options?: RequestInit): Promise<T>
 }
 
 export type Controls = Pick<Overview, 'id' | 'name' | 'colour' | 'visible'>;
+
+export type PlaybackSettings = { gapSeconds: number; showGapConnections: boolean };

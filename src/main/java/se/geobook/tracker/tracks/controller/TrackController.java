@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 import se.geobook.tracker.tracks.domain.DateRange;
+import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.Track;
 import se.geobook.tracker.tracks.service.TrackImporter;
 import se.geobook.tracker.tracks.service.TrackNotFoundException;
@@ -119,6 +120,29 @@ class TrackController {
                 .toString())
         .header("X-Content-Type-Options", "nosniff")
         .body(original.bytes());
+  }
+
+  @GetMapping("/api/playback-settings")
+  PlaybackSettings playbackSettings() {
+    return collection.playbackSettings();
+  }
+
+  @PatchMapping("/api/playback-settings")
+  PlaybackSettings savePlaybackSettings(@RequestBody JsonNode input) {
+    JsonNode seconds = input.get("gapSeconds");
+    JsonNode connections = input.get("showGapConnections");
+    if (!input.isObject()
+        || input.size() != 2
+        || seconds == null
+        || !seconds.isIntegralNumber()
+        || !seconds.canConvertToInt()
+        || connections == null
+        || !connections.isBoolean()) {
+      throw new IllegalArgumentException(
+          "Supply gapSeconds as a whole number and showGapConnections as true or false.");
+    }
+    return collection.savePlaybackSettings(
+        new PlaybackSettings(seconds.asInt(), connections.asBoolean()));
   }
 
   @GetMapping("/api/map-config")

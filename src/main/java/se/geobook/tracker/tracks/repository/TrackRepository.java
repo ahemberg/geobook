@@ -10,6 +10,7 @@ import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import se.geobook.tracker.tracks.domain.DateRange;
+import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
@@ -25,6 +26,21 @@ public class TrackRepository {
 
   TrackRepository(JdbcTemplate jdbc) {
     this.jdbc = jdbc;
+  }
+
+  public PlaybackSettings playbackSettings() {
+    return jdbc.queryForObject(
+        "SELECT gap_seconds, show_gap_connections FROM playback_settings WHERE singleton = 1",
+        (row, index) -> new PlaybackSettings(row.getInt(1), row.getBoolean(2)));
+  }
+
+  public PlaybackSettings savePlaybackSettings(PlaybackSettings settings) {
+    jdbc.update(
+        "UPDATE playback_settings SET gap_seconds = ?, show_gap_connections = ? WHERE singleton ="
+            + " 1",
+        settings.gapSeconds(),
+        settings.showGapConnections());
+    return settings;
   }
 
   public long retainOriginal(String filename, byte[] bytes, String identity) {

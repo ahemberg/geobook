@@ -25,7 +25,8 @@ final class TrackResponses {
       Instant startTime,
       int pointCount,
       int unknownDateCount,
-      List<List<List<BigDecimal>>> geometry) {}
+      List<List<List<BigDecimal>>> geometry,
+      List<List<List<BigDecimal>>> gaps) {}
 
   record Point(
       int segment,
@@ -48,6 +49,7 @@ final class TrackResponses {
       int segmentCount,
       List<Point> points,
       List<List<List<BigDecimal>>> geometry,
+      List<List<List<BigDecimal>>> gaps,
       List<Long> originalIds) {}
 
   record ImportEvent(
@@ -78,7 +80,8 @@ final class TrackResponses {
         overview.startTime(),
         overview.pointCount(),
         overview.unknownDateCount(),
-        overview.geometry());
+        overview.geometry(),
+        overview.gaps());
   }
 
   static Point from(Track.Point point) {
@@ -108,6 +111,7 @@ final class TrackResponses {
         detail.segmentCount(),
         detail.points().stream().map(TrackResponses::from).toList(),
         detail.geometry(),
+        detail.gaps(),
         detail.originalIds());
   }
 
