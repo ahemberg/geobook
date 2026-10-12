@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -189,59 +188,31 @@ public class TrackRepository {
             ? OVERVIEW_SELECT + OVERVIEW_ORDER
             : OVERVIEW_SELECT + " WHERE r.local_date BETWEEN ? AND ?" + OVERVIEW_ORDER,
         rows -> {
-          Map<Long, OverviewBuilder> tracks = new LinkedHashMap<>();
+          Map<Long, Track.OverviewBuilder> tracks = new LinkedHashMap<>();
           while (rows.next()) {
             long trackId = rows.getLong("id");
-            OverviewBuilder builder = tracks.get(trackId);
+            Track.OverviewBuilder builder = tracks.get(trackId);
             if (builder == null) {
-              builder = new OverviewBuilder(track(rows), rows.getString("start_time"));
+              builder =
+                  new Track.OverviewBuilder(
+                      track(rows),
+                      rows.getString("start_time") == null
+                          ? null
+                          : Instant.parse(rows.getString("start_time")));
               tracks.put(trackId, builder);
             }
-            builder.add(rows);
+            builder.add(
+                rows.getInt("first_ordinal"),
+                rows.getInt("last_ordinal"),
+                rows.getString("local_date"),
+                rows.getBoolean("break_before"),
+                List.of(
+                    new BigDecimal(rows.getString("latitude")),
+                    new BigDecimal(rows.getString("longitude"))));
           }
-          return tracks.values().stream().map(OverviewBuilder::build).toList();
+          return tracks.values().stream().map(Track.OverviewBuilder::build).toList();
         },
         arguments);
-  }
-
-  private static final class OverviewBuilder {
-    private final Track track;
-    private final Instant start;
-    private final List<List<List<BigDecimal>>> geometry = new ArrayList<>();
-    private int first = -1;
-    private int last = -1;
-    private int count;
-    private int unknown;
-
-    private OverviewBuilder(Track track, String start) {
-      this.track = track;
-      this.start = start == null ? null : Instant.parse(start);
-    }
-
-    private void add(ResultSet row) throws SQLException {
-      int next = row.getInt("first_ordinal");
-      if (next != first) {
-        if (first < 0 || last + 1 != next || row.getBoolean("break_before")) {
-          geometry.add(new ArrayList<>());
-        }
-        first = next;
-        last = row.getInt("last_ordinal");
-        count += last - first + 1;
-        if (row.getString("local_date") == null) {
-          unknown += last - first + 1;
-        }
-      }
-      geometry
-          .getLast()
-          .add(
-              List.of(
-                  new BigDecimal(row.getString("latitude")),
-                  new BigDecimal(row.getString("longitude"))));
-    }
-
-    private Track.Overview build() {
-      return new Track.Overview(track, start, count, unknown, geometry);
-    }
   }
 
   public Optional<Track> find(long id) {
