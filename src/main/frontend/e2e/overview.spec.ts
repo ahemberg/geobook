@@ -10,7 +10,7 @@ test('compact overviews retain breaks, filtered counts and complete selected rec
     const day = index < 500 ? '01' : '02';
     const hour = index < 750 ? '10' : '11';
     const split = index === 500 ? '</trkseg><trkseg>' : '';
-    return `${split}<trkpt lat="${latitude}" lon="${(18.07 + index / 10000000).toFixed(7)}"><time>2023-03-${day}T${hour}:00:00Z</time></trkpt>`;
+    return `${split}<trkpt lat="${latitude}" lon="${(18.07 + index / 10000000).toFixed(7)}"><time>2021-03-${day}T${hour}:00:00Z</time></trkpt>`;
   }).join('');
   const uploaded = await page.request.post('/api/tracks', {
     multipart: {
@@ -44,8 +44,8 @@ test('compact overviews retain breaks, filtered counts and complete selected rec
   const row = page.getByRole('button', { name: new RegExp(`^${name} `) });
   await expect(row).toContainText('1,000 recorded points');
   expect(detailRequests).toHaveLength(0);
-  await page.getByLabel('From', { exact: true }).fill('2023-03-02');
-  await page.getByLabel('To', { exact: true }).fill('2023-03-02');
+  await page.getByLabel('From', { exact: true }).fill('2021-03-02');
+  await page.getByLabel('To', { exact: true }).fill('2021-03-02');
   await page.getByRole('button', { name: 'Apply dates' }).click();
   await expect(row).toContainText('500 matching points');
   expect(detailRequests).toHaveLength(0);
