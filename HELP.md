@@ -187,4 +187,5 @@ borders. Overlaps and generic ocean zones remain unresolved.
 On first startup after this update, Flyway attributes existing points in a
 transaction. Allow the migration to finish before using the application. Later
 resource updates do not automatically rewrite those results. Pi memory use and
-large-collection performance remain release checks under issue #31.
+large-collection timings, including a runnable synthetic workload, are recorded in the
+[benchmark guide](benchmarks/README.md). Repeat those checks before the final MVP release.

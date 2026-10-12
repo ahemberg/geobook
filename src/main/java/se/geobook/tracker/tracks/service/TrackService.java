@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import se.geobook.tracker.tracks.domain.ContentIdentity;
 import se.geobook.tracker.tracks.domain.DateRange;
+import se.geobook.tracker.tracks.domain.OverviewRun;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
@@ -38,19 +39,22 @@ public class TrackService {
   }
 
   Track.Imported save(long originalId, Recording recording) {
+    List<PointLocalTime.Attribution> local =
+        recording.points().stream()
+            .map(
+                point ->
+                    PointLocalTime.resolve(
+                        point.latitude().doubleValue(),
+                        point.longitude().doubleValue(),
+                        point.time()))
+            .toList();
     Track.Prepared prepared =
         new Track.Prepared(
             recording,
             ContentIdentity.recording(recording),
             TrackColours.Bounds.enclosing(recording.points()),
-            recording.points().stream()
-                .map(
-                    point ->
-                        PointLocalTime.resolve(
-                            point.latitude().doubleValue(),
-                            point.longitude().doubleValue(),
-                            point.time()))
-                .toList());
+            local,
+            OverviewRun.prepare(recording.points(), local));
     return write(
         () -> {
           Optional<Long> existing = repository.findByIdentity(prepared.identity());
@@ -71,28 +75,14 @@ public class TrackService {
   }
 
   public List<Track.Overview> overview(DateRange range, String search) {
-    // shortcut: overview geometry is unsimplified; optimize it with the benchmark in #31.
-    return repository.tracks().stream()
+    return repository.overview(range).stream()
         .filter(
-            track ->
-                track
+            overview ->
+                overview
+                    .track()
                     .name()
                     .toLowerCase(Locale.ROOT)
                     .contains(search.strip().toLowerCase(Locale.ROOT)))
-        .map(
-            track -> {
-              List<Track.Point> points = repository.points(track.id(), range);
-              return new Track.Overview(
-                  track,
-                  repository.startTime(track.id()),
-                  points.size(),
-                  (int)
-                      points.stream()
-                          .filter(point -> point.attribution().localDate() == null)
-                          .count(),
-                  TrackGeometry.lines(points));
-            })
-        .filter(track -> track.pointCount() > 0)
         .sorted(
             Comparator.comparing(
                     Track.Overview::startTime, Comparator.nullsLast(Comparator.reverseOrder()))
@@ -102,7 +92,7 @@ public class TrackService {
 
   public Track.Detail detail(long id) {
     Track track = find(id);
-    List<Track.Point> points = repository.points(id, new DateRange(null, null));
+    List<Track.Point> points = repository.points(id);
     return new Track.Detail(
         track,
         repository.segmentCount(id),

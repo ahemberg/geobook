@@ -18,13 +18,7 @@ public final class TrackGeometry {
     int ordinal = -1;
     for (Track.Point ordered : points) {
       Recording.Point point = ordered.source();
-      if (previous == null
-          || ordered.ordinal() != ordinal + 1
-          || previous.segment() != point.segment()
-          || previous.time() != null
-              && point.time() != null
-              && Duration.between(previous.time(), point.time()).compareTo(Duration.ofMinutes(5))
-                  > 0) {
+      if (previous == null || ordered.ordinal() != ordinal + 1 || breaks(previous, point)) {
         lines.add(new ArrayList<>());
       }
       lines.getLast().add(List.of(point.latitude(), point.longitude()));
@@ -32,5 +26,12 @@ public final class TrackGeometry {
       ordinal = ordered.ordinal();
     }
     return lines;
+  }
+
+  public static boolean breaks(Recording.Point previous, Recording.Point point) {
+    return previous.segment() != point.segment()
+        || previous.time() != null
+            && point.time() != null
+            && Duration.between(previous.time(), point.time()).compareTo(Duration.ofMinutes(5)) > 0;
   }
 }

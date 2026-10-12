@@ -1,0 +1,69 @@
+{
+  "url": "http://PI_LAN_IP:18081",
+  "workload": {
+    "tracks": 500,
+    "pointsPerTrack": 10000,
+    "points": 5000000,
+    "from": "2024-01-01",
+    "to": "2024-01-01",
+    "filteredTracks": 1,
+    "filteredPoints": 10000,
+    "filteredName": "Benchmark 0000"
+  },
+  "client": {
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz",
+    "memoryBytes": 16626159616,
+    "chromium": "156.0.8078.4",
+    "viewport": "1440x900",
+    "conditions": "Headless Chromium, fresh context per run, external tiles stubbed, no CPU/network throttling"
+  },
+  "results": [
+    {
+      "run": 1,
+      "overviewMs": 2076.614417,
+      "filterMs": 273.50334699999985,
+      "allTimeMs": 1138.6826059999999,
+      "overviewBytes": 909393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    },
+    {
+      "run": 2,
+      "overviewMs": 1865.5607210000007,
+      "filterMs": 314.65432599999986,
+      "allTimeMs": 1280.324098000001,
+      "overviewBytes": 909393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    },
+    {
+      "run": 3,
+      "overviewMs": 1905.343850000001,
+      "filterMs": 316.28232300000127,
+      "allTimeMs": 1446.7300349999987,
+      "overviewBytes": 909393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    },
+    {
+      "run": 4,
+      "overviewMs": 1729.697091,
+      "filterMs": 279.2854189999998,
+      "allTimeMs": 950.4475600000005,
+      "overviewBytes": 909393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    },
+    {
+      "run": 5,
+      "overviewMs": 1473.5056550000008,
+      "filterMs": 253.4656619999987,
+      "allTimeMs": 1015.9012170000024,
+      "overviewBytes": 909393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    }
+  ]
+}

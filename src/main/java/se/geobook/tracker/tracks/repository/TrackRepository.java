@@ -4,12 +4,16 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import se.geobook.tracker.tracks.domain.DateRange;
+import se.geobook.tracker.tracks.domain.OverviewRun;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
@@ -21,6 +25,12 @@ import se.geobook.tracker.tracks.domain.TrackUpdate;
 @Repository
 public class TrackRepository {
   private static final String COLOUR_COLUMN = "colour";
+  private static final String OVERVIEW_SELECT =
+      "SELECT t.id, t.name, t.colour, t.visible, t.start_time, r.first_ordinal, r.last_ordinal,"
+          + " r.local_date, r.break_before, p.latitude, p.longitude FROM overview_run r"
+          + " JOIN track t ON t.id = r.track_id JOIN overview_point p ON p.track_id = r.track_id"
+          + " AND p.run_ordinal = r.first_ordinal";
+  private static final String OVERVIEW_ORDER = " ORDER BY t.id, r.first_ordinal, p.ordinal";
   private final JdbcTemplate jdbc;
 
   TrackRepository(JdbcTemplate jdbc) {
@@ -122,12 +132,116 @@ public class TrackRepository {
           }
         });
 
+    insertOverview(trackId, prepared);
     return trackId;
   }
 
-  public List<Track> tracks() {
+  // Each run needs its own batch bindings.
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  private void insertOverview(long trackId, Track.Prepared prepared) {
+    Instant start =
+        prepared.recording().points().stream()
+            .map(Recording.Point::time)
+            .filter(Objects::nonNull)
+            .min(Instant::compareTo)
+            .orElse(null);
+    jdbc.update(
+        "UPDATE track SET start_time = ? WHERE id = ?",
+        start == null ? null : start.toString(),
+        trackId);
+    for (OverviewRun run : prepared.overview()) {
+      jdbc.update(
+          "INSERT INTO overview_run VALUES (?, ?, ?, ?, ?)",
+          trackId,
+          run.first(),
+          run.last(),
+          run.localDate(),
+          run.breakBefore());
+      jdbc.batchUpdate(
+          "INSERT INTO overview_point VALUES (?, ?, ?, ?, ?)",
+          new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
+            @Override
+            public void setValues(java.sql.PreparedStatement statement, int index)
+                throws SQLException {
+              Recording.Point point = run.points().get(index);
+              statement.setLong(1, trackId);
+              statement.setInt(2, run.first());
+              statement.setInt(3, index);
+              statement.setString(4, point.latitude().toString());
+              statement.setString(5, point.longitude().toString());
+            }
+
+            @Override
+            public int getBatchSize() {
+              return run.points().size();
+            }
+          });
+    }
+  }
+
+  // Each recording needs an independent geometry accumulator.
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  public List<Track.Overview> overview(DateRange range) {
+    Object[] arguments =
+        range.from() == null ? new Object[0] : new Object[] {range.from(), range.through()};
     return jdbc.query(
-        "SELECT id, name, colour, visible FROM track ORDER BY id DESC", (row, index) -> track(row));
+        range.from() == null
+            ? OVERVIEW_SELECT + OVERVIEW_ORDER
+            : OVERVIEW_SELECT + " WHERE r.local_date BETWEEN ? AND ?" + OVERVIEW_ORDER,
+        rows -> {
+          Map<Long, OverviewBuilder> tracks = new LinkedHashMap<>();
+          while (rows.next()) {
+            long trackId = rows.getLong("id");
+            OverviewBuilder builder = tracks.get(trackId);
+            if (builder == null) {
+              builder = new OverviewBuilder(track(rows), rows.getString("start_time"));
+              tracks.put(trackId, builder);
+            }
+            builder.add(rows);
+          }
+          return tracks.values().stream().map(OverviewBuilder::build).toList();
+        },
+        arguments);
+  }
+
+  private static final class OverviewBuilder {
+    private final Track track;
+    private final Instant start;
+    private final List<List<List<BigDecimal>>> geometry = new ArrayList<>();
+    private int first = -1;
+    private int last = -1;
+    private int count;
+    private int unknown;
+
+    private OverviewBuilder(Track track, String start) {
+      this.track = track;
+      this.start = start == null ? null : Instant.parse(start);
+    }
+
+    private void add(ResultSet row) throws SQLException {
+      int next = row.getInt("first_ordinal");
+      if (next != first) {
+        if (first < 0 || last + 1 != next || row.getBoolean("break_before")) {
+          geometry.add(new ArrayList<>());
+        }
+        first = next;
+        last = row.getInt("last_ordinal");
+        count += last - first + 1;
+        if (row.getString("local_date") == null) {
+          unknown += last - first + 1;
+        }
+      }
+      geometry
+          .getLast()
+          .add(
+              List.of(
+                  new BigDecimal(row.getString("latitude")),
+                  new BigDecimal(row.getString("longitude"))));
+    }
+
+    private Track.Overview build() {
+      return new Track.Overview(track, start, count, unknown, geometry);
+    }
   }
 
   public Optional<Track> find(long id) {
@@ -159,19 +273,6 @@ public class TrackRepository {
         "SELECT original_id FROM track_original WHERE track_id = ?", Long.class, id);
   }
 
-  public Instant startTime(long id) {
-    return jdbc
-        .queryForList(
-            "SELECT recorded_time FROM track_point WHERE track_id = ? AND recorded_time IS NOT"
-                + " NULL",
-            String.class,
-            id)
-        .stream()
-        .map(Instant::parse)
-        .min(Instant::compareTo)
-        .orElse(null);
-  }
-
   public boolean update(long id, TrackUpdate controls) {
     return jdbc.update(
             "UPDATE track SET name = COALESCE(?, name), colour = COALESCE(?, colour), visible ="
@@ -195,15 +296,14 @@ public class TrackRepository {
 
   public List<Integer> years() {
     return jdbc.queryForList(
-        "SELECT DISTINCT CAST(substr(local_date, 1, 4) AS INTEGER) FROM track_point WHERE"
+        "SELECT DISTINCT CAST(substr(local_date, 1, 4) AS INTEGER) FROM overview_run WHERE"
             + " local_date IS NOT NULL ORDER BY 1 DESC",
         Integer.class);
   }
 
-  public List<Track.Point> points(long id, DateRange range) {
+  public List<Track.Point> points(long id) {
     return jdbc.query(
-        "SELECT * FROM track_point WHERE track_id = ?"
-            + " AND (? IS NULL OR local_date BETWEEN ? AND ?) ORDER BY ordinal",
+        "SELECT * FROM track_point WHERE track_id = ? ORDER BY ordinal",
         (row, index) ->
             new Track.Point(
                 row.getInt("ordinal"),
@@ -215,10 +315,7 @@ public class TrackRepository {
                     row.getString("time_status"),
                     row.getString("boundary_version"),
                     row.getString("tzdb_version"))),
-        id,
-        range.from(),
-        range.from(),
-        range.through());
+        id);
   }
 
   private static Recording.Point sourcePoint(ResultSet row) throws SQLException {

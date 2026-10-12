@@ -1,0 +1,177 @@
+{
+  "importSeconds": 186.53439034504117,
+  "firstProgressSeconds": 1.6986894269939512,
+  "outcomes": {
+    "progress": 50,
+    "imported": 500,
+    "complete": 50
+  },
+  "collectionReads": [
+    {
+      "seconds": 0.21868051000637934,
+      "tracks": 0
+    },
+    {
+      "seconds": 0.005858169985003769,
+      "tracks": 0
+    },
+    {
+      "seconds": 0.033506126957945526,
+      "tracks": 10
+    },
+    {
+      "seconds": 0.026892271998804063,
+      "tracks": 20
+    },
+    {
+      "seconds": 0.04934128298191354,
+      "tracks": 30
+    },
+    {
+      "seconds": 0.0353296099929139,
+      "tracks": 47
+    },
+    {
+      "seconds": 0.0346214990131557,
+      "tracks": 60
+    },
+    {
+      "seconds": 0.037647925957571715,
+      "tracks": 76
+    },
+    {
+      "seconds": 0.035372202983126044,
+      "tracks": 90
+    },
+    {
+      "seconds": 0.17273040098370984,
+      "tracks": 103
+    },
+    {
+      "seconds": 0.0547779529588297,
+      "tracks": 118
+    },
+    {
+      "seconds": 0.29756848397664726,
+      "tracks": 130
+    },
+    {
+      "seconds": 0.06293214298784733,
+      "tracks": 145
+    },
+    {
+      "seconds": 0.14254901796812192,
+      "tracks": 159
+    },
+    {
+      "seconds": 0.07010848098434508,
+      "tracks": 173
+    },
+    {
+      "seconds": 0.06443210801808164,
+      "tracks": 188
+    },
+    {
+      "seconds": 0.07968828297453001,
+      "tracks": 201
+    },
+    {
+      "seconds": 0.08593108301283792,
+      "tracks": 216
+    },
+    {
+      "seconds": 0.12365547299850732,
+      "tracks": 230
+    },
+    {
+      "seconds": 0.07554170704679564,
+      "tracks": 243
+    },
+    {
+      "seconds": 0.09221579000586644,
+      "tracks": 259
+    },
+    {
+      "seconds": 0.10614652000367641,
+      "tracks": 272
+    },
+    {
+      "seconds": 0.09971449902513996,
+      "tracks": 286
+    },
+    {
+      "seconds": 0.1134892480331473,
+      "tracks": 300
+    },
+    {
+      "seconds": 0.1379704829887487,
+      "tracks": 315
+    },
+    {
+      "seconds": 0.10268655704567209,
+      "tracks": 330
+    },
+    {
+      "seconds": 0.19740833202376962,
+      "tracks": 345
+    },
+    {
+      "seconds": 0.13822848501149565,
+      "tracks": 359
+    },
+    {
+      "seconds": 0.15022691700141877,
+      "tracks": 372
+    },
+    {
+      "seconds": 0.14145408000331372,
+      "tracks": 388
+    },
+    {
+      "seconds": 0.17934332403820008,
+      "tracks": 403
+    },
+    {
+      "seconds": 0.19138172001112252,
+      "tracks": 419
+    },
+    {
+      "seconds": 0.19245009100995958,
+      "tracks": 434
+    },
+    {
+      "seconds": 0.15051773498998955,
+      "tracks": 450
+    },
+    {
+      "seconds": 0.34290993900503963,
+      "tracks": 463
+    },
+    {
+      "seconds": 0.15878455503843725,
+      "tracks": 480
+    },
+    {
+      "seconds": 0.18729059101315215,
+      "tracks": 491
+    }
+  ],
+  "readFailures": [],
+  "serverPeakRssKiB": 1755008,
+  "throttling": [
+    "throttled=0x0"
+  ],
+  "temperatureSamples": [
+    "temp=43.9'C",
+    "temp=44.4'C",
+    "temp=45.0'C",
+    "temp=45.5'C",
+    "temp=46.1'C",
+    "temp=46.6'C",
+    "temp=47.2'C",
+    "temp=47.7'C",
+    "temp=48.3'C",
+    "temp=48.8'C",
+    "temp=49.4'C"
+  ]
+}

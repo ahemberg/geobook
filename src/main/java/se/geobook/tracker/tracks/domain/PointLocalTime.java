@@ -24,7 +24,8 @@ public final class PointLocalTime {
 
   // Load once, including when a migration attributes existing recordings.
   private static final class Boundaries {
-    private static final TimeZoneEngine ENGINE = TimeZoneEngine.initialize();
+    // Index polygon edges once; otherwise dense imports scan them for every point.
+    private static final TimeZoneEngine ENGINE = TimeZoneEngine.initialize(true);
   }
 
   public static Attribution resolve(double latitude, double longitude, Instant time) {

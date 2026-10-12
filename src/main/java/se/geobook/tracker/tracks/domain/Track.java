@@ -53,9 +53,11 @@ public record Track(long id, String name, String colour, boolean visible) {
       Recording recording,
       String identity,
       TrackColours.Bounds bounds,
-      List<PointLocalTime.Attribution> local) {
+      List<PointLocalTime.Attribution> local,
+      List<OverviewRun> overview) {
     public Prepared {
       local = List.copyOf(local);
+      overview = List.copyOf(overview);
     }
   }
 }

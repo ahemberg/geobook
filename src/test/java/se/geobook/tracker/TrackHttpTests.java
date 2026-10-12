@@ -600,6 +600,59 @@ class TrackHttpTests {
     }
   }
 
+  @Test
+  void overviewIsSmallWhileCompleteRecordingAndOriginalStayExact()
+      throws IOException, InterruptedException {
+    StringBuilder points = new StringBuilder(100_000);
+    for (int index = 0; index < 1000; index++) {
+      points
+          .append("<trkpt lat='")
+          .append(index == 500 ? "59.321" : "59.32")
+          .append("' lon='")
+          .append(java.math.BigDecimal.valueOf(180_700_000L + index, 7))
+          .append("'><time>2025-06-19T10:00:00Z</time></trkpt>");
+    }
+    byte[] original = gpx("<trk><name>Dense recording</name><trkseg>" + points + "</trkseg></trk>");
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(upload(client, base(app), original).statusCode()).isEqualTo(201);
+      JsonMapper mapper = JsonMapper.builder().build();
+      JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body()).get(0);
+      assertThat(overview.get("pointCount").asInt()).isEqualTo(1000);
+      JsonNode line = overview.get("geometry").get(0);
+      assertThat(line.size()).isLessThan(20);
+      assertThat(line.toString()).contains("[59.321,");
+      assertThat(line.get(0).get(1).asDouble()).isEqualTo(18.07);
+      assertThat(line.get(line.size() - 1).get(1).asDouble()).isEqualTo(18.070_099_9);
+      JsonNode filtered =
+          mapper
+              .readTree(get(client, base(app) + "/api/tracks?from=2025-06-19&to=2025-06-19").body())
+              .get(0);
+      assertThat(filtered).isEqualTo(overview);
+      JsonNode full = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(full.get("points").size()).isEqualTo(1000);
+      assertThat(full.get("points").get(500).get("longitude").asDouble()).isEqualTo(18.070_05);
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(original);
+      // Make the source stores unavailable: collection reads must use only derived overview data.
+      org.springframework.jdbc.core.JdbcTemplate jdbc =
+          app.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+      jdbc.execute("ALTER TABLE track_point RENAME TO unavailable_points");
+      jdbc.execute("ALTER TABLE original_export RENAME TO unavailable_originals");
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks").body()).get(0))
+          .isEqualTo(overview);
+      assertThat(
+              mapper
+                  .readTree(
+                      get(client, base(app) + "/api/tracks?from=2025-06-19&to=2025-06-19").body())
+                  .get(0))
+          .isEqualTo(filtered);
+      assertThat(
+              new String(
+                  get(client, base(app) + "/api/tracks/years").body(), StandardCharsets.UTF_8))
+          .isEqualTo("[2025]");
+    }
+  }
+
   private static byte[] gpx(String tracks) {
     return ("<gpx xmlns='http://www.topografix.com/GPX/1/1'>" + tracks + "</gpx>")
         .getBytes(StandardCharsets.UTF_8);
