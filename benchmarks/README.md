@@ -98,7 +98,8 @@ seconds per 10,000-point track after initialization.
 
 With stored simplified geometry and the existing timezone library's polygon index enabled,
 the full 500-track workload produced 34,500 overview vertices and a 909,393-byte response.
-All five browser runs met both targets. Raw samples are in [pi5-browser.json](results/pi5-browser.json).
+All five browser runs met both targets. The JVM was warm from import and the concurrent
+read probes; a fresh-JVM browser measurement was not run. Raw samples are in [pi5-browser.json](results/pi5-browser.json).
 
 | Operation | Minimum | Median | Maximum | Target |
 | --- | ---: | ---: | ---: | ---: |
@@ -115,7 +116,10 @@ commit together. Reads use SQLite WAL while writes remain serialized.
 Sampled server high-water RSS was 1,755,008 KiB, about 1.67 GiB. Samples reported no server
 swap and no thermal throttling, with temperatures between 43.9 and 49.4 degrees Celsius.
 The database was about 1.3 GiB, including retained original BLOBs, with a 13 MB WAL at the
-end of import. [pi5-import.json](results/pi5-import.json) contains import and read timings.
+end of import. After these measurements, the host developed heavy storage contention,
+with a later sample showing 96% I/O wait and a load average around 26. The benchmark server
+was stopped; the latency targets above do not claim to cover that condition.
+[pi5-import.json](results/pi5-import.json) contains import and read timings.
 
 ## Limits and release recheck
 
