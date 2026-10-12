@@ -29,6 +29,9 @@ test('reviewed visits persist and country exploration keeps dates and full recor
     await page.getByRole('button', { name: 'Date filters', exact: true }).click();
   await page.getByRole('combobox', { name: 'Year', exact: true }).selectOption(year);
   await page.getByRole('button', { name: 'Countries', exact: true }).click();
+  await page.getByRole('link', { name: 'Skip to country visits' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('main', { name: 'Country visits' })).toBeFocused();
   await page.getByRole('checkbox', { name: `Select Sweden ${year}-06-19` }).check();
   await page.getByRole('checkbox', { name: `Select Sweden ${year}-06-20` }).check();
   await page.getByRole('button', { name: 'Confirm selected (2)' }).click();

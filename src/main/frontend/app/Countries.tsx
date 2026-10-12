@@ -79,7 +79,7 @@ export default function Countries({
   const visible = data?.candidates.filter((candidate) => candidate.state === state) ?? [];
   const chosen = visible.filter((candidate) => selected.includes(key(candidate)));
   return (
-    <section className="countries-panel" aria-label="Country visits">
+    <main id="country-visits" tabIndex={-1} className="countries-panel" aria-label="Country visits">
       <CountrySummaries countries={data?.countries} explore={explore} />
       <div className="visit-review">
         <h2>Review country days</h2>
@@ -135,7 +135,7 @@ export default function Countries({
           />
         ))}
       </div>
-    </section>
+    </main>
   );
 }
 

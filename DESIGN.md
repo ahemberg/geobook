@@ -101,7 +101,7 @@ components:
 
 Geobook puts a detailed travel map beside a compact library. A blue header anchors the page; white panels and pale blue selection keep saved recordings easy to scan. Source Sans 3 carries headings, controls and recording details.
 
-This system records the rendered upload, date-filter, track-library controls and point-inspection implementation. The [approved MVP brief](docs/design/mvp.md) remains the authority for later country filters and playback.
+This system records the rendered upload, date filters, track library, point inspection and country visit review. The [approved MVP brief](docs/design/mvp.md) remains the authority for playback.
 
 **Key Characteristics:**
 
@@ -123,7 +123,7 @@ Use `surface` for panels, `ink` for text, `muted` for supporting text, `line` fo
 
 ### Status and focus
 
-Notices have separate informational, success, error and warning fills. Error and warning text use their matching text tokens. Explicit messages carry the meaning. `focus` marks keyboard focus; focus on the blue header uses white. `current-page` underlines Map in the desktop header.
+Notices have separate informational, success, error and warning fills. Error and warning text use their matching text tokens. Explicit messages carry the meaning. `focus` marks keyboard focus; focus on the blue header uses white. Active navigation uses a white fill with blue text.
 
 **The Saved Colour Rule.** A track's saved colour connects its swatch and map geometry; status colours describe application feedback.
 
@@ -137,7 +137,9 @@ The brand is the largest text. Library and recording headings use `title`; first
 
 The app fills at least the dynamic viewport height. Desktop has a 76px header and a scope strip at least 70px high. A 300px library sits beside a flexible map column. The map has a 460px minimum height, with the selected recording below it. Panels grow with content; long names wrap.
 
-At widths up to 700px, the header becomes 64px high and the scope strip has a 64px minimum height, wrapping as needed. Date controls start collapsed behind a Date filters button; the current scope stays visible. The map moves above the library and its minimum height becomes 48dvh. The selected recording stays beneath the map. The library starts collapsed behind a labelled toggle; the first-use upload prompt remains visible. Map in the header is hidden. Common horizontal padding contracts to 16px.
+At widths up to 700px, the header becomes 64px high and the scope strip has a 64px minimum height, wrapping as needed. Date controls start collapsed behind a Date filters button; the current scope stays visible. The map moves above the library and its minimum height becomes 48dvh. The selected recording stays beneath the map. The library starts collapsed behind a labelled toggle; the first-use upload prompt remains visible. Map and Countries navigation remain visible; the header wraps when needed. Common horizontal padding contracts to 16px.
+
+Countries places confirmed summaries beside country-day review on desktop and stacks them on mobile. Date controls and the current scope stay above both views.
 
 ## Elevation & Depth
 
@@ -155,7 +157,15 @@ Ordinary buttons have a white fill and a single-pixel border. Primary buttons us
 
 ### Header and scope
 
-The header contains the Geobook wordmark, a static Map label and Upload GPX aligned to the right. The scope strip contains Recorded travel, the applied date range or All time, and the matching track count. Below it, labelled native date fields apply an inclusive range using local time at each point. A year selector applies a full calendar year; All time clears the range and includes points with unknown dates. Form controls use white fills, outlined borders and the shared focus treatment. The upload button opens a hidden native file input.
+The header contains the Geobook wordmark, Map and Countries buttons and Upload GPX aligned to the right. The scope strip contains Recorded travel, the applied date range or All time, the selected country with an All countries action when scoped, and the matching track count. Below it, labelled native date fields apply an inclusive range using local time at each point. A year selector applies a full calendar year; All time clears the range and includes points with unknown dates. Form controls use white fills, outlined borders and the shared focus treatment. The upload button opens a hidden native file input.
+
+### Country visits
+
+Confirmed summaries show a country name, distinct recorded days, and first and latest visit dates in divided rows. Selecting a country opens its map extent and filters recorded points while keeping the active dates. All countries clears that country scope.
+
+Review rows keep country, local date and recording evidence together. Native checkboxes support bulk confirmation and exclusion; each row also offers reversible decisions. A state selector separates pending, confirmed and excluded days. Saved totals stay separate from suggestions, with uncertainty and review guidance above the controls.
+
+The skip link targets the visible view. Countries provides a focusable main landmark; Map targets the track library.
 
 ### Track rows
 
@@ -184,6 +194,6 @@ Upload and loading feedback use full-width notice strips. Tile failure uses a wa
 
 ### Don't:
 
-- Don't treat planned country filters or playback as existing components.
+- Don't treat planned playback as an existing component.
 - Don't substitute schematic geography for the application's detailed map.
 - Don't use track colour alone to communicate an error or warning.

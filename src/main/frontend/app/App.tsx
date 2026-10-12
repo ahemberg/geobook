@@ -60,9 +60,6 @@ export default function App() {
 
   return (
     <>
-      <a className="skip-link" href="#tracks">
-        Skip to tracks
-      </a>
       <AppHeader
         showCountries={showCountries}
         setShowCountries={setShowCountries}
@@ -170,37 +167,42 @@ function AppHeader({
 }) {
   const { upload, uploading } = uploadState;
   return (
-    <header className="app-header">
-      <span className="brand">Geobook</span>
-      <nav className="main-nav" aria-label="Explore">
-        <button aria-pressed={!showCountries} onClick={() => setShowCountries(false)}>
-          Map
+    <>
+      <a className="skip-link" href={showCountries ? '#country-visits' : '#tracks'}>
+        {showCountries ? 'Skip to country visits' : 'Skip to tracks'}
+      </a>
+      <header className="app-header">
+        <span className="brand">Geobook</span>
+        <nav className="main-nav" aria-label="Explore">
+          <button aria-pressed={!showCountries} onClick={() => setShowCountries(false)}>
+            Map
+          </button>
+          <button aria-pressed={showCountries} onClick={() => setShowCountries(true)}>
+            Countries
+          </button>
+        </nav>
+        <button
+          className="upload-button"
+          disabled={uploading}
+          onClick={() => fileInput.current?.click()}
+        >
+          {uploading ? 'Importing GPX…' : 'Upload GPX'}
         </button>
-        <button aria-pressed={showCountries} onClick={() => setShowCountries(true)}>
-          Countries
-        </button>
-      </nav>
-      <button
-        className="upload-button"
-        disabled={uploading}
-        onClick={() => fileInput.current?.click()}
-      >
-        {uploading ? 'Importing GPX…' : 'Upload GPX'}
-      </button>
-      <input
-        ref={fileInput}
-        className="file-input"
-        type="file"
-        multiple
-        accept=".gpx,application/gpx+xml,application/xml,text/xml"
-        aria-label="Choose GPX file"
-        disabled={uploading}
-        onChange={(event) => {
-          void upload(Array.from(event.target.files ?? []));
-          event.target.value = '';
-        }}
-      />
-    </header>
+        <input
+          ref={fileInput}
+          className="file-input"
+          type="file"
+          multiple
+          accept=".gpx,application/gpx+xml,application/xml,text/xml"
+          aria-label="Choose GPX file"
+          disabled={uploading}
+          onChange={(event) => {
+            void upload(Array.from(event.target.files ?? []));
+            event.target.value = '';
+          }}
+        />
+      </header>
+    </>
   );
 }
 
