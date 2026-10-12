@@ -50,7 +50,8 @@ export default function TrackMap({
     const map = mapRef.current;
     if (!map) return;
     const layer = L.featureGroup().addTo(map);
-    for (const track of tracks) drawTrack(track, selectedId, layer);
+    for (const track of tracks.filter((track) => track.visible))
+      drawTrack(track, selectedId, layer);
     const bounds = trackBounds(fittedTracks(tracks, selectedId, importedIds));
     if (bounds.isValid()) map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16, animate: false });
     return () => {
@@ -105,6 +106,7 @@ function drawTrack(track: Overview, selectedId: number | null, layer: L.FeatureG
 function trackBounds(tracks: Overview[]) {
   const bounds = L.latLngBounds([]);
   for (const track of tracks) {
+    if (!track.visible) continue;
     for (const line of mapGeometry(track.geometry)) {
       for (const point of line) bounds.extend(point);
     }

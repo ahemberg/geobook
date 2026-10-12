@@ -84,7 +84,7 @@ components:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
     rounded: "{rounded.row}"
-    padding: "16px 20px"
+    padding: "14px 0"
   track-row-selected:
     backgroundColor: "{colors.selection}"
   track-detail:
@@ -101,7 +101,7 @@ components:
 
 Geobook puts a detailed travel map beside a compact library. A blue header anchors the page; white panels and pale blue selection keep saved recordings easy to scan. Source Sans 3 carries headings, controls and recording details.
 
-This system records the rendered issue #24 implementation. The [approved MVP brief](docs/design/mvp.md) remains the authority for later search, date and country filters, track editing and playback. Those controls are not implemented conventions yet.
+This system records the rendered upload and track-library controls. The [approved MVP brief](docs/design/mvp.md) remains the authority for later date and country filters and playback.
 
 **Key Characteristics:**
 
@@ -155,11 +155,13 @@ Ordinary buttons have a white fill and a single-pixel border. Primary buttons us
 
 ### Header and scope
 
-The header contains the Geobook wordmark, a static Map label and Upload GPX aligned to the right. The scope strip contains Recorded travel, a static All time label and the track count. Neither label is a filter or navigation button in this slice. The upload button opens a hidden native file input; there is no visible text-field convention yet.
+The header contains the Geobook wordmark, a static Map label and Upload GPX aligned to the right. The scope strip contains Recorded travel, a static All time label and the track count. Neither label is a filter or navigation button in this slice. The upload button opens a hidden native file input. Search and editing fields have visible labels, a white background, a thin border and a 44px minimum height.
 
 ### Track rows
 
-A full-width button contains a saved-colour swatch, wrapping track name and point count. Selection uses the pale blue fill and `aria-pressed`. The swatch stays the same size when names wrap.
+Rows contain an independent visibility checkbox, a selection button and a labelled Edit button. The selection button contains the saved-colour swatch, wrapping track name, recorded date and point count. Untimed rows show Date unknown and the track ID. Selection uses the pale blue fill and `aria-pressed`. The swatch stays the same size when names wrap.
+
+Search filters the library by name. Edit expands an inline form with name and native colour inputs, Save changes and Cancel. Visibility saves independently of an editing draft. A failed save keeps the previous saved choice and shows its error beneath the row. Closing the editor restores focus to Edit, or to search if a renamed track no longer matches.
 
 ### Recording details
 
@@ -182,6 +184,6 @@ Upload and loading feedback use full-width notice strips. Tile failure uses a wa
 
 ### Don't:
 
-- Don't treat planned search, date filters or playback as existing components.
+- Don't treat planned date filters or playback as existing components.
 - Don't substitute schematic geography for the application's detailed map.
 - Don't use track colour alone to communicate an error or warning.

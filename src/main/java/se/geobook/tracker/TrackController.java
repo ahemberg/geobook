@@ -12,12 +12,15 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
+import tools.jackson.databind.JsonNode;
 
 // Path variables match the public id contract.
 @SuppressWarnings("PMD.ShortVariable")
@@ -73,13 +76,18 @@ class TrackController {
   }
 
   @GetMapping("/api/tracks")
-  List<TrackCollection.Overview> overview() {
-    return collection.overview();
+  List<TrackCollection.Overview> overview(@RequestParam(defaultValue = "") String search) {
+    return collection.overview(search);
   }
 
   @GetMapping("/api/tracks/{id}")
   TrackCollection.Detail detail(@PathVariable long id) {
     return collection.detail(id);
+  }
+
+  @PatchMapping("/api/tracks/{id}")
+  TrackCollection.Summary update(@PathVariable long id, @RequestBody JsonNode input) {
+    return collection.update(id, TrackControls.read(input));
   }
 
   @GetMapping("/api/originals/{id}")

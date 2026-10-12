@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-12T07:51:47.145090Z",
+  "generatedAt": "2026-10-12T09:21:29.797656Z",
   "title": "Design System: Geobook",
   "extensions": {
     "colorMeta": {
@@ -321,12 +321,19 @@
       "css": ".ds-scope{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;display:inline-block;background:var(--selection,#e5edf8);color:var(--blue,#193f72);border-radius:6px;padding:7px 14px;font-weight:600}@media(max-width:700px){.ds-scope{padding:6px 10px}}"
     },
     {
+      "name": "Search tracks",
+      "kind": "input",
+      "description": "Labelled search field; track-name editing uses the same input shape, border and focus outline.",
+      "html": "<label class=\"ds-search\">Search tracks<input type=\"search\"></label>",
+      "css": ".ds-search{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;display:grid;gap:8px;padding:0 16px 16px}.ds-search input{font:inherit;width:100%;min-width:0;min-height:44px;border:1px solid #9baca4;border-radius:6px;background:var(--surface,#fff);color:inherit;padding:8px;caret-color:var(--blue,#193f72)}.ds-search input:focus-visible{outline:3px solid #2768ba;outline-offset:3px}"
+    },
+    {
       "name": "Selected track row",
       "kind": "custom",
       "refersTo": "track-row",
-      "description": "Saved-colour swatch, track name and recorded point count; colour here is synthetic sample data.",
-      "html": "<button class=\"ds-track\" aria-pressed=\"true\"><span class=\"ds-swatch\"></span><span class=\"ds-label\"><strong>Synthetic waterfront walk</strong><span>5 recorded points</span></span></button>",
-      "css": ".ds-track{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;border:1px solid #9baca4;border-radius:6px;padding:10px 14px;min-height:44px;background:var(--surface,#fff);cursor:pointer;display:flex;gap:12px;text-align:left;align-items:center;width:100%;border:0;border-bottom:1px solid var(--line,#d8e1dc);border-radius:0;padding:16px 20px;background:var(--selection,#e5edf8)}.ds-track:hover{background:var(--selection,#e5edf8)}.ds-track:focus-visible{outline:3px solid #2768ba;outline-offset:3px;}.ds-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:#ad466a}.ds-label{min-width:0;display:grid;gap:4px}.ds-label strong{overflow-wrap:anywhere;font-weight:600}.ds-label>span{font-size:14px;color:var(--muted,#52645e)}"
+      "description": "Independent visibility checkbox, selection button with saved colour and recorded date, and Edit control; sample recording is synthetic.",
+      "html": "<div class=\"ds-item\"><label class=\"ds-visibility\"><input type=\"checkbox\" checked aria-label=\"Show Synthetic waterfront walk on map\"></label><button class=\"ds-track\" aria-pressed=\"true\"><span class=\"ds-swatch\"></span><span class=\"ds-label\"><strong>Synthetic waterfront walk</strong><span>2026-06-18 UTC</span><span>5 recorded points</span></span></button><button class=\"ds-edit\" aria-label=\"Edit Synthetic waterfront walk\" aria-expanded=\"false\">Edit</button></div>",
+      "css": ".ds-item{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;display:flex;align-items:center;border-bottom:1px solid var(--line,#d8e1dc);background:var(--selection,#e5edf8)}.ds-track,.ds-edit{font:inherit;color:inherit;min-height:44px;border:0;background:transparent;cursor:pointer}.ds-track{display:flex;gap:12px;text-align:left;align-items:center;flex:1;min-width:0;width:100%;border-radius:0;padding:14px 0}.ds-edit{margin:0 8px;padding:8px;border-radius:6px}.ds-track:hover,.ds-edit:hover{background:var(--selection,#e5edf8)}.ds-item :focus-visible{outline:3px solid #2768ba;outline-offset:3px}.ds-item button:disabled{cursor:wait;opacity:.65}.ds-visibility{min-width:44px;min-height:44px;display:grid;place-items:center;cursor:pointer}.ds-visibility input{width:18px;height:18px;accent-color:var(--blue,#193f72)}.ds-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:#ad466a}.ds-label{min-width:0;display:grid;gap:4px}.ds-label strong{overflow-wrap:anywhere;font-weight:600}.ds-label>span{font-size:14px;color:var(--muted,#52645e)}"
     },
     {
       "name": "Recording details",
@@ -346,7 +353,7 @@
   ],
   "narrative": {
     "northStar": "Travel timetable",
-    "overview": "Geobook puts a detailed travel map beside a compact library. A blue header anchors the page; white panels and pale blue selection keep saved recordings easy to scan. Source Sans 3 carries headings, controls and recording details.\n\nThis system records the rendered issue #24 implementation. The [approved MVP brief](docs/design/mvp.md) remains the authority for later search, date and country filters, track editing and playback. Those controls are not implemented conventions yet.",
+    "overview": "Geobook puts a detailed travel map beside a compact library. A blue header anchors the page; white panels and pale blue selection keep saved recordings easy to scan. Source Sans 3 carries headings, controls and recording details.\n\nThis system records the rendered upload and track-library controls. The [approved MVP brief](docs/design/mvp.md) remains the authority for later date and country filters and playback.",
     "keyCharacteristics": [
       "Map beside the library on desktop, above it on mobile.",
       "Saved track colours connect library swatches and map geometry.",
@@ -366,7 +373,7 @@
       "Do use synthetic recordings in public examples."
     ],
     "donts": [
-      "Don't treat planned search, date filters or playback as existing components.",
+      "Don't treat planned date filters or playback as existing components.",
       "Don't substitute schematic geography for the application's detailed map.",
       "Don't use track colour alone to communicate an error or warning."
     ]
