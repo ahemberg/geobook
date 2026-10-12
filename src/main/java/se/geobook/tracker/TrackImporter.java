@@ -1,0 +1,99 @@
+package se.geobook.tracker;
+
+import java.util.ArrayList;
+import java.util.List;
+import org.springframework.stereotype.Service;
+
+@Service
+class TrackImporter {
+  private final TrackCollection collection;
+
+  TrackImporter(TrackCollection collection) {
+    this.collection = collection;
+  }
+
+  TrackCollection.Imported upload(String filename, byte[] bytes) {
+    Recording recording = GpxReader.read(bytes);
+    return collection.save(collection.retainOriginal(filename, bytes), recording);
+  }
+
+  record ImportEvent(
+      String status,
+      int completed,
+      int total,
+      String name,
+      Long trackId,
+      Long originalId,
+      List<String> warnings,
+      String message) {}
+
+  @FunctionalInterface
+  interface Progress {
+    void send(ImportEvent event) throws java.io.IOException;
+  }
+
+  void importFile(String filename, byte[] bytes, Progress progress) throws java.io.IOException {
+    List<org.w3c.dom.Element> tracks;
+    try {
+      tracks = GpxReader.tracks(bytes);
+    } catch (IllegalArgumentException exception) {
+      progress.send(
+          new ImportEvent("failed", 0, 0, filename, null, null, List.of(), exception.getMessage()));
+      return;
+    }
+    long originalId = collection.retainOriginal(filename, bytes);
+    progress.send(
+        new ImportEvent("progress", 0, tracks.size(), filename, null, originalId, List.of(), null));
+    for (int index = 0; index < tracks.size(); index++) {
+      progress.send(importTrack(tracks.get(index), index + 1, tracks.size(), originalId));
+    }
+    progress.send(
+        new ImportEvent(
+            "complete", tracks.size(), tracks.size(), filename, null, originalId, List.of(), null));
+  }
+
+  private ImportEvent importTrack(
+      org.w3c.dom.Element element, int completed, int total, long originalId) {
+    try {
+      Recording recording = GpxReader.recording(element);
+      TrackCollection.Imported imported = collection.save(originalId, recording);
+      List<String> warnings = new ArrayList<>();
+      if (recording.points().stream().anyMatch(point -> point.time() == null)) {
+        warnings.add("Some points have no timestamps. Their dates remain unknown.");
+      }
+      if (recording.points().stream().anyMatch(point -> point.elevation() == null)) {
+        warnings.add("Some points have no elevation. Missing values remain empty.");
+      }
+      return new ImportEvent(
+          imported.duplicate() ? "duplicate" : "imported",
+          completed,
+          total,
+          recording.name(),
+          imported.trackId(),
+          originalId,
+          warnings,
+          null);
+    } catch (IllegalArgumentException exception) {
+      return new ImportEvent(
+          "failed",
+          completed,
+          total,
+          "Track " + completed,
+          null,
+          originalId,
+          List.of(),
+          exception.getMessage());
+    } catch (org.springframework.dao.DataAccessException exception) {
+      return new ImportEvent(
+          "failed",
+          completed,
+          total,
+          "Track " + completed,
+          null,
+          originalId,
+          List.of(),
+          "The track could not be saved. Check server storage and retry; saved tracks will be"
+              + " recognized as duplicates.");
+    }
+  }
+}

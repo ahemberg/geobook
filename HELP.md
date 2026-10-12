@@ -56,10 +56,31 @@ The data directory defaults to `./data`. Startup creates it and applies versione
 migrations. SQLite uses WAL, FULL synchronization, foreign keys and a five-second busy timeout.
 Run one application instance per data directory on a local disk. Keep that directory when restarting.
 
-The current slice imports GPX 1.0/1.1 files with exactly one track, up to 32 MB and
-250,000 recorded points. It preserves source segments, point order, coordinate precision,
-timestamps, missing elevation and the unchanged original export. Collection imports and
-exact-duplicate handling follow in #25. Uploading the same track twice currently adds it twice.
+Choose several GPX 1.0/1.1 files or a collection export. Each file can contain multiple
+tracks, up to 32 MB per file and 250,000 points per track. The browser sends files one at a
+time, shows per-track progress and retains the batch results until the next upload.
+Valid tracks import even when a sibling has invalid measurements. Malformed XML rejects
+that file before any of its tracks are saved. Missing times and elevations produce warnings.
+
+Exact duplicates use decimal coordinates, elevation, UTC timestamps, point order and source
+segment structure. Names, filenames and source colours do not affect identity. Reimporting
+keeps the existing track and its saved controls, and links every distinct original export.
+Identical upload bytes reuse the original. Original downloads are byte-for-byte unchanged.
+Upgrades index existing recordings without merging or deleting duplicates created by older releases.
+
+`POST /api/imports` accepts repeated multipart `file` parts, with a 33 MB total request limit,
+and streams newline-delimited JSON. Events report `progress`, `imported`, `duplicate`, `failed`
+and `complete`, with completed/total track counts, track/original IDs and warnings. Each file
+ends with `complete` or a file-level `failed` event with total zero. Keep reverse-proxy response
+buffering disabled for this endpoint. The single-track `POST /api/tracks` response remains
+available and now includes a `duplicate` flag. Interrupted uploads may already have saved
+tracks; reuploading the same files safely resumes by skipping those duplicates.
+
+Original retention and each complete track use short serialized SQLite transactions. Parsing,
+validation, content hashing and progress delivery run outside the track write transaction.
+Collection reads remain available during import. The current overview still reads unsimplified
+geometry; large-collection performance work remains in #31.
+
 The map breaks solid lines at source segments and timestamp gaps over five minutes.
 Date attribution and filtering follow in #27; no local dates are inferred in this slice.
 

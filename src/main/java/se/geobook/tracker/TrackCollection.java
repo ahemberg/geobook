@@ -26,7 +26,7 @@ class TrackCollection {
     this.transactions = transactions;
   }
 
-  record Imported(long trackId, long originalId) {}
+  record Imported(long trackId, long originalId, boolean duplicate) {}
 
   record Summary(long id, String name, String colour) {}
 
@@ -43,23 +43,53 @@ class TrackCollection {
 
   record Original(String filename, byte[] bytes) {}
 
-  Imported upload(String filename, byte[] bytes) {
-    Recording recording = GpxReader.read(bytes);
-    return save(filename, bytes, recording);
+  long retainOriginal(String filename, byte[] bytes) {
+    String identity = ContentIdentity.original(bytes);
+    writerLock.lock();
+    try {
+      return Objects.requireNonNull(
+          transactions.execute(
+              status -> {
+                List<Long> existing =
+                    jdbc.queryForList(
+                        "SELECT id FROM original_export WHERE content_hash = ? ORDER BY id LIMIT 1",
+                        Long.class,
+                        identity);
+                if (!existing.isEmpty()) {
+                  return existing.getFirst();
+                }
+                jdbc.update(
+                    "INSERT INTO original_export(filename, bytes, content_hash) VALUES (?, ?, ?)",
+                    filename,
+                    bytes,
+                    identity);
+                return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
+              }));
+    } finally {
+      writerLock.unlock();
+    }
   }
 
-  // SQLite has one writer; parsing stays outside the serialized transaction.
-  private Imported save(String filename, byte[] bytes, Recording recording) {
+  // Each track commits atomically; parsing and progress writes do not hold SQLite's writer lock.
+  Imported save(long originalId, Recording recording) {
+    String identity = ContentIdentity.recording(recording);
     writerLock.lock();
     try {
       return transactions.execute(
           status -> {
+            List<Long> existing =
+                jdbc.queryForList(
+                    "SELECT id FROM track WHERE content_hash = ? ORDER BY id LIMIT 1",
+                    Long.class,
+                    identity);
+            if (!existing.isEmpty()) {
+              long trackId = existing.getFirst();
+              jdbc.update(
+                  "INSERT OR IGNORE INTO track_original VALUES (?, ?)", trackId, originalId);
+              return new Imported(trackId, originalId, true);
+            }
             jdbc.update(
-                "INSERT INTO original_export(filename, bytes) VALUES (?, ?)", filename, bytes);
-            long originalId =
-                Objects.requireNonNull(
-                    jdbc.queryForObject("SELECT last_insert_rowid()", Long.class));
-            jdbc.update("INSERT INTO track(name) VALUES (?)", recording.name());
+                "INSERT INTO track(name, content_hash) VALUES (?, ?)", recording.name(), identity);
             long trackId =
                 Objects.requireNonNull(
                     jdbc.queryForObject("SELECT last_insert_rowid()", Long.class));
@@ -89,7 +119,7 @@ class TrackCollection {
                     return recording.points().size();
                   }
                 });
-            return new Imported(trackId, originalId);
+            return new Imported(trackId, originalId, false);
           });
     } finally {
       writerLock.unlock();
@@ -149,6 +179,10 @@ class TrackCollection {
   }
 
   private List<Recording.Point> points(long id) {
+    return points(jdbc, id);
+  }
+
+  static List<Recording.Point> points(JdbcTemplate jdbc, long id) {
     return jdbc.query(
         "SELECT segment, latitude, longitude, elevation, recorded_time FROM track_point WHERE"
             + " track_id = ? ORDER BY ordinal",
