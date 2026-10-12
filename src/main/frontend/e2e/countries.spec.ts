@@ -1,3 +1,4 @@
+import { openDateFilters } from './workspaceControls';
 import { expect, test } from '@playwright/test';
 
 test('reviewed visits persist and country exploration keeps dates and full recordings', async ({
@@ -25,8 +26,7 @@ test('reviewed visits persist and country exploration keeps dates and full recor
     .getByLabel('Choose GPX file')
     .setInputFiles({ name: 'countries.gpx', mimeType: 'application/gpx+xml', buffer });
   await expect(page.getByRole('heading', { name })).toBeVisible();
-  if (testInfo.project.name === 'mobile')
-    await page.getByRole('button', { name: 'Date filters', exact: true }).click();
+  await openDateFilters(page);
   await page.getByRole('combobox', { name: 'Year', exact: true }).selectOption(year);
   await page.getByRole('button', { name: 'Countries', exact: true }).click();
   await page.getByRole('link', { name: 'Skip to country visits' }).focus();
@@ -51,15 +51,14 @@ test('reviewed visits persist and country exploration keeps dates and full recor
   await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(2);
   if (testInfo.project.name === 'mobile')
     await page.getByRole('button', { name: 'Show library' }).click();
-  await page.getByRole('button', { name: new RegExp(`${name}.*matching points`) }).click();
+  await page.getByRole('button', { name: new RegExp(`^${name}.*`) }).click();
   await expect(page.getByRole('region', { name: 'Complete recording' })).toContainText('3 points');
   await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(3);
   await page.getByRole('button', { name: 'Close track' }).click();
   await page.getByRole('button', { name: 'All countries', exact: true }).click();
   await expect(page.locator('.leaflet-overlay-pane path')).toHaveCount(3);
   await page.reload();
-  if (testInfo.project.name === 'mobile')
-    await page.getByRole('button', { name: 'Date filters', exact: true }).click();
+  await openDateFilters(page);
   await page.getByRole('combobox', { name: 'Year', exact: true }).selectOption(year);
   await page.getByRole('button', { name: 'Countries', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Explore Sweden' })).toContainText(

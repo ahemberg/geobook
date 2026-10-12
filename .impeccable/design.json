@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-12T09:21:29.797656Z",
+  "generatedAt": "2026-10-12T16:31:37.693457Z",
   "title": "Design System: Geobook",
   "extensions": {
     "colorMeta": {
@@ -262,7 +262,7 @@
       },
       "label": {
         "displayName": "Supporting label",
-        "purpose": "Point counts and explanatory hints."
+        "purpose": "Recorded dates, point readings and explanatory hints."
       }
     },
     "shadows": [
@@ -270,6 +270,11 @@
         "name": "map-overlay",
         "value": "0 2px 8px #20312d24",
         "purpose": "Fit all tracks control and tile-failure notice."
+      },
+      {
+        "name": "control-panel",
+        "value": "0 8px 32px #20312d30",
+        "purpose": "Date and recording-gap panels above the map."
       }
     ],
     "motion": [],
@@ -277,6 +282,14 @@
       {
         "name": "mobile",
         "value": "700px"
+      },
+      {
+        "name": "country-columns",
+        "value": "900px"
+      },
+      {
+        "name": "compact-workspace",
+        "value": "1100px"
       }
     ]
   },
@@ -285,8 +298,8 @@
       "name": "Ordinary button",
       "kind": "button",
       "refersTo": "button",
-      "description": "Close track control.",
-      "html": "<button class=\"ds-button\">Close track</button>",
+      "description": "Secondary action with the shared control shape.",
+      "html": "<button class=\"ds-button\">Close dates</button>",
       "css": ".ds-button{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;border:1px solid #9baca4;border-radius:6px;padding:10px 14px;min-height:44px;background:var(--surface,#fff);cursor:pointer;}.ds-button:hover{background:var(--selection,#e5edf8)}.ds-button:focus-visible{outline:3px solid #2768ba;outline-offset:3px;}.ds-button:disabled{cursor:wait;opacity:.65}"
     },
     {
@@ -308,17 +321,16 @@
     {
       "name": "Header",
       "kind": "custom",
-      "description": "Wordmark and current-page label; Map is static in this slice.",
-      "html": "<header class=\"ds-header\"><span class=\"ds-brand\">Geobook</span><span class=\"ds-current\">Map</span></header>",
-      "css": ".ds-header{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;height:76px;display:flex;gap:32px;align-items:center;background:var(--blue,#193f72);color:#fff;padding:0 26px}.ds-brand{font-size:28px;font-weight:700;letter-spacing:-.02em}.ds-current{font-weight:600;padding:8px 2px;border-bottom:2px solid #bcd4f5}@media(max-width:700px){.ds-header{height:64px;padding:0 16px;gap:20px}.ds-brand{font-size:25px}.ds-current{display:none}}"
+      "description": "Compact blue header with working navigation and upload; mobile navigation wraps below.",
+      "html": "<header class=\"ds-header\"><span class=\"ds-brand\">Geobook</span><nav aria-label=\"Main navigation\"><button aria-current=\"page\">Map</button><button>Countries</button><button>Original exports</button></nav><button class=\"ds-upload\">Upload GPX</button></header>",
+      "css": ".ds-header{font-family:\"Source Sans 3\",sans-serif;min-height:56px;display:flex;gap:24px;align-items:center;background:var(--blue,#193f72);color:#fff;padding:0 20px}.ds-brand{font-size:24px;font-weight:700;letter-spacing:-.02em}.ds-header nav{display:flex;gap:12px}.ds-header button{font:inherit;min-height:44px;padding:8px 12px;border:1px solid transparent;border-radius:6px;background:transparent;color:inherit;cursor:pointer}.ds-header nav button:hover,.ds-header [aria-current=\"page\"]{background:#28588f}.ds-header button:focus-visible{outline:3px solid white;outline-offset:3px}.ds-header .ds-upload{margin-left:auto;background:white;color:var(--blue,#193f72);font-weight:600}.ds-header .ds-upload:hover{background:var(--selection,#e5edf8)}@media(max-width:700px){.ds-header{min-height:64px;flex-wrap:wrap;gap:4px;padding:4px 12px}.ds-brand{font-size:25px}.ds-header nav{order:2;flex-basis:100%}}"
     },
     {
-      "name": "All time label",
-      "kind": "chip",
-      "refersTo": "scope-value",
-      "description": "Static scope indicator, not an interactive filter.",
-      "html": "<span class=\"ds-scope\">All time</span>",
-      "css": ".ds-scope{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;display:inline-block;background:var(--selection,#e5edf8);color:var(--blue,#193f72);border-radius:6px;padding:7px 14px;font-weight:600}@media(max-width:700px){.ds-scope{padding:6px 10px}}"
+      "name": "Date range control",
+      "kind": "button",
+      "description": "Applied date range; opens the date panel and returns focus when the panel closes.",
+      "html": "<button class=\"ds-scope\" aria-label=\"Date filters: All time\" aria-expanded=\"false\">All time</button>",
+      "css": ".ds-scope{font-family:\"Source Sans 3\",sans-serif;font-size:16px;min-height:44px;cursor:pointer;background:var(--selection,#e5edf8);color:var(--blue,#193f72);border:1px solid transparent;border-radius:6px;padding:10px 14px;font-weight:600}.ds-scope:hover{background:var(--selection,#e5edf8)}.ds-scope:focus-visible{outline:3px solid #2768ba;outline-offset:3px}@media(max-width:700px){.ds-scope{font-size:14px;padding-inline:8px}}"
     },
     {
       "name": "Search tracks",
@@ -331,17 +343,17 @@
       "name": "Selected track row",
       "kind": "custom",
       "refersTo": "track-row",
-      "description": "Independent visibility checkbox, selection button with saved colour and recorded date, and Edit control; sample recording is synthetic.",
-      "html": "<div class=\"ds-item\"><label class=\"ds-visibility\"><input type=\"checkbox\" checked aria-label=\"Show Synthetic waterfront walk on map\"></label><button class=\"ds-track\" aria-pressed=\"true\"><span class=\"ds-swatch\"></span><span class=\"ds-label\"><strong>Synthetic waterfront walk</strong><span>2026-06-18 UTC</span><span>5 recorded points</span></span></button><button class=\"ds-edit\" aria-label=\"Edit Synthetic waterfront walk\" aria-expanded=\"false\">Edit</button></div>",
-      "css": ".ds-item{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;display:flex;align-items:center;border-bottom:1px solid var(--line,#d8e1dc);background:var(--selection,#e5edf8)}.ds-track,.ds-edit{font:inherit;color:inherit;min-height:44px;border:0;background:transparent;cursor:pointer}.ds-track{display:flex;gap:12px;text-align:left;align-items:center;flex:1;min-width:0;width:100%;border-radius:0;padding:14px 0}.ds-edit{margin:0 8px;padding:8px;border-radius:6px}.ds-track:hover,.ds-edit:hover{background:var(--selection,#e5edf8)}.ds-item :focus-visible{outline:3px solid #2768ba;outline-offset:3px}.ds-item button:disabled{cursor:wait;opacity:.65}.ds-visibility{min-width:44px;min-height:44px;display:grid;place-items:center;cursor:pointer}.ds-visibility input{width:18px;height:18px;accent-color:var(--blue,#193f72)}.ds-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:#ad466a}.ds-label{min-width:0;display:grid;gap:4px}.ds-label strong{overflow-wrap:anywhere;font-weight:600}.ds-label>span{font-size:14px;color:var(--muted,#52645e)}"
+      "description": "Compact row with visibility, saved colour, name, nonduplicate date and Edit; sample recording is synthetic.",
+      "html": "<div class=\"ds-item\"><label class=\"ds-visibility\"><input type=\"checkbox\" checked aria-label=\"Show Synthetic waterfront walk on map\"></label><button class=\"ds-track\" aria-pressed=\"true\"><span class=\"ds-swatch\"></span><span class=\"ds-label\"><strong>Synthetic waterfront walk</strong><span>2026-06-18 UTC</span></span></button><button class=\"ds-edit\" aria-label=\"Edit Synthetic waterfront walk\" aria-expanded=\"false\">Edit</button></div>",
+      "css": ".ds-item{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;display:flex;align-items:center;min-height:56px;border-bottom:1px solid var(--line,#d8e1dc);background:var(--selection,#e5edf8)}.ds-track,.ds-edit{font:inherit;color:inherit;min-height:44px;border:0;background:transparent;cursor:pointer}.ds-track{display:flex;gap:8px;text-align:left;align-items:center;flex:1;min-width:0;width:100%;border-radius:0;padding:6px 0}.ds-edit{margin:0 4px;padding:6px;border-radius:6px}.ds-track:hover,.ds-edit:hover{background:var(--selection,#e5edf8)}.ds-item :focus-visible{outline:3px solid #2768ba;outline-offset:3px}.ds-item button:disabled{cursor:wait;opacity:.65}.ds-visibility{min-width:44px;min-height:44px;display:grid;place-items:center;cursor:pointer}.ds-visibility input{width:18px;height:18px;accent-color:var(--blue,#193f72)}.ds-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:#ad466a}.ds-label{min-width:0;display:grid;gap:4px}.ds-label strong{overflow-wrap:anywhere;font-weight:600;font-size:15px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.ds-label>span{font-size:14px;color:var(--muted,#52645e)}"
     },
     {
       "name": "Recording details",
       "kind": "custom",
       "refersTo": "track-detail",
-      "description": "Flat detail panel with original-export link; no plot or playback controls.",
-      "html": "<section class=\"ds-detail\" aria-label=\"Complete recording\"><h2>Synthetic waterfront walk</h2><p>Complete recording \u00b7 5 points \u00b7 1 segment</p><p class=\"ds-hint\">Lines break at source segments and recording gaps over five minutes.</p><a href=\"#original-export\">Download GPX</a></section>",
-      "css": ".ds-detail{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;padding:22px 24px;border-top:1px solid var(--line,#d8e1dc);background:var(--surface,#fff);overflow-wrap:anywhere}.ds-detail h2{margin:0;font-size:22px;font-weight:600;text-wrap:balance}.ds-detail p{margin:8px 0;line-height:1.5;max-width:70ch}.ds-hint{font-size:14px;color:var(--muted,#52645e)}.ds-detail a{color:var(--blue,#193f72);text-underline-offset:3px}.ds-detail a:hover{text-decoration-thickness:2px}.ds-detail a:focus-visible{outline:3px solid #2768ba;outline-offset:3px;}@media(max-width:700px){.ds-detail{padding:18px 16px}}"
+      "description": "Secondary recording metadata disclosure within the docked playback panel; sample recording is synthetic.",
+      "html": "<section class=\"ds-detail\" aria-label=\"Complete recording\"><h2>Synthetic waterfront walk</h2><details><summary>Recording details</summary><p>Complete recording · 5 points · 1 segment</p><p class=\"ds-hint\">Shaded intervals are missing recording. Missing elevation breaks the plot.</p><a href=\"#original-export\">Download GPX</a></details></section>",
+      "css": ".ds-detail{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;padding:12px 16px;border-top:1px solid var(--line,#d8e1dc);background:var(--surface,#fff);overflow-wrap:anywhere}.ds-detail h2{margin:0;font-size:18px;font-weight:600;text-wrap:balance}.ds-detail p{margin:8px 0;line-height:1.5;max-width:70ch}.ds-hint{font-size:14px;color:var(--muted,#52645e)}.ds-detail a{color:var(--blue,#193f72);text-underline-offset:3px}.ds-detail a:hover{text-decoration-thickness:2px}.ds-detail a:focus-visible{outline:3px solid #2768ba;outline-offset:3px;}@media(max-width:700px){.ds-detail{padding:8px 12px}}.ds-detail summary{cursor:pointer;min-height:44px;padding-block:12px;font-size:13px}.ds-detail summary:focus-visible{outline:3px solid #2768ba;outline-offset:3px}"
     },
     {
       "name": "Error notice",
@@ -353,9 +365,10 @@
   ],
   "narrative": {
     "northStar": "Travel timetable",
-    "overview": "Geobook puts a detailed travel map beside a compact library. A blue header anchors the page; white panels and pale blue selection keep saved recordings easy to scan. Source Sans 3 carries headings, controls and recording details.\n\nThis system records the rendered upload and track-library controls. The [approved MVP brief](docs/design/mvp.md) remains the authority for later date and country filters and playback.",
+    "overview": "Geobook puts a detailed travel map beside a compact library. A blue header anchors the page; white panels and pale blue selection keep saved recordings easy to scan. Source Sans 3 carries headings, controls and recording details.\n\nThis system records the rendered upload, date-filter, track-library controls, point inspection, playback, elevation plot, gap settings, country visit review and original-export archive, including confirmed removal. The [approved MVP brief](docs/design/mvp.md) records the approved MVP direction.",
     "keyCharacteristics": [
-      "Map beside the library on desktop, above it on mobile.",
+      "Independently scrolling library beside the map on desktop; a collapsible library on mobile.",
+      "Selected recording plot docked below the map within the viewport.",
       "Saved track colours connect library swatches and map geometry.",
       "Flat panels, visible dividers and labelled controls."
     ],
@@ -369,11 +382,11 @@
     "dos": [
       "Do preserve the saved track colour across the library and map.",
       "Do keep keyboard focus, map attribution and labelled touch controls visible.",
-      "Do let track names wrap and keep supporting counts readable.",
+      "Do keep compact track names readable and the full saved name accessible.",
+      "Do keep the map visible while the track list or recording details scroll.",
       "Do use synthetic recordings in public examples."
     ],
     "donts": [
-      "Don't treat planned date filters or playback as existing components.",
       "Don't substitute schematic geography for the application's detailed map.",
       "Don't use track colour alone to communicate an error or warning."
     ]

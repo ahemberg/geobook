@@ -1,3 +1,4 @@
+import { openDateFilters, openLibrary } from './workspaceControls';
 import { expect, test } from '@playwright/test';
 
 test('upload, select, reopen and download a recording on the packaged map', async ({
@@ -49,7 +50,7 @@ test('upload, select, reopen and download a recording on the packaged map', asyn
   await page.reload();
   if (testInfo.project.name === 'mobile')
     await page.getByRole('button', { name: 'Show library' }).click();
-  await page.getByRole('button', { name: new RegExp(`${name}.*recorded points`) }).click();
+  await page.getByRole('button', { name: new RegExp(`^${name}.*`) }).click();
   await expect(page.getByRole('region', { name: 'Complete recording' })).toContainText(
     '5 points · 2 segments',
   );
@@ -74,8 +75,7 @@ test('batch collection import reports partial failure and skips repeated recordi
   );
   const individual = Buffer.from(`<gpx xmlns="http://www.topografix.com/GPX/1/1">${track}</gpx>`);
   await page.goto('/');
-  if (testInfo.project.name === 'mobile')
-    await page.getByRole('button', { name: 'Date filters' }).click();
+  await openDateFilters(page);
   await page.getByRole('combobox', { name: 'Year', exact: true }).selectOption('2025');
   await expect(page.getByText('2025-01-01 to 2025-12-31')).toBeVisible();
   await page.getByLabel('Choose GPX file').setInputFiles([
@@ -85,10 +85,9 @@ test('batch collection import reports partial failure and skips repeated recordi
   await expect(
     page.getByRole('status').filter({ hasText: '2 imported · 1 duplicate · 1 failed' }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'All time', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  await expect(
+    page.getByRole('button', { name: 'Date filters: All time', exact: true }),
+  ).toHaveAttribute('aria-expanded', 'false');
   await expect(
     page.getByText('Warning: Some points have no timestamps. Their dates remain unknown.').first(),
   ).toBeVisible();
@@ -101,7 +100,8 @@ test('batch collection import reports partial failure and skips repeated recordi
   ).toEqual(individual);
   if (testInfo.project.name === 'mobile')
     await page.getByRole('button', { name: 'Show library' }).click();
-  await page.getByRole('button', { name: new RegExp(`${name}.*recorded points`) }).click();
+  await page.getByRole('button', { name: new RegExp(`^${name}.*`) }).click();
+  await page.getByText('Recording details', { exact: true }).click();
   await expect(
     page
       .getByRole('region', { name: 'Complete recording' })
@@ -144,33 +144,40 @@ test('filter point-local dates then open and inspect the full recording', async 
     </trkseg></trk></gpx>`),
   });
   await expect(page.getByRole('heading', { name })).toBeVisible();
-  if (testInfo.project.name === 'mobile')
-    await page.getByRole('button', { name: 'Date filters' }).click();
+  await openDateFilters(page);
   await page.getByRole('combobox', { name: 'Year', exact: true }).selectOption('2024');
   await expect(page.getByText('2024-01-01 to 2024-12-31')).toBeVisible();
+  await openDateFilters(page);
   await page.getByLabel('From', { exact: true }).fill('2024-06-19');
   await page.getByLabel('To', { exact: true }).fill('2024-06-19');
   await page.getByRole('button', { name: 'Apply dates' }).click();
   if (testInfo.project.name === 'mobile')
     await page.getByRole('button', { name: 'Show library' }).click();
   const row = page.getByRole('button', { name: new RegExp(`^${name} `) });
-  await expect(row).toContainText('2 matching points');
+  await expect(row).toBeVisible();
   const filteredPaths = await page.locator('.leaflet-overlay-pane path').count();
   expect(filteredPaths).toBeGreaterThan(0);
   await row.click();
   await expect(page.getByRole('region', { name: 'Complete recording' })).toContainText('3 points');
   await expect(page.getByText('2024-06-18 23:59:00+02:00')).toBeVisible();
+  await page.getByText('Point details', { exact: true }).click();
   await page.getByRole('button', { name: 'Next point' }).click();
   await expect(page.getByText('2024-06-19 00:00:00+02:00')).toBeVisible();
   const visibility = page.getByRole('checkbox', { name: `Show ${name} on map` });
+  await openLibrary(page);
   await visibility.click();
   await expect(page.locator('.leaflet-overlay-pane path[stroke-width="5"]')).toHaveCount(0);
+  await openLibrary(page);
   await visibility.click();
   await expect(page.locator('.leaflet-overlay-pane path[stroke-width="5"]')).toHaveCount(1);
+  if (testInfo.project.name === 'mobile')
+    await page.getByRole('button', { name: 'Hide library' }).click();
   await page.getByRole('button', { name: 'Close track' }).click();
-  await expect(row).toContainText('2 matching points');
+  await openLibrary(page);
+  await expect(row).toBeVisible();
+  await openDateFilters(page);
   await page.getByRole('button', { name: 'All time', exact: true }).click();
-  await expect(row).toContainText('3 recorded points');
+  await expect(row).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );

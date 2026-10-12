@@ -1,3 +1,4 @@
+import { openDateFilters, openLibrary } from './workspaceControls';
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -41,8 +42,7 @@ test('download, cancel and confirm track and whole-file removal with shared sour
   await expect(
     page.getByRole('status').filter({ hasText: '3 imported · 1 duplicate' }),
   ).toBeVisible();
-  if (label === 'mobile')
-    await page.getByRole('button', { name: 'Date filters', exact: true }).click();
+  await openDateFilters(page);
   await page.getByRole('combobox', { name: 'Year', exact: true }).selectOption(year);
   await page.getByRole('button', { name: 'Countries', exact: true }).click();
   await page.getByRole('checkbox', { name: `Select Sweden ${year}-06-19` }).check();
@@ -57,8 +57,9 @@ test('download, cancel and confirm track and whole-file removal with shared sour
   await page.getByLabel('Track colour').fill('#a10203');
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.locator('.leaflet-overlay-pane path[stroke="#a10203"]')).toHaveCount(1);
-  await page.getByRole('button', { name: new RegExp(`^${deletedName} .*matching points`) }).click();
+  await page.getByRole('button', { name: new RegExp(`^${deletedName} .*`) }).click();
   await expect(page.getByRole('heading', { name: deletedName })).toBeVisible();
+  await openLibrary(page);
   await page.getByRole('button', { name: `Edit ${deletedName}`, exact: true }).click();
   await page.getByRole('button', { name: 'Delete track', exact: true }).click();
   let dialog = page.getByRole('dialog');

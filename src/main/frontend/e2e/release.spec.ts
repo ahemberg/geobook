@@ -1,3 +1,4 @@
+import { openDateFilters, openLibrary } from './workspaceControls';
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
@@ -35,8 +36,8 @@ test('saved controls and reviewed days survive reimport and removal of overlappi
   await page.goto('/map');
   if (testInfo.project.name === 'mobile') {
     await expect(page.getByRole('searchbox', { name: 'Search tracks' })).not.toBeVisible();
-    await page.getByRole('button', { name: 'Date filters', exact: true }).click();
   }
+  await openDateFilters(page);
   await page.getByLabel('From', { exact: true }).fill('1999-01-01');
   await page.getByLabel('To', { exact: true }).fill('1999-01-01');
   await page.getByRole('button', { name: 'Apply dates' }).click();
@@ -45,10 +46,9 @@ test('saved controls and reviewed days survive reimport and removal of overlappi
   await expect(
     page.getByRole('status').filter({ hasText: '3 imported · 1 duplicate' }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'All time', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  await expect(
+    page.getByRole('button', { name: 'Date filters: All time', exact: true }),
+  ).toHaveAttribute('aria-expanded', 'false');
   if (testInfo.project.name === 'mobile')
     await page.getByRole('button', { name: 'Show library' }).click();
   await page.getByRole('button', { name: `Edit ${sharedName}`, exact: true }).click();
@@ -58,11 +58,13 @@ test('saved controls and reviewed days survive reimport and removal of overlappi
   const coloured = page.locator('.leaflet-overlay-pane path[stroke="#654abc"]');
   await expect(coloured).toHaveCount(2);
 
+  await openDateFilters(page);
+
   await page.getByLabel('From', { exact: true }).fill(`${year}-06-19`);
   await page.getByLabel('To', { exact: true }).fill(`${year}-06-19`);
   await page.getByRole('button', { name: 'Apply dates' }).click();
   const row = page.getByRole('button', { name: new RegExp(`^${renamed} `) });
-  await expect(row).toContainText('3 matching points');
+  await expect(row).toBeVisible();
   await row.click();
   const recording = page.getByRole('region', { name: 'Complete recording' });
   await expect(recording).toContainText('4 points · 2 segments');
@@ -73,8 +75,10 @@ test('saved controls and reviewed days survive reimport and removal of overlappi
     'Recorded position: 52.52, 13.405',
   );
   await page.getByRole('button', { name: 'Close track' }).click();
+  await openLibrary(page);
   await page.getByRole('checkbox', { name: `Show ${renamed} on map` }).click();
   await expect(coloured).toHaveCount(0);
+  await openDateFilters(page);
   await page.getByRole('combobox', { name: 'Year', exact: true }).selectOption(year);
   await page.getByRole('button', { name: 'Countries', exact: true }).click();
   for (const day of ['18', '19', '20'])
@@ -106,6 +110,7 @@ test('saved controls and reviewed days survive reimport and removal of overlappi
     await other.getByRole('button', { name: `Edit ${renamed}`, exact: true }).click();
     await expect(other.getByLabel('Track colour')).toHaveValue('#654abc');
     await other.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await openDateFilters(other);
     await other.getByRole('combobox', { name: 'Year', exact: true }).selectOption(year);
     await other.getByRole('button', { name: 'Countries', exact: true }).click();
     await expect(other.getByRole('button', { name: 'Explore Sweden' })).toContainText(
@@ -118,6 +123,7 @@ test('saved controls and reviewed days survive reimport and removal of overlappi
   }
 
   await page.getByRole('button', { name: 'Map', exact: true }).click();
+  await openDateFilters(page);
   await page.getByRole('combobox', { name: 'Year', exact: true }).selectOption(year);
   await page.getByRole('button', { name: `Edit ${deletedName}`, exact: true }).click();
   await page.getByRole('button', { name: 'Delete track', exact: true }).click();

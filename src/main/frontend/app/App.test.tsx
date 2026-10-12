@@ -84,16 +84,14 @@ test('upload shows the saved track and a download of the original export', async
     new File(['synthetic'], 'walk.gpx', { type: 'application/gpx+xml' }),
   );
   await waitFor(() =>
-    expect(
-      screen.getByRole('button', { name: /Synthetic waterfront.*recorded points/ }),
-    ).toBeVisible(),
+    expect(screen.getByRole('button', { name: /^Synthetic waterfront.*/ })).toBeVisible(),
   );
   await user.click(screen.getByText('Review import results'));
   expect(screen.getByRole('link', { name: /^Download original export/ })).toHaveAttribute(
     'href',
     '/api/originals/1',
   );
-  expect(screen.getByText('Date unknown')).toBeVisible();
+  expect(screen.getAllByText('Date unknown')).toHaveLength(2);
 });
 
 test('a rejected upload explains the problem and allows another file', async () => {
@@ -175,7 +173,7 @@ test('search and editing use saved responses and explain failures', async () => 
   );
   const user = userEvent.setup();
   render(<App />);
-  await screen.findByRole('button', { name: /Synthetic waterfront.*recorded points/ });
+  await screen.findByRole('button', { name: /^Synthetic waterfront.*/ });
   await user.type(screen.getByRole('searchbox', { name: 'Search tracks' }), 'missing');
   expect(screen.getByText('No tracks match your search.')).toBeVisible();
   await user.clear(screen.getByRole('searchbox', { name: 'Search tracks' }));
@@ -256,7 +254,7 @@ test('a delayed collection load cannot overwrite a saved visibility change', asy
   const user = userEvent.setup();
   render(<App />);
   const row = await screen.findByRole('button', {
-    name: /Synthetic delayed walk.*recorded points/,
+    name: /^Synthetic delayed walk.*/,
   });
   await user.click(row);
   await user.click(row);
@@ -433,8 +431,10 @@ test('local-date filters open a complete recording and uploads reset All time', 
   );
   const user = userEvent.setup();
   render(<App />);
+  await user.click(screen.getByRole('button', { name: /^Date filters:/ }));
   await user.selectOptions(await screen.findByLabelText('Year'), '2025');
   expect(await screen.findByText('2025-01-01 to 2025-12-31')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: /^Date filters:/ }));
   // Native date inputs use an ISO value independent of the browser's display locale.
   fireEvent.change(screen.getByLabelText('From'), { target: { value: '2025-06-19' } });
   fireEvent.change(screen.getByLabelText('To'), { target: { value: '2025-06-19' } });
@@ -445,16 +445,18 @@ test('local-date filters open a complete recording and uploads reset All time', 
       expect.anything(),
     ),
   );
-  await user.click(await screen.findByRole('button', { name: /Midnight walk.*matching points/ }));
+  await user.click(await screen.findByRole('button', { name: /^Midnight walk.*/ }));
+  await user.click(await screen.findByText('Recording details'));
+  await user.click(screen.getByText('Point details'));
   expect(await screen.findByText(/Complete recording · 2 points/)).toBeVisible();
   expect(screen.getByText('2025-06-18 23:59:00+02:00')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Next point' }));
   expect(screen.getByText('2025-06-19 00:00:00+02:00')).toBeVisible();
   await user.upload(screen.getByLabelText('Choose GPX file'), new File(['fixture'], 'walk.gpx'));
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'All time' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
+    expect(screen.getByRole('button', { name: 'Date filters: All time' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
     ),
   );
 });
@@ -479,6 +481,7 @@ test('empty date ranges and invalid endpoints have clear recovery', async () => 
   const user = userEvent.setup();
   render(<App />);
   await screen.findByText('Your travels start here');
+  await user.click(screen.getByRole('button', { name: /^Date filters:/ }));
   await user.click(screen.getByRole('button', { name: 'Apply dates' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Choose both dates');
   fireEvent.change(screen.getByLabelText('From'), { target: { value: '2025-06-20' } });
@@ -488,8 +491,10 @@ test('empty date ranges and invalid endpoints have clear recovery', async () => 
   fireEvent.change(screen.getByLabelText('To'), { target: { value: '2025-06-21' } });
   await user.click(screen.getByRole('button', { name: 'Apply dates' }));
   expect(await screen.findByText('No recorded points in these dates')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: /^Date filters:/ }));
   await user.click(screen.getByRole('button', { name: 'All time' }));
   expect(await screen.findByText('Your travels start here')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: /^Date filters:/ }));
   await user.click(screen.getByRole('button', { name: 'All time' }));
   expect(screen.getByText('Your travels start here')).toBeVisible();
 });
@@ -534,13 +539,14 @@ test('an upload finishing after a filter change still resets All time', async ()
   render(<App />);
   await screen.findByText('Your travels start here');
   await user.upload(screen.getByLabelText('Choose GPX file'), new File(['fixture'], 'walk.gpx'));
+  await user.click(screen.getByRole('button', { name: /^Date filters:/ }));
   await user.selectOptions(screen.getByLabelText('Year'), '2025');
   await screen.findByText('2025-01-01 to 2025-12-31');
   finishUpload(importedResponse());
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'All time' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
+    expect(screen.getByRole('button', { name: 'Date filters: All time' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
     ),
   );
 });
@@ -631,13 +637,14 @@ test('batch completion restores All time after the last new track has arrived', 
   await screen.findByText('Your travels start here');
   await user.upload(screen.getByLabelText('Choose GPX file'), new File(['fixture'], 'walk.gpx'));
   await screen.findByRole('heading', { name: 'Imported walk' });
+  await user.click(screen.getByRole('button', { name: /^Date filters:/ }));
   await user.selectOptions(screen.getByLabelText('Year'), '2025');
   await screen.findByText('2025-01-01 to 2025-12-31');
   finishImport();
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'All time' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
+    expect(screen.getByRole('button', { name: 'Date filters: All time' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
     ),
   );
   expect(await screen.findByRole('heading', { name: 'Imported walk' })).toBeVisible();
@@ -696,15 +703,17 @@ test('compact overview geometry keeps full point counts and fetches detail only 
   const user = userEvent.setup();
   render(<App />);
   await screen.findByRole('button', {
-    name: /Dense recording.*10,000 recorded points/,
+    name: /^Dense recording.*/,
   });
   expect(requests).not.toContain('/api/tracks/1');
+  await user.click(screen.getByRole('button', { name: /^Date filters:/ }));
   await user.selectOptions(screen.getByLabelText('Year'), '2025');
   const row = await screen.findByRole('button', {
-    name: /Dense recording.*10,000 matching points/,
+    name: /^Dense recording.*/,
   });
   expect(requests).not.toContain('/api/tracks/1');
   await user.click(row);
+  await user.click(await screen.findByText('Recording details'));
   expect(await screen.findByText(/Complete recording · 10,000 points/)).toBeVisible();
   expect(requests.filter((url) => url === '/api/tracks/1')).toHaveLength(1);
 });
