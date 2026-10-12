@@ -4,11 +4,13 @@ CREATE TABLE overview_run (
     first_ordinal INTEGER NOT NULL,
     last_ordinal INTEGER NOT NULL,
     local_date TEXT,
+    country_code TEXT,
     break_before INTEGER NOT NULL,
     seconds_before INTEGER NOT NULL,
     PRIMARY KEY (track_id, first_ordinal)
 );
 CREATE INDEX overview_run_local_date ON overview_run(local_date, track_id, first_ordinal);
+CREATE INDEX overview_run_country ON overview_run(country_code, local_date, track_id, first_ordinal);
 CREATE TABLE overview_point (
     track_id INTEGER NOT NULL,
     run_ordinal INTEGER NOT NULL,

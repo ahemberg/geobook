@@ -101,7 +101,7 @@ components:
 
 Geobook puts a detailed travel map beside a compact library. A blue header anchors the page; white panels and pale blue selection keep saved recordings easy to scan. Source Sans 3 carries headings, controls and recording details.
 
-This system records the rendered upload, date-filter, track-library controls, point inspection, playback, elevation plot, gap settings and original-export archive, including confirmed removal. The [approved MVP brief](docs/design/mvp.md) remains the authority for later country filters.
+This system records the rendered upload, date-filter, track-library controls, point inspection, playback, elevation plot, gap settings, country visit review and original-export archive, including confirmed removal. The [approved MVP brief](docs/design/mvp.md) records the approved MVP direction.
 
 **Key Characteristics:**
 
@@ -123,7 +123,7 @@ Use `surface` for panels, `ink` for text, `muted` for supporting text, `line` fo
 
 ### Status and focus
 
-Notices have separate informational, success, error and warning fills. Error and warning text use their matching text tokens. Explicit messages carry the meaning. Destructive controls use `error-text` for text and borders, with `error-background` on hover. `focus` marks keyboard focus; focus on the blue header uses white. Header navigation uses `blue-hover` for hover and the current page.
+Notices have separate informational, success, error and warning fills. Error and warning text use their matching text tokens. Explicit messages carry the meaning. `focus` marks keyboard focus; focus on the blue header uses white. Destructive controls use `error-text` for text and borders, with `error-background` on hover. Header navigation uses `blue-hover` for hover and the current page.
 
 **The Saved Colour Rule.** A track's saved colour connects its swatch and map geometry; status colours describe application feedback.
 
@@ -137,7 +137,9 @@ The brand is the largest text. Library and recording headings use `title`; first
 
 The app fills at least the dynamic viewport height. Desktop has a 76px header and a scope strip at least 70px high. A 300px library sits beside a flexible map column. The map has a 460px minimum height, with the selected recording below it. Panels grow with content; long names wrap.
 
-At widths up to 700px, the header grows with its content, with a 64px minimum height. Navigation wraps onto a full-width row below the brand and upload button; both destinations remain visible. The scope strip has a 64px minimum height, wrapping as needed. Date controls start collapsed behind a Date filters button; the current scope stays visible. The map moves above the library and its minimum height becomes 48dvh. The selected recording stays beneath the map. The library starts collapsed behind a labelled toggle; the first-use upload prompt remains visible. Common horizontal padding contracts to 16px.
+At widths up to 700px, the header has a 64px minimum height and the scope strip has a 64px minimum height, wrapping as needed. Date controls start collapsed behind a Date filters button; the current scope stays visible. The map moves above the library and its minimum height becomes 48dvh. The selected recording stays beneath the map. The library starts collapsed behind a labelled toggle; the first-use upload prompt remains visible. Map, Countries and Original exports navigation remain visible; the header wraps when needed. Common horizontal padding contracts to 16px.
+
+Countries places confirmed summaries beside country-day review on desktop and stacks them on mobile. Date controls and the current scope stay above both views.
 
 The archive replaces the map workspace with a full-width list padded by 24px. File details sit opposite their download and removal actions. On mobile, padding becomes 20px vertically and 16px horizontally, and each row stacks its actions beneath the file details. Long filenames wrap.
 
@@ -157,7 +159,15 @@ Ordinary buttons have a white fill and a single-pixel border. Primary buttons us
 
 ### Header and scope
 
-The header contains the Geobook wordmark, Map and Original exports navigation buttons, and Upload GPX aligned to the right. Navigation uses white text, a filled hover state and `aria-current` for the selected page. The scope strip appears in the map view and contains Recorded travel, the applied date range or All time, and the matching track count. Below it, labelled native date fields apply an inclusive range using local time at each point. A year selector applies a full calendar year; All time clears the range and includes points with unknown dates. Form controls use white fills, outlined borders and the shared focus treatment. The upload button opens a hidden native file input.
+The header contains the Geobook wordmark, Map, Countries and Original exports buttons and Upload GPX aligned to the right. Navigation uses white text, a filled hover state and `aria-current` for the selected page. The scope strip appears in Map and Countries and contains Recorded travel, the applied date range or All time, the selected country with an All countries action when scoped, and the matching track count. Below it, labelled native date fields apply an inclusive range using local time at each point. A year selector applies a full calendar year; All time clears the range and includes points with unknown dates. Form controls use white fills, outlined borders and the shared focus treatment. The upload button opens a hidden native file input.
+
+### Country visits
+
+Confirmed summaries show a country name, distinct recorded days, and first and latest visit dates in divided rows. Selecting a country opens its map extent and filters recorded points while keeping the active dates. All countries clears that country scope.
+
+Review rows keep country, local date and recording evidence together. Native checkboxes support bulk confirmation and exclusion; each row also offers reversible decisions. A state selector separates pending, confirmed and excluded days. Saved totals stay separate from suggestions, with uncertainty and review guidance above the controls.
+
+The skip link targets the visible view. Countries provides a focusable main landmark; Map targets the track library.
 
 ### Track rows
 
@@ -177,7 +187,7 @@ Cancel receives initial focus. Cancel or Escape returns focus to the triggering 
 
 ### Recording details
 
-A white panel beneath the map contains a heading, complete point and segment counts, gap guidance and original-export downloads. It explains that the recording includes points outside the date filter and that hidden tracks stay off the map. Previous point, Next point and a numbered input inspect each point's local time, timezone, coordinates and recorded elevation, with explicit unknown values. Close track floats right on desktop and precedes the heading on mobile. Playback adds play and pause, four speed choices and an elapsed-time slider. The elevation plot uses the saved track colour, labelled axes and a selected-point marker; pointer and touch dragging select recorded points. Missing elevation breaks the plot, and recording gaps show shaded intervals with their duration. Playback moves a blue marker with a white border while the map camera stays under manual control. A collapsible gap-settings form beneath the date filter saves the gap threshold and optional dashed map connections.
+A white panel beneath the map contains a heading, complete point and segment counts, gap guidance and original-export downloads. It explains that the recording includes points outside the date and country filters and that hidden tracks stay off the map. Previous point, Next point and a numbered input inspect each point's local time, timezone, coordinates and recorded elevation, with explicit unknown values. Close track floats right on desktop and precedes the heading on mobile. Playback adds play and pause, four speed choices and an elapsed-time slider. The elevation plot uses the saved track colour, labelled axes and a selected-point marker; pointer and touch dragging select recorded points. Missing elevation breaks the plot, and recording gaps show shaded intervals with their duration. Playback moves a blue marker with a white border while the map camera stays under manual control. A collapsible gap-settings form beneath the date filter saves the gap threshold and optional dashed map connections.
 
 ### Map and notices
 
@@ -196,6 +206,5 @@ Upload and loading feedback use full-width notice strips. Tile failure uses a wa
 
 ### Don't:
 
-- Don't treat planned country filters as existing components.
 - Don't substitute schematic geography for the application's detailed map.
 - Don't use track colour alone to communicate an error or warning.

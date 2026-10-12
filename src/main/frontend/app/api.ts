@@ -50,6 +50,24 @@ export async function request<T>(url: string, options?: RequestInit): Promise<T>
   return response.json() as Promise<T>;
 }
 
+export type Country = {
+  country: string;
+  name: string;
+  firstVisit: string;
+  latestVisit: string;
+  recordedDays: number;
+  bounds: [LatLngTuple, LatLngTuple];
+};
+
+export type VisitCandidate = {
+  country: string;
+  name: string;
+  date: string;
+  state: 'pending' | 'confirmed' | 'excluded';
+  tracks: { trackId: number; name: string }[];
+};
+
+export type DateRange = { from: string; to: string } | null;
 export type Controls = Pick<Overview, 'id' | 'name' | 'colour' | 'visible' | 'revision'>;
 
 export type OriginalExport = {
@@ -63,4 +81,5 @@ export type RemovalPreview = Pick<OriginalExport, 'id' | 'filename' | 'tracks'> 
   revision: string;
 };
 
+export type MapTrack = Pick<Overview, 'id' | 'colour' | 'visible' | 'geometry' | 'gaps'>;
 export type PlaybackSettings = { gapSeconds: number; showGapConnections: boolean };

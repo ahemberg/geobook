@@ -197,6 +197,40 @@ large-collection timings, including a runnable synthetic workload, are recorded 
 [benchmark guide](benchmarks/README.md). Repeat those checks before the final MVP release.
 
 
+## Country visits
+
+Open Countries to see confirmed first/latest recorded visits and distinct recorded
+local days within the active date range. Review pending country days individually
+or select up to 1000 days to confirm or exclude together. Confirm ground presence outside
+an airport, including ground transit. Exclude flyovers and airport-only layovers.
+Use the review-state selector to revisit confirmed or excluded decisions or return
+them to pending. Evidence buttons open complete recordings.
+
+Select a confirmed country to fit its bounds and show only recorded portions in
+that country and date range. All countries clears the country selection without
+changing the dates. Opening a complete recording shows its other portions too.
+Pending and excluded decisions never remove map geometry; hidden tracks still
+contribute recorded evidence and confirmed days.
+
+`GET /api/visits` returns country/day candidates, their review states and backing
+track IDs/names, plus the count of points with unresolved country or local date.
+`GET /api/countries` returns confirmed summaries and country bounds. Both accept
+inclusive `from` and `to` dates. `PATCH /api/visits/review` accepts a `state` of
+`pending`, `confirmed` or `excluded`, plus `visits` containing 1 to 1000 objects
+with `country` and `date`. Invalid batches save nothing. `GET /api/tracks` accepts
+an optional `country` using the returned country identifier. Full-track reads
+remain unfiltered.
+
+Natural Earth v5.1.2 country polygons and JTS 1.20.0 run offline. Attribution and
+resource version persist separately from source bytes. First startup attributes
+existing points in a Flyway transaction. Allow it to finish. Border, coastline,
+ocean and missing-date limits appear in the review flow; distribution details
+and the reproduction command are at `/notices/countries.md`.
+
+Review decisions survive restart and duplicate import. Summaries derive from live
+track evidence instead of cached totals, so recording removal must delete its
+points and relationships and cannot leave a stored summary contribution behind.
+Pi startup, memory and large-collection timings remain release checks in #31.
 ## Playback and recording gaps
 
 Open a complete recording to play or pause it, choose 1x, 10x, 100x or 1000x,

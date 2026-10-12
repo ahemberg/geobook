@@ -1,21 +1,24 @@
-import { useEffect, useRef, useState } from 'react';
-import type { RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { request } from './api';
-import type { Controls, MapConfig, Overview, PlaybackSettings } from './api';
+import type { Controls, Country, DateRange, MapConfig, Overview, PlaybackSettings } from './api';
 import RecordingWorkspace from './RecordingWorkspace';
 import GapSettings from './GapSettings';
 import DateFilter from './DateFilter';
-import TrackLibrary from './TrackLibrary';
+import Countries from './Countries';
 import OriginalArchive from './OriginalArchive';
+import TrackLibrary from './TrackLibrary';
 import { useUpload, UploadFeedback } from './Upload';
+
+type View = 'map' | 'countries' | 'originals';
 
 export default function App() {
   const [settingsReload, setSettingsReload] = useState(0);
-  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [country, setCountry] = useState<Country | null>(null);
+  const [view, setView] = useState<View>('map');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reload, setReload] = useState(0);
   const [importedIds, setImportedIds] = useState<number[]>([]);
-  const [range, setRange] = useState<{ from: string; to: string } | null>(null);
+  const [range, setRange] = useState<DateRange>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const {
@@ -29,7 +32,7 @@ export default function App() {
     onSaved,
     settings,
     setSettings,
-  } = useOverview(range, reload + settingsReload);
+  } = useOverview(range, reload + settingsReload, country);
 
   function removed() {
     setSelectedId(null);
@@ -39,7 +42,7 @@ export default function App() {
     document.getElementById('tracks')?.focus();
   }
 
-  function filter(next: { from: string; to: string } | null) {
+  function filter(next: DateRange) {
     if (next !== range) {
       setRange(next);
       clear();
@@ -55,35 +58,37 @@ export default function App() {
   }
 
   const uploadState = useUpload((trackIds) => {
+    setCountry(null);
+    setView('map');
     setRange(null);
     clear();
     setImportedIds(trackIds);
     setSelectedId(trackIds.length === 1 ? (trackIds[0] ?? null) : null);
     setReload((value) => value + 1);
   });
-  const { upload, uploading } = uploadState;
-  const mapStatus = loadError ? 'Map unavailable' : 'Loading map…';
-  const scopeLabel = range ? `${range.from} to ${range.to}` : 'All time';
+  const { uploading } = uploadState;
+  function explore(next: Country | null) {
+    setCountry(next);
+    setSelectedId(null);
+    setImportedIds([]);
+    setView('map');
+    clear();
+  }
 
   return (
     <>
-      <AppHeader
-        archiveOpen={archiveOpen}
-        setArchiveOpen={setArchiveOpen}
-        fileInput={fileInput}
-        uploading={uploading}
-        upload={upload}
-      />
+      <AppHeader view={view} setView={setView} uploadState={uploadState} fileInput={fileInput} />
       <UploadFeedback {...uploadState} />
-      {archiveOpen ? (
+      {view === 'originals' ? (
         <OriginalArchive reload={reload} onRemoved={removed} />
       ) : (
         <>
-          <div className="scope">
-            <h1>Recorded travel</h1>
-            <span className="scope-value">{scopeLabel}</span>
-            <span className="track-count">Tracks: {tracks.length}</span>
-          </div>
+          <TravelScope
+            range={range}
+            country={country}
+            count={tracks.length}
+            clearCountry={() => explore(null)}
+          />
           <DateFilter range={range} years={years} apply={filter} />
           {settings && (
             <GapSettings
@@ -100,10 +105,21 @@ export default function App() {
               <button onClick={() => setReload((value) => value + 1)}>Retry loading</button>
             </div>
           )}
-          <main className="workspace">
+          {view === 'countries' && (
+            <Countries
+              key={`${range?.from}-${range?.to}-${reload}`}
+              range={range}
+              explore={explore}
+              openRecording={(id) => {
+                select(id);
+                setView('map');
+              }}
+            />
+          )}
+          <main className="workspace" hidden={view !== 'map'}>
             <TrackLibrary
               tracks={tracks}
-              filtered={range !== null}
+              filtered={range !== null || country !== null}
               onSaved={onSaved}
               onRemoved={removed}
               selectedId={selectedId}
@@ -118,9 +134,10 @@ export default function App() {
               config={config}
               selectedId={selectedId}
               importedIds={importedIds}
+              country={country}
               reload={reload + settingsReload}
               settings={settings}
-              mapStatus={mapStatus}
+              loadError={loadError}
               close={() => setSelectedId(null)}
             />
           </main>
@@ -130,39 +147,65 @@ export default function App() {
   );
 }
 
-function AppHeader({
-  archiveOpen,
-  setArchiveOpen,
-  fileInput,
-  uploading,
-  upload,
+function TravelScope({
+  range,
+  country,
+  count,
+  clearCountry,
 }: {
-  archiveOpen: boolean;
-  setArchiveOpen: (open: boolean) => void;
-  fileInput: RefObject<HTMLInputElement | null>;
-  uploading: boolean;
-  upload: (files: File[]) => Promise<void>;
+  range: DateRange;
+  country: Country | null;
+  count: number;
+  clearCountry: () => void;
 }) {
   return (
+    <div className="scope">
+      <h1>Recorded travel</h1>
+      <span className="scope-value">{range ? `${range.from} to ${range.to}` : 'All time'}</span>
+      {country && (
+        <>
+          <span className="scope-value">{country.name}</span>
+          <button onClick={() => clearCountry()}>All countries</button>
+        </>
+      )}
+      <span className="track-count">Tracks: {count}</span>
+    </div>
+  );
+}
+
+function AppHeader({
+  view,
+  setView,
+  uploadState,
+  fileInput,
+}: {
+  view: View;
+  setView: (view: View) => void;
+  uploadState: ReturnType<typeof useUpload>;
+  fileInput: RefObject<HTMLInputElement | null>;
+}) {
+  const { upload, uploading } = uploadState;
+  return (
     <>
-      <a className="skip-link" href={archiveOpen ? '#originals' : '#tracks'}>
-        Skip to {archiveOpen ? 'original exports' : 'tracks'}
+      <a
+        className="skip-link"
+        href={`#${{ map: 'tracks', countries: 'country-visits', originals: 'originals' }[view]}`}
+      >
+        Skip to{' '}
+        {{ map: 'tracks', countries: 'country visits', originals: 'original exports' }[view]}
       </a>
       <header className="app-header">
         <span className="brand">Geobook</span>
         <nav aria-label="Main navigation">
-          <button
-            aria-current={!archiveOpen ? 'page' : undefined}
-            onClick={() => setArchiveOpen(false)}
-          >
-            Map
-          </button>
-          <button
-            aria-current={archiveOpen ? 'page' : undefined}
-            onClick={() => setArchiveOpen(true)}
-          >
-            Original exports
-          </button>
+          {(['map', 'countries', 'originals'] as const).map((destination) => (
+            <button
+              key={destination}
+              aria-current={view === destination ? 'page' : undefined}
+              onClick={() => setView(destination)}
+            >
+              {{ map: 'Map', countries: 'Countries', originals: 'Original exports' }[destination]}
+            </button>
+          ))}
         </nav>
         <button
           className="upload-button"
@@ -189,7 +232,7 @@ function AppHeader({
   );
 }
 
-function useOverview(range: { from: string; to: string } | null, reload: number) {
+function useOverview(range: DateRange, reload: number, country: Country | null) {
   const [settings, setSettings] = useState<PlaybackSettings | null>(null);
   const [tracks, setTracks] = useState<Overview[]>([]);
   const [config, setConfig] = useState<MapConfig | null>(null);
@@ -207,7 +250,9 @@ function useOverview(range: { from: string; to: string } | null, reload: number)
   useEffect(() => {
     const controller = new AbortController();
     savedControls.current.clear();
-    const query = range ? `?${new URLSearchParams(range).toString()}` : '';
+    const params = new URLSearchParams(range ?? {});
+    if (country) params.set('country', country.country);
+    const query = params.size ? `?${params.toString()}` : '';
     Promise.all([
       request<Overview[]>(`/api/tracks${query}`, { signal: controller.signal }),
       request<number[]>('/api/tracks/years', { signal: controller.signal }),
@@ -230,7 +275,7 @@ function useOverview(range: { from: string; to: string } | null, reload: number)
         }
       });
     return () => controller.abort();
-  }, [range, reload]);
+  }, [range, reload, country]);
 
   return {
     tracks,

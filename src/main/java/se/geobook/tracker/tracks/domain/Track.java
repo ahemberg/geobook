@@ -122,10 +122,12 @@ public record Track(long id, String name, String colour, boolean visible, String
       String identity,
       TrackColours.Bounds bounds,
       List<PointLocalTime.Attribution> local,
+      List<String> countries,
       List<OverviewRun> overview) {
     public Prepared {
       local = List.copyOf(local);
       overview = List.copyOf(overview);
+      countries = java.util.Collections.unmodifiableList(new ArrayList<>(countries));
     }
   }
 }

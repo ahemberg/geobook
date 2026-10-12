@@ -15,6 +15,7 @@ import se.geobook.tracker.tracks.domain.DateRange;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.OverviewRun;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
+import se.geobook.tracker.tracks.domain.PointCountry;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
@@ -120,7 +121,7 @@ public class TrackRepository {
     }
     List<PointLocalTime.Attribution> local = prepared.local();
     jdbc.batchUpdate(
-        "INSERT INTO track_point VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO track_point VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
           @Override
           public void setValues(java.sql.PreparedStatement statement, int index)
@@ -140,6 +141,8 @@ public class TrackRepository {
             statement.setString(11, attribution.timeStatus());
             statement.setString(12, attribution.boundaryVersion());
             statement.setString(13, attribution.tzdbVersion());
+            statement.setString(14, prepared.countries().get(index));
+            statement.setString(15, PointCountry.VERSION);
           }
 
           @Override
@@ -167,11 +170,12 @@ public class TrackRepository {
         trackId);
     for (OverviewRun run : prepared.overview()) {
       jdbc.update(
-          "INSERT INTO overview_run VALUES (?, ?, ?, ?, ?, ?)",
+          "INSERT INTO overview_run VALUES (?, ?, ?, ?, ?, ?, ?)",
           trackId,
           run.first(),
           run.last(),
           run.localDate(),
+          run.country(),
           run.breakBefore(),
           run.secondsBefore());
       jdbc.batchUpdate(
@@ -198,13 +202,17 @@ public class TrackRepository {
 
   // Each recording needs an independent geometry accumulator.
   @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
-  public List<Track.Overview> overview(DateRange range, PlaybackSettings settings) {
+  public List<Track.Overview> overview(DateRange range, String country, PlaybackSettings settings) {
     Object[] arguments =
-        range.from() == null ? new Object[0] : new Object[] {range.from(), range.through()};
+        range.from() == null
+            ? new Object[] {country, country}
+            : new Object[] {country, country, range.from(), range.through()};
     return jdbc.query(
         range.from() == null
-            ? OVERVIEW_SELECT + OVERVIEW_ORDER
-            : OVERVIEW_SELECT + " WHERE r.local_date BETWEEN ? AND ?" + OVERVIEW_ORDER,
+            ? OVERVIEW_SELECT + " WHERE (? IS NULL OR r.country_code = ?)" + OVERVIEW_ORDER
+            : OVERVIEW_SELECT
+                + " WHERE (? IS NULL OR r.country_code = ?) AND r.local_date BETWEEN ? AND ?"
+                + OVERVIEW_ORDER,
         rows -> {
           Map<Long, Track.OverviewBuilder> tracks = new LinkedHashMap<>();
           while (rows.next()) {

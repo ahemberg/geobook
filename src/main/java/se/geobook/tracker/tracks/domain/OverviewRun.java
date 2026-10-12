@@ -13,6 +13,7 @@ public record OverviewRun(
     int first,
     int last,
     String localDate,
+    String country,
     boolean breakBefore,
     long secondsBefore,
     List<Recording.Point> points) {
@@ -21,21 +22,26 @@ public record OverviewRun(
   }
 
   public static List<OverviewRun> prepare(
-      List<Recording.Point> points, List<PointLocalTime.Attribution> local) {
+      List<Recording.Point> points,
+      List<PointLocalTime.Attribution> local,
+      List<String> countries) {
     List<OverviewRun> runs = new ArrayList<>();
     int first = 0;
     for (int index = 1; index <= points.size(); index++) {
       boolean end = index == points.size();
       // Retain every edge that any supported gap threshold can split.
+      // shortcut: sparse samples retain every point; add threshold caches if benchmarks need it.
       boolean broken = !end && TrackGeometry.isGap(points.get(index - 1), points.get(index), 1);
       if (end
           || broken
-          || !Objects.equals(local.get(first).localDate(), local.get(index).localDate())) {
+          || !Objects.equals(local.get(first).localDate(), local.get(index).localDate())
+          || !Objects.equals(countries.get(first), countries.get(index))) {
         runs.add(
             new OverviewRun(
                 first,
                 index - 1,
                 local.get(first).localDate(),
+                countries.get(first),
                 first == 0 || points.get(first - 1).segment() != points.get(first).segment(),
                 first == 0 ? 0 : secondsBefore(points.get(first - 1), points.get(first)),
                 simplify(points.subList(first, index))));

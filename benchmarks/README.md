@@ -126,14 +126,14 @@ timings plus the resource samples.
 
 Overview drawing uses a conservative ten-metre simplification tolerance and retains each
 portion's endpoints and coordinate extrema. Portions split before simplification at local
-date changes, source segments and elapsed intervals over one second, the smallest supported
+date and country changes, source segments and elapsed intervals over one second, the smallest supported
 gap threshold. Stored boundary durations let reads apply the current gap settings without
 rebuilding geometry or scanning source points. Adjacent matching portions reconnect only when
 source order and the gap rule allow it. Counts describe original points. No viewport limit,
 track cap, source rewrite or original-BLOB read is involved in collection queries.
 
 The geometry size depends on the recording, not a fixed vertex quota. Very jagged recordings
-or frequent date/segment/gap changes can retain many points. Sampling intervals over one
+or frequent date/country/segment/gap changes can retain many points. Sampling intervals over one
 second can retain every point to support the one-second gap setting. Full selected recordings remain
 unsimplified and can be expensive at the existing 250,000-point per-track import limit.
 The GPX reader still holds one file's XML in memory. The existing 32 MB file and 128 MB request

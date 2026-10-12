@@ -34,3 +34,10 @@ test('westward crossings unwrap in the other direction', () => {
     ],
   ]);
 });
+
+test('country selection keeps date-line recordings in the same displayed world', () => {
+  expect(mapGeometry([[[-16.5, -179.9]], [[-16.6, 179.8]]], 180)).toEqual([
+    [[-16.5, 180.1]],
+    [[-16.6, 179.8]],
+  ]);
+});

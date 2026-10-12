@@ -1,27 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import { request } from './api';
-import type { Detail, MapConfig, Overview, PlaybackSettings } from './api';
+import type { Country, Detail, MapConfig, MapTrack, Overview, PlaybackSettings } from './api';
 import Playback from './Playback';
 import TrackMap from './TrackMap';
 import { mapGeometry } from './mapGeometry';
 
 export default function RecordingWorkspace({
   tracks,
+  country,
   config,
   selectedId,
   importedIds,
   reload,
   settings,
-  mapStatus,
+  loadError,
   close,
 }: {
   tracks: Overview[];
+  country: Country | null;
   config: MapConfig | null;
   selectedId: number | null;
   importedIds: number[];
   reload: number;
   settings: PlaybackSettings | null;
-  mapStatus: string;
+  loadError: string;
   close: () => void;
 }) {
   const [pointIndex, setPointIndex] = useState(0);
@@ -36,9 +38,10 @@ export default function RecordingWorkspace({
           importedIds={importedIds}
           config={config}
           position={marker}
+          country={country}
         />
       ) : (
-        <div className="map-placeholder">{mapStatus}</div>
+        <div className="map-placeholder">{loadError ? 'Map unavailable' : 'Loading map…'}</div>
       )}
       {selectedId !== null && (
         <SelectedRecording
@@ -83,7 +86,7 @@ function SelectedRecording({
             {detail.segmentCount} {detail.segmentCount === 1 ? 'segment' : 'segments'}
           </p>
           <p className="hint">
-            Includes points outside the date filter. Hidden tracks stay off the map.
+            Includes points outside the date and country filters. Hidden tracks stay off the map.
           </p>
           <Playback
             points={detail.points}
@@ -138,15 +141,15 @@ function useRecording(selectedId: number | null, reload: number) {
 }
 
 function useMapRecording(tracks: Overview[], detail: Detail | null, pointIndex: number) {
-  const mapTracks = useMemo(
-    () =>
-      tracks.map((track) => ({
-        ...track,
-        geometry: track.id === detail?.id ? detail.geometry : track.geometry,
-        gaps: track.id === detail?.id ? detail.gaps : track.gaps,
-      })),
-    [tracks, detail],
-  );
+  const mapTracks = useMemo(() => {
+    const result: MapTrack[] = tracks.map((track) => ({
+      ...track,
+      geometry: track.id === detail?.id ? detail.geometry : track.geometry,
+      gaps: track.id === detail?.id ? detail.gaps : track.gaps,
+    }));
+    if (detail && !result.some((track) => track.id === detail.id)) result.push(detail);
+    return result;
+  }, [tracks, detail]);
   const positions = useMemo(
     () =>
       detail
@@ -154,7 +157,7 @@ function useMapRecording(tracks: Overview[], detail: Detail | null, pointIndex: 
         : [],
     [detail],
   );
-  const marker = tracks.find((track) => track.id === detail?.id)?.visible
+  const marker = (tracks.find((track) => track.id === detail?.id) ?? detail)?.visible
     ? (positions[pointIndex] ?? null)
     : null;
   const displayedDetail = detail

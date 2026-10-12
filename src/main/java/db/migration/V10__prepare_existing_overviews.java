@@ -16,7 +16,7 @@ import se.geobook.tracker.tracks.domain.Recording;
 
 // Flyway names migrations by version and description.
 @SuppressWarnings("PMD.ClassNamingConventions")
-public class V8__prepare_existing_overviews extends BaseJavaMigration {
+public class V10__prepare_existing_overviews extends BaseJavaMigration {
   @Override
   public void migrate(Context context) throws SQLException {
     Connection connection = context.getConnection();
@@ -31,12 +31,13 @@ public class V8__prepare_existing_overviews extends BaseJavaMigration {
   private static void prepare(Connection connection, long trackId) throws SQLException {
     List<Recording.Point> points = new ArrayList<>();
     List<PointLocalTime.Attribution> local = new ArrayList<>();
+    List<String> countries = new ArrayList<>();
     Instant start = null;
     // One recording at a time; no original BLOBs or geographic lookup during this migration.
     try (PreparedStatement read =
         connection.prepareStatement(
-            "SELECT segment, latitude, longitude, recorded_time, local_date FROM track_point WHERE"
-                + " track_id = ? ORDER BY ordinal")) {
+            "SELECT segment, latitude, longitude, recorded_time, local_date, country_code FROM"
+                + " track_point WHERE track_id = ? ORDER BY ordinal")) {
       read.setLong(1, trackId);
       try (ResultSet rows = read.executeQuery()) {
         while (rows.next()) {
@@ -52,6 +53,7 @@ public class V8__prepare_existing_overviews extends BaseJavaMigration {
                   new BigDecimal(rows.getString("longitude")),
                   null,
                   time));
+          countries.add(rows.getString("country_code"));
           local.add(
               new PointLocalTime.Attribution(
                   null, rows.getString("local_date"), null, null, null, null));
@@ -61,19 +63,20 @@ public class V8__prepare_existing_overviews extends BaseJavaMigration {
     try (PreparedStatement update =
             connection.prepareStatement("UPDATE track SET start_time = ? WHERE id = ?");
         PreparedStatement runInsert =
-            connection.prepareStatement("INSERT INTO overview_run VALUES (?, ?, ?, ?, ?, ?)");
+            connection.prepareStatement("INSERT INTO overview_run VALUES (?, ?, ?, ?, ?, ?, ?)");
         PreparedStatement pointInsert =
             connection.prepareStatement("INSERT INTO overview_point VALUES (?, ?, ?, ?, ?)")) {
       update.setString(1, start == null ? null : start.toString());
       update.setLong(2, trackId);
       update.executeUpdate();
-      for (OverviewRun run : OverviewRun.prepare(points, local)) {
+      for (OverviewRun run : OverviewRun.prepare(points, local, countries)) {
         runInsert.setLong(1, trackId);
         runInsert.setInt(2, run.first());
         runInsert.setInt(3, run.last());
         runInsert.setString(4, run.localDate());
-        runInsert.setBoolean(5, run.breakBefore());
-        runInsert.setLong(6, run.secondsBefore());
+        runInsert.setString(5, run.country());
+        runInsert.setBoolean(6, run.breakBefore());
+        runInsert.setLong(7, run.secondsBefore());
         runInsert.executeUpdate();
         for (int index = 0; index < run.points().size(); index++) {
           Recording.Point point = run.points().get(index);

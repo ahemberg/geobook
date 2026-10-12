@@ -14,25 +14,33 @@ import se.geobook.tracker.tracks.domain.DateRange;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.OverviewRun;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
+import se.geobook.tracker.tracks.domain.PointCountry;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
 import se.geobook.tracker.tracks.domain.TrackColours;
 import se.geobook.tracker.tracks.domain.TrackGeometry;
 import se.geobook.tracker.tracks.domain.TrackUpdate;
+import se.geobook.tracker.tracks.domain.Visit;
 import se.geobook.tracker.tracks.repository.TrackRepository;
+import se.geobook.tracker.tracks.repository.VisitRepository;
 
-// Keep track and original mutations under the same SQLite writer lock.
+// Track, original and visit mutations share the SQLite writer lock.
 @SuppressWarnings({"PMD.ShortVariable", "PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 @Service
 public class TrackService {
   private final ReentrantLock writerLock = new ReentrantLock();
   private final TrackRepository repository;
   private final TransactionTemplate transactions;
+  private final VisitRepository visitRepository;
 
-  TrackService(TrackRepository repository, TransactionTemplate transactions) {
+  TrackService(
+      TrackRepository repository,
+      TransactionTemplate transactions,
+      VisitRepository visitRepository) {
     this.repository = repository;
     this.transactions = transactions;
+    this.visitRepository = visitRepository;
   }
 
   OriginalExport.Source retainOriginal(String filename, byte[] bytes) {
@@ -53,13 +61,21 @@ public class TrackService {
                         point.longitude().doubleValue(),
                         point.time()))
             .toList();
+    List<String> countries =
+        recording.points().stream()
+            .map(
+                point ->
+                    PointCountry.resolve(
+                        point.latitude().doubleValue(), point.longitude().doubleValue()))
+            .toList();
     Track.Prepared prepared =
         new Track.Prepared(
             recording,
             ContentIdentity.recording(recording),
             TrackColours.Bounds.enclosing(recording.points()),
             local,
-            OverviewRun.prepare(recording.points(), local));
+            countries,
+            OverviewRun.prepare(recording.points(), local, countries));
     return write(
         () -> {
           if (!repository.sourceExists(source)) {
@@ -84,8 +100,11 @@ public class TrackService {
         });
   }
 
-  public List<Track.Overview> overview(DateRange range, String search) {
-    return repository.overview(range, playbackSettings()).stream()
+  public List<Track.Overview> overview(DateRange range, String search, String country) {
+    if (country != null) {
+      PointCountry.country(country);
+    }
+    return repository.overview(range, country, playbackSettings()).stream()
         .filter(
             overview ->
                 overview
@@ -177,6 +196,26 @@ public class TrackService {
 
   public List<Integer> years() {
     return repository.years();
+  }
+
+  public List<Visit.Candidate> visits(DateRange range) {
+    return visitRepository.candidates(range);
+  }
+
+  public int unresolvedVisits(DateRange range) {
+    return visitRepository.unresolvedPoints(range);
+  }
+
+  public List<Visit.Summary> countries(DateRange range) {
+    return visitRepository.summaries(range);
+  }
+
+  public void review(Visit.Review review) {
+    write(
+        () -> {
+          visitRepository.review(review);
+          return true;
+        });
   }
 
   private Track find(long id) {
