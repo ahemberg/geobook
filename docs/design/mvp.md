@@ -12,9 +12,15 @@ Use a blue header, white panels, pale blue selection states and readable Source 
 
 ## Desktop and mobile workspace
 
-On desktop, the searchable, newest-first library sits beside the map. Selecting a track opens its playback panel below the map. The header provides Map, Countries, Original exports, Settings and Upload GPX. Date controls stay above the content they filter. Clearly distinguish filtered portions from an opened complete recording.
+On desktop, the searchable, newest-first library sits beside the map. The library scrolls independently; browsing tracks must not scroll the map out of view. Keep the library, map and selected track's elevation plot visible together within the viewport. The header provides Map, Countries, Original exports, Settings and Upload GPX. Clearly distinguish filtered portions from an opened complete recording.
 
-On mobile, show the map above the selected track's plot and playback controls. The library expands beneath them. Keep the current date and country scope visible, with secondary controls collapsible. Use labelled touch controls; scrubbing must work without hover. Playback never moves the map camera.
+The layout revision agreed during the 12 October 2026 design interview keeps compact track rows with name, recorded date, saved colour and visibility control. Remove point counts and the repeated "Open complete recording" text from rows. Show the date once: when a saved name already communicates the recorded date, omit the duplicate date label without changing the saved name. Otherwise show the recorded date separately. Ordinary names should fit in a two-line row, with the full name accessible when shortened. Editing stays available through an options control.
+
+All time is the owner's usual date scope. Keep the applied range visible in a compact control that opens a panel for exact dates, year shortcuts and All time. Keep the panel collapsed while browsing.
+
+Selecting a track immediately shows a compact elevation plot for overview, scrubbing and playback, with the current point's time, elevation and playback controls alongside it. Secondary metadata and original-export downloads belong behind Details. Prototype floating and docked plot placement before choosing either; the previous requirement to place playback below the map is reopened. Use Impeccable for all design work. These layout revisions are agreed requirements, not implemented or visually validated results.
+
+On mobile, keep the map and selected track's plot and playback controls together. Selecting a track automatically collapses the library and returns to the map and plot. A Tracks button reopens the library at its previous scroll position. Prototype the panel placement within these constraints. Keep the current date and country scope visible, with secondary controls collapsible. Use labelled touch controls; scrubbing must work without hover. Playback never moves the map camera.
 
 ## Supporting flows
 

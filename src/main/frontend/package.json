@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "prototype": "vite --config vite.prototype.config.ts",
+    "prototype:check": "node e2e/layout-prototype.check.mjs",
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "start": "vite preview --host 0.0.0.0",

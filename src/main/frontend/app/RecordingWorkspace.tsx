@@ -15,6 +15,7 @@ export default function RecordingWorkspace({
   settings,
   loadError,
   close,
+  compact = false,
 }: {
   tracks: Overview[];
   country: Country | null;
@@ -25,6 +26,7 @@ export default function RecordingWorkspace({
   settings: PlaybackSettings | null;
   loadError: string;
   close: () => void;
+  compact?: boolean;
 }) {
   const [pointIndex, setPointIndex] = useState(0);
   const { detail, detailError } = useRecording(selectedId, reload);
@@ -51,6 +53,7 @@ export default function RecordingWorkspace({
           settings={settings}
           onPosition={setPointIndex}
           close={close}
+          compact={compact}
         />
       )}
     </div>
@@ -63,14 +66,49 @@ function SelectedRecording({
   close,
   settings,
   onPosition,
+  compact,
 }: {
   detail: Detail | null;
   detailError: string;
   close: () => void;
   settings: PlaybackSettings | null;
   onPosition: (index: number) => void;
+  compact: boolean;
 }) {
   const gapSeconds = settings?.gapSeconds ?? 300;
+  if (compact && detail) {
+    return (
+      <section className="track-detail compact-recording" aria-label="Complete recording">
+        <header className="compact-recording-heading">
+          <h2 title={detail.name}>{detail.name}</h2>
+          <button onClick={close}>Close track</button>
+        </header>
+        <Playback
+          points={detail.points}
+          colour={detail.colour}
+          gapSeconds={gapSeconds}
+          onPosition={onPosition}
+          compact
+        />
+        <details className="recording-metadata">
+          <summary>Recording details</summary>
+          <p className="hint">Complete recording, including points outside the date filter.</p>
+          {!detail.visible && <p className="hint">This track is hidden on the map.</p>}
+          <p className="hint">
+            {detail.points.length.toLocaleString()} points · {detail.segmentCount} segments. Shaded
+            intervals are missing recording; missing elevation breaks the plot.
+          </p>
+          <p className="hint">Lines break at source segments and gaps over {gapSeconds} seconds.</p>
+          {detail.originalIds.map((id) => (
+            <a key={id} href={`/api/originals/${id}`}>
+              Download GPX
+            </a>
+          ))}
+          <a href="/notices/timezones.md">Timezone data and limitations</a>
+        </details>
+      </section>
+    );
+  }
   return (
     <section className="track-detail" aria-label="Complete recording">
       <button className="close-track" onClick={close}>

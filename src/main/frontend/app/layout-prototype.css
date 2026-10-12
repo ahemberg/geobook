@@ -1,0 +1,624 @@
+/* Throwaway layout comparison. All overrides stay inside the prototype. */
+.layout-prototype {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 68px;
+  background: var(--surface);
+}
+.layout-prototype .app-header {
+  height: 56px;
+  min-height: 56px;
+  padding: 0 20px;
+  gap: 28px;
+}
+.layout-prototype .brand {
+  font-size: 24px;
+}
+.layout-prototype button:disabled {
+  cursor: default;
+}
+.prototype-session-note {
+  margin-left: auto;
+  font-size: 14px;
+}
+.prototype-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+  padding: 4px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.prototype-toolbar h1 {
+  font-size: 16px;
+}
+.prototype-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.prototype-dates {
+  position: relative;
+}
+.prototype-dates > summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 10px 12px;
+  background: var(--selection);
+  border-radius: 6px;
+  color: var(--blue);
+  font-weight: 600;
+}
+.prototype-date-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 5;
+  width: min(600px, calc(100vw - 32px));
+  max-height: calc(100dvh - 180px);
+  overflow: auto;
+  padding: 16px;
+  background: var(--surface);
+  box-shadow: 0 8px 32px #20312d30;
+  border-radius: 6px;
+}
+.layout-prototype .date-toggle {
+  display: none;
+}
+.layout-prototype .date-controls .date-filter {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+.prototype-tracks-toggle {
+  display: none;
+}
+.prototype-workspace {
+  display: grid;
+  grid-template-columns: 304px minmax(0, 1fr);
+  min-height: 0;
+  flex: 1;
+}
+.prototype-library {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+}
+.prototype-library-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 8px;
+}
+.prototype-library-heading h2 {
+  font-size: 18px;
+}
+.prototype-search {
+  display: block;
+  padding: 0 12px 12px;
+}
+.prototype-search input {
+  width: 100%;
+  padding: 8px 12px;
+  min-height: 44px;
+  border: 1px solid #9baca4;
+  border-radius: 6px;
+  background: var(--surface);
+  color: inherit;
+}
+.prototype-list-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  flex: 1;
+  scrollbar-gutter: stable;
+}
+.prototype-track-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.prototype-track-list > li {
+  border-bottom: 1px solid var(--line);
+}
+.prototype-track-list > li.selected {
+  background: var(--selection);
+}
+.prototype-track-row {
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+}
+.prototype-track-select {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 6px 0;
+  gap: 8px;
+  text-align: left;
+  background: transparent;
+}
+.prototype-track-label {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.prototype-track-label strong {
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.prototype-track-label > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.prototype-options {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  width: 44px;
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+}
+.prototype-editor {
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+.prototype-editor label {
+  display: grid;
+  gap: 4px;
+}
+.prototype-editor input {
+  min-width: 0;
+  width: 100%;
+  min-height: 44px;
+}
+.prototype-editor input[type='color'] {
+  width: 60px;
+}
+.prototype-library-footer {
+  padding: 8px 16px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+}
+.prototype-message {
+  padding: 16px;
+}
+.layout-prototype .map-workspace {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+.layout-prototype .map-panel,
+.layout-prototype .map-placeholder {
+  min-height: 0;
+  max-height: none;
+  flex: 1;
+}
+.layout-prototype .track-detail {
+  margin: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  max-height: 55%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+}
+.layout-prototype .track-detail p {
+  margin: 0;
+}
+.layout-prototype .gap-status:empty {
+  display: none;
+}
+.compact-recording-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+.compact-recording-heading h2 {
+  font-size: 18px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-wrap: nowrap;
+}
+.compact-recording-heading button {
+  padding: 6px 10px;
+  flex-shrink: 0;
+}
+.layout-prototype .playback {
+  margin-top: 4px;
+  display: grid;
+  gap: 4px;
+}
+.layout-prototype .plot-heading {
+  display: none;
+}
+.layout-prototype .elevation-plot {
+  height: 100px;
+}
+.layout-prototype .elevation > .hint {
+  display: none;
+}
+.layout-prototype .plot-axis {
+  margin-top: 2px;
+  font-size: 12px;
+}
+.layout-prototype .timeline {
+  font-size: 12px;
+}
+.layout-prototype .timeline input {
+  min-height: 24px;
+  margin: 0;
+}
+.layout-prototype .playback-controls {
+  gap: 12px;
+  font-size: 14px;
+}
+.layout-prototype .playback-controls label {
+  font-size: 0;
+  gap: 0;
+}
+.layout-prototype .playback-controls select {
+  font-size: 14px;
+  min-height: 44px;
+}
+.layout-prototype .playback-controls button {
+  min-width: 72px;
+  padding: 6px 12px;
+}
+.layout-prototype .gap-status {
+  min-height: 0;
+  font-size: 12px;
+}
+.layout-prototype .compact-point-reading {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 14px;
+}
+.layout-prototype .compact-point-reading strong {
+  white-space: nowrap;
+}
+.layout-prototype .compact-point details,
+.layout-prototype .recording-metadata {
+  font-size: 13px;
+}
+.layout-prototype summary {
+  cursor: pointer;
+}
+.layout-prototype .compact-point summary,
+.layout-prototype .recording-metadata summary {
+  min-height: 32px;
+  padding-block: 6px;
+}
+.layout-prototype .recording-metadata a {
+  display: inline-block;
+  margin-right: 16px;
+  padding-block: 10px;
+}
+.layout-prototype .point-controls {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.layout-prototype .point-controls input {
+  max-width: 90px;
+}
+.variant-A .track-detail {
+  position: absolute;
+  bottom: 28px;
+  left: 24px;
+  right: 24px;
+  z-index: 2;
+  border: 0;
+  border-radius: 6px;
+  box-shadow: 0 6px 28px #20312d30;
+  max-height: 65%;
+}
+.variant-A .map-workspace .tile-error {
+  bottom: auto;
+  top: 64px;
+}
+.variant-A .playback {
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 20px;
+}
+.variant-A .elevation {
+  grid-column: 1;
+  grid-row: 1 / 4;
+}
+.variant-A .timeline {
+  grid-column: 1;
+}
+.variant-A .playback-controls {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+}
+.variant-A .compact-point {
+  grid-column: 2;
+  grid-row: 2 / 5;
+  max-width: 260px;
+}
+.variant-A .gap-status {
+  grid-column: 1;
+}
+.variant-B .track-detail {
+  flex-shrink: 0;
+  max-height: 55%;
+}
+.variant-B .playback {
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 24px;
+}
+.variant-B .elevation {
+  grid-column: 1;
+  grid-row: 1 / 4;
+}
+.variant-B .timeline {
+  grid-column: 1;
+}
+.variant-B .playback-controls {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+}
+.variant-B .compact-point {
+  grid-column: 2;
+  grid-row: 2 / 5;
+  max-width: 260px;
+}
+.variant-B .gap-status {
+  grid-column: 1;
+}
+.variant-C .prototype-workspace {
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+.variant-C .map-workspace:has(.track-detail) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+.variant-C .track-detail {
+  max-height: none;
+  border-top: 0;
+  border-left: 1px solid var(--line);
+  padding: 16px;
+}
+.variant-C .compact-recording-heading {
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+}
+.variant-C .compact-recording-heading h2 {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.variant-C .elevation-plot {
+  height: 180px;
+}
+.variant-C .playback {
+  gap: 12px;
+}
+.prototype-switcher {
+  position: fixed;
+  z-index: 10;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px;
+  color: white;
+  background: #20312d;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px #20312d30;
+}
+.prototype-switcher button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  width: 44px;
+  border: 0;
+  background: transparent;
+  color: white;
+}
+.prototype-switcher button:hover {
+  background: #3d5149;
+}
+.prototype-switcher span {
+  display: grid;
+  min-width: 150px;
+  text-align: center;
+}
+.prototype-switcher small {
+  font-size: 11px;
+  color: #cad8d0;
+}
+.prototype-switcher strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.prototype-switcher :focus-visible {
+  outline-color: white;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (min-width: 701px) and (max-width: 1100px) {
+  .prototype-workspace,
+  .variant-C .prototype-workspace {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+  .variant-C .map-workspace:has(.track-detail) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .variant-C .track-detail {
+    max-height: 280px;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+  .variant-C .elevation-plot {
+    height: 100px;
+  }
+  .variant-A .playback,
+  .variant-B .playback {
+    display: block;
+  }
+  .variant-A .compact-point,
+  .variant-B .compact-point {
+    max-width: none;
+  }
+  .prototype-session-note {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .layout-prototype .app-header {
+    height: 48px;
+    min-height: 48px;
+    padding-inline: 12px;
+  }
+  .layout-prototype .app-header nav {
+    display: none;
+  }
+  .prototype-session-note {
+    font-size: 12px;
+  }
+  .prototype-toolbar {
+    padding: 4px 8px;
+    gap: 8px;
+  }
+  .prototype-toolbar h1 {
+    display: none;
+  }
+  .prototype-tracks-toggle {
+    display: block;
+  }
+  .prototype-dates {
+    position: static;
+  }
+  .prototype-dates > summary {
+    font-size: 14px;
+    padding-inline: 8px;
+  }
+  .prototype-date-panel {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    top: 108px;
+    width: auto;
+  }
+  .layout-prototype .date-filter {
+    flex-direction: row;
+    align-items: end;
+  }
+  .prototype-count {
+    font-size: 12px;
+  }
+  .prototype-workspace,
+  .variant-C .prototype-workspace {
+    display: flex;
+    position: relative;
+  }
+  .prototype-library {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    visibility: hidden;
+    border-right: 0;
+  }
+  .library-open .prototype-library {
+    visibility: visible;
+  }
+  .layout-prototype .map-workspace {
+    width: 100%;
+  }
+  .layout-prototype .track-detail {
+    padding: 8px 12px;
+    max-height: 60%;
+  }
+  .layout-prototype .compact-recording-heading h2 {
+    font-size: 16px;
+  }
+  .layout-prototype .compact-recording-heading button {
+    font-size: 13px;
+  }
+  .layout-prototype .playback {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .layout-prototype .playback > * {
+    grid-column: auto;
+    grid-row: auto;
+    max-width: none;
+  }
+  .layout-prototype .elevation-plot {
+    height: 80px;
+  }
+  .layout-prototype .gap-status {
+    font-size: 11px;
+  }
+  .layout-prototype .compact-point-reading {
+    font-size: 12px;
+  }
+  .layout-prototype .compact-point summary,
+  .layout-prototype .recording-metadata summary {
+    min-height: 44px;
+    padding-block: 12px;
+  }
+  .variant-A .track-detail {
+    bottom: 24px;
+    left: 8px;
+    right: 8px;
+    max-height: 66%;
+  }
+  .variant-C .map-workspace:has(.track-detail) {
+    display: flex;
+  }
+  .variant-C .track-detail {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+  .variant-C .compact-recording-heading {
+    flex-wrap: nowrap;
+    padding-bottom: 0;
+  }
+  .variant-C .compact-recording-heading h2 {
+    white-space: nowrap;
+  }
+  .prototype-switcher {
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}

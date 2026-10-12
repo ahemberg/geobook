@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type RefObject } from 'react';
 import { request } from './api';
 import type { Controls, Country, DateRange, MapConfig, Overview, PlaybackSettings } from './api';
 import RecordingWorkspace from './RecordingWorkspace';
@@ -10,6 +10,7 @@ import TrackLibrary from './TrackLibrary';
 import { useUpload, UploadFeedback } from './Upload';
 
 type View = 'map' | 'countries' | 'originals';
+const LayoutPrototype = import.meta.env.DEV ? lazy(() => import('./LayoutPrototype')) : null;
 
 export default function App() {
   const [settingsReload, setSettingsReload] = useState(0);
@@ -73,6 +74,27 @@ export default function App() {
     setImportedIds([]);
     setView('map');
     clear();
+  }
+
+  if (LayoutPrototype && new URLSearchParams(location.search).has('variant')) {
+    return (
+      <Suspense fallback={<p>Opening layout prototype…</p>}>
+        <LayoutPrototype
+          tracks={tracks}
+          config={config}
+          settings={settings}
+          selectedId={selectedId}
+          select={select}
+          close={() => setSelectedId(null)}
+          range={range}
+          years={years}
+          filter={filter}
+          loading={loading}
+          loadError={loadError}
+          retry={() => setReload((value) => value + 1)}
+        />
+      </Suspense>
+    );
   }
 
   return (

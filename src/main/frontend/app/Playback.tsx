@@ -8,11 +8,13 @@ export default function Playback({
   colour,
   gapSeconds,
   onPosition,
+  compact = false,
 }: {
   points: Detail['points'];
   colour: string;
   gapSeconds: number;
   onPosition: (index: number) => void;
+  compact?: boolean;
 }) {
   const data = useMemo(() => timeline(points, gapSeconds), [points, gapSeconds]);
   const [position, setPosition] = useState({ index: 0, elapsed: 0, gap: null as number | null });
@@ -55,19 +57,21 @@ export default function Playback({
             scrub={scrub}
             selectPoint={selectPoint}
           />
-          <label className="timeline">
-            Elapsed time
-            <input
-              type="range"
-              min={0}
-              max={data.duration}
-              step={1}
-              value={position.elapsed}
-              disabled={data.duration === 0}
-              aria-valuetext={durationLabel(position.elapsed)}
-              onChange={(event) => scrub(event.target.valueAsNumber)}
-            />
-          </label>
+          {!compact && (
+            <label className="timeline">
+              Elapsed time
+              <input
+                type="range"
+                min={0}
+                max={data.duration}
+                step={1}
+                value={position.elapsed}
+                disabled={data.duration === 0}
+                aria-valuetext={durationLabel(position.elapsed)}
+                onChange={(event) => scrub(event.target.valueAsNumber)}
+              />
+            </label>
+          )}
           <div className="playback-controls">
             <button
               className="primary"
@@ -97,7 +101,9 @@ export default function Playback({
           <p className="gap-status" role="status">
             {position.gap !== null
               ? `Missing recording · ${durationLabel(position.gap)} skipped. Jumped to the next recorded position.`
-              : 'Playback leaves the map under your control.'}
+              : compact
+                ? null
+                : 'Playback leaves the map under your control.'}
           </p>
         </>
       ) : (
@@ -106,7 +112,12 @@ export default function Playback({
           recorded points below.
         </p>
       )}
-      <PointDetails points={points} pointIndex={position.index} setPointIndex={selectPoint} />
+      <PointDetails
+        points={points}
+        pointIndex={position.index}
+        setPointIndex={selectPoint}
+        compact={compact}
+      />
     </div>
   );
 }
@@ -114,41 +125,68 @@ function PointDetails({
   points,
   pointIndex,
   setPointIndex,
+  compact,
 }: {
   points: Detail['points'];
   pointIndex: number;
   setPointIndex: (index: number) => void;
+  compact: boolean;
 }) {
   const point = points[pointIndex];
   if (!point) return null;
+  const controls = (
+    <div className="point-controls">
+      <button disabled={pointIndex === 0} onClick={() => setPointIndex(pointIndex - 1)}>
+        Previous point
+      </button>
+      <label>
+        Point
+        <input
+          type="number"
+          min="1"
+          max={points.length}
+          value={pointIndex + 1}
+          onChange={(event) => {
+            const value = event.target.valueAsNumber;
+            if (Number.isInteger(value) && value >= 1 && value <= points.length)
+              setPointIndex(value - 1);
+          }}
+        />
+      </label>
+      <span>of {points.length.toLocaleString()}</span>
+      <button
+        disabled={pointIndex === points.length - 1}
+        onClick={() => setPointIndex(pointIndex + 1)}
+      >
+        Next point
+      </button>
+    </div>
+  );
+  if (compact) {
+    return (
+      <div className="compact-point">
+        <p className="compact-point-reading">
+          <time dateTime={point.localTime ?? point.time ?? undefined}>
+            {point.localTime?.replace('T', ' ') ??
+              (point.time ? `${point.time} UTC` : 'Date unknown')}
+          </time>
+          <strong>
+            {point.elevation === null ? 'Elevation unknown' : `${Math.round(point.elevation)} m`}
+          </strong>
+        </p>
+        <details>
+          <summary>Point details</summary>
+          <p className="hint">
+            {point.timezone ?? 'Local timezone unavailable'} · {point.latitude}, {point.longitude}
+          </p>
+          {controls}
+        </details>
+      </div>
+    );
+  }
   return (
     <div className="point-detail">
-      <div className="point-controls">
-        <button disabled={pointIndex === 0} onClick={() => setPointIndex(pointIndex - 1)}>
-          Previous point
-        </button>
-        <label>
-          Point
-          <input
-            type="number"
-            min="1"
-            max={points.length}
-            value={pointIndex + 1}
-            onChange={(event) => {
-              const value = event.target.valueAsNumber;
-              if (Number.isInteger(value) && value >= 1 && value <= points.length)
-                setPointIndex(value - 1);
-            }}
-          />
-        </label>
-        <span>of {points.length.toLocaleString()}</span>
-        <button
-          disabled={pointIndex === points.length - 1}
-          onClick={() => setPointIndex(pointIndex + 1)}
-        >
-          Next point
-        </button>
-      </div>
+      {controls}
       <p>
         {point.localTime ? (
           <>
