@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import se.geobook.tracker.tracks.domain.ContentIdentity;
 import se.geobook.tracker.tracks.domain.DateRange;
+import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
@@ -19,8 +20,8 @@ import se.geobook.tracker.tracks.domain.TrackGeometry;
 import se.geobook.tracker.tracks.domain.TrackUpdate;
 import se.geobook.tracker.tracks.repository.TrackRepository;
 
-// IDs retain the names used by the track model.
-@SuppressWarnings("PMD.ShortVariable")
+// Keep track and original mutations under the same SQLite writer lock.
+@SuppressWarnings({"PMD.ShortVariable", "PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 @Service
 public class TrackService {
   private final ReentrantLock writerLock = new ReentrantLock();
@@ -32,12 +33,15 @@ public class TrackService {
     this.transactions = transactions;
   }
 
-  long retainOriginal(String filename, byte[] bytes) {
+  OriginalExport.Source retainOriginal(String filename, byte[] bytes) {
     String identity = ContentIdentity.original(bytes);
-    return write(() -> repository.retainOriginal(filename, bytes, identity));
+    return write(
+        () ->
+            new OriginalExport.Source(
+                repository.retainOriginal(filename, bytes, identity), identity));
   }
 
-  Track.Imported save(long originalId, Recording recording) {
+  Track.Imported save(OriginalExport.Source source, Recording recording) {
     Track.Prepared prepared =
         new Track.Prepared(
             recording,
@@ -53,6 +57,11 @@ public class TrackService {
                 .toList());
     return write(
         () -> {
+          if (!repository.sourceExists(source)) {
+            throw new IllegalArgumentException(
+                "The original export was removed during import. Upload it again to restore it.");
+          }
+          long originalId = source.id();
           Optional<Long> existing = repository.findByIdentity(prepared.identity());
           if (existing.isPresent()) {
             long trackId = existing.orElseThrow();
@@ -125,6 +134,42 @@ public class TrackService {
     return repository
         .original(id)
         .orElseThrow(() -> new TrackNotFoundException("Original export not found."));
+  }
+
+  public List<OriginalExport> originals() {
+    return repository.originals();
+  }
+
+  public OriginalExport removalPreview(long id) {
+    return repository
+        .originalExport(id)
+        .orElseThrow(() -> new TrackNotFoundException("Original export not found."));
+  }
+
+  public void deleteOriginal(long id, String revision) {
+    write(
+        () -> {
+          OriginalExport current = removalPreview(id);
+          if (!current.revision().equals(revision)) {
+            throw new RemovalChangedException();
+          }
+          for (OriginalExport.SourceTrack source : current.tracks()) {
+            if (!source.retained()) {
+              repository.deleteTrack(source.track().id());
+            }
+          }
+          repository.deleteOriginal(id);
+          return true;
+        });
+  }
+
+  public void deleteTrack(long id) {
+    write(
+        () -> {
+          find(id);
+          repository.deleteTrack(id);
+          return true;
+        });
   }
 
   public List<Integer> years() {

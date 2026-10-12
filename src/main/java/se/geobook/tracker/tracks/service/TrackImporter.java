@@ -3,6 +3,7 @@ package se.geobook.tracker.tracks.service;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
 
@@ -48,11 +49,12 @@ public class TrackImporter {
           new ImportEvent("failed", 0, 0, filename, null, null, List.of(), exception.getMessage()));
       return;
     }
-    long originalId = collection.retainOriginal(filename, bytes);
+    OriginalExport.Source source = collection.retainOriginal(filename, bytes);
+    long originalId = source.id();
     progress.send(
         new ImportEvent("progress", 0, tracks.size(), filename, null, originalId, List.of(), null));
     for (int index = 0; index < tracks.size(); index++) {
-      progress.send(importTrack(tracks.get(index), index + 1, tracks.size(), originalId));
+      progress.send(importTrack(tracks.get(index), index + 1, tracks.size(), source));
     }
     progress.send(
         new ImportEvent(
@@ -60,10 +62,11 @@ public class TrackImporter {
   }
 
   private ImportEvent importTrack(
-      org.w3c.dom.Element element, int completed, int total, long originalId) {
+      org.w3c.dom.Element element, int completed, int total, OriginalExport.Source source) {
+    long originalId = source.id();
     try {
       Recording recording = GpxReader.recording(element);
-      Track.Imported imported = collection.save(originalId, recording);
+      Track.Imported imported = collection.save(source, recording);
       List<String> warnings = new ArrayList<>();
       if (recording.points().stream().anyMatch(point -> point.time() == null)) {
         warnings.add("Some points have no timestamps. Their dates remain unknown.");

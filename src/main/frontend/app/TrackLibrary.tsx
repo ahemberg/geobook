@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { request } from './api';
+import RemovalDialog from './RemovalDialog';
 import type { Controls, Overview } from './api';
 
 export default function TrackLibrary({
@@ -8,6 +9,7 @@ export default function TrackLibrary({
   selectedId,
   select,
   onSaved,
+  onRemoved,
   loading,
   empty,
   uploading,
@@ -18,6 +20,7 @@ export default function TrackLibrary({
   selectedId: number | null;
   select: (id: number) => void;
   onSaved: (saved: Controls) => void;
+  onRemoved: () => void;
   loading: boolean;
   empty: boolean;
   uploading: boolean;
@@ -34,17 +37,6 @@ export default function TrackLibrary({
   const matches = tracks.filter((track) =>
     track.name.toLowerCase().includes(search.trim().toLowerCase()),
   );
-  const emptyMessage = filtered
-    ? {
-        title: 'No recorded points in these dates',
-        description:
-          'Try another range or All time. Points with unknown dates appear under All time.',
-      }
-    : {
-        title: 'Your travels start here',
-        description:
-          'Upload a GPX recording to see it on your map. Your original export stays unchanged.',
-      };
   return (
     <aside className={`library ${libraryOpen ? 'expanded' : ''}`} id="tracks" tabIndex={-1}>
       <div className="library-heading">
@@ -65,16 +57,7 @@ export default function TrackLibrary({
           </p>
         )}
         {empty && (
-          <div className="empty-state">
-            <h3>{emptyMessage.title}</h3>
-            <p>{emptyMessage.description}</p>
-            <button className="primary" disabled={uploading} onClick={chooseFile}>
-              Choose a GPX file
-            </button>
-            <p className="hint">
-              Choose files or collection exports. Up to 32 MB per file and 250,000 points per track.
-            </p>
-          </div>
+          <EmptyLibrary filtered={filtered} uploading={uploading} chooseFile={chooseFile} />
         )}
         {tracks.length > 0 && (
           <label className="library-search">
@@ -101,11 +84,46 @@ export default function TrackLibrary({
               selected={track.id === selectedId}
               select={() => select(track.id)}
               onSaved={saved}
+              onRemoved={onRemoved}
             />
           ))}
         </ul>
       </div>
     </aside>
+  );
+}
+
+function EmptyLibrary({
+  filtered,
+  uploading,
+  chooseFile,
+}: {
+  filtered: boolean;
+  uploading: boolean;
+  chooseFile: () => void;
+}) {
+  const emptyMessage = filtered
+    ? {
+        title: 'No recorded points in these dates',
+        description:
+          'Try another range or All time. Points with unknown dates appear under All time.',
+      }
+    : {
+        title: 'Your travels start here',
+        description:
+          'Upload a GPX recording to see it on your map. Your original export stays unchanged.',
+      };
+  return (
+    <div className="empty-state">
+      <h3>{emptyMessage.title}</h3>
+      <p>{emptyMessage.description}</p>
+      <button className="primary" disabled={uploading} onClick={chooseFile}>
+        Choose a GPX file
+      </button>
+      <p className="hint">
+        Choose files or collection exports. Up to 32 MB per file and 250,000 points per track.
+      </p>
+    </div>
   );
 }
 
@@ -115,12 +133,14 @@ function TrackRow({
   selected,
   select,
   onSaved,
+  onRemoved,
 }: {
   track: Overview;
   filtered: boolean;
   selected: boolean;
   select: () => void;
   onSaved: (saved: Controls) => void;
+  onRemoved: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const editButton = useRef<HTMLButtonElement>(null);
@@ -190,7 +210,12 @@ function TrackRow({
           Edit
         </button>
       </div>
-      {editing && <TrackEditor track={track} saving={saving} save={save} cancel={closeEditor} />}
+      {editing && (
+        <>
+          <TrackEditor track={track} saving={saving} save={save} cancel={closeEditor} />
+          <TrackDeletion track={track} saving={saving} onRemoved={onRemoved} />
+        </>
+      )}
       {saving && (
         <p className="row-feedback" role="status">
           Saving…
@@ -202,6 +227,50 @@ function TrackRow({
         </p>
       )}
     </li>
+  );
+}
+
+function TrackDeletion({
+  track,
+  saving,
+  onRemoved,
+}: {
+  track: Overview;
+  saving: boolean;
+  onRemoved: () => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+  const deleteButton = useRef<HTMLButtonElement>(null);
+  return (
+    <div className="row-feedback">
+      <button
+        ref={deleteButton}
+        className="danger"
+        disabled={saving}
+        onClick={() => setDeleting(true)}
+      >
+        Delete track
+      </button>
+      {deleting && (
+        <RemovalDialog
+          title={`Delete ${track.name}?`}
+          action="Delete track"
+          cancel={() => {
+            setDeleting(false);
+            deleteButton.current?.focus();
+          }}
+          remove={async () => {
+            await request(`/api/tracks/${track.id}`, { method: 'DELETE' });
+            onRemoved();
+          }}
+        >
+          <p>
+            This track will leave your map and library. Original exports will be kept in the
+            archive.
+          </p>
+        </RemovalDialog>
+      )}
+    </div>
   );
 }
 

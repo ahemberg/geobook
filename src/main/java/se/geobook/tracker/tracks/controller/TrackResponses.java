@@ -3,6 +3,7 @@ package se.geobook.tracker.tracks.controller;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
@@ -59,6 +60,17 @@ final class TrackResponses {
       Long originalId,
       List<String> warnings,
       String message) {}
+
+  record Original(long id, String filename, long byteCount, List<AffectedTrack> tracks) {}
+
+  record AffectedTrack(long id, String name, boolean retained) {}
+
+  record Removal(long id, String filename, String revision, List<AffectedTrack> tracks) {}
+
+  static Original from(OriginalExport original) {
+    return new Original(
+        original.id(), original.filename(), original.byteCount(), affected(original));
+  }
 
   static Imported from(Track.Imported imported) {
     return new Imported(imported.trackId(), imported.originalId(), imported.duplicate());
@@ -121,5 +133,17 @@ final class TrackResponses {
         event.originalId(),
         event.warnings(),
         event.message());
+  }
+
+  static Removal removal(OriginalExport original) {
+    return new Removal(original.id(), original.filename(), original.revision(), affected(original));
+  }
+
+  private static List<AffectedTrack> affected(OriginalExport original) {
+    return original.tracks().stream()
+        .map(
+            source ->
+                new AffectedTrack(source.track().id(), source.track().name(), source.retained()))
+        .toList();
   }
 }

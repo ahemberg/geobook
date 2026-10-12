@@ -48,3 +48,14 @@ export async function request<T>(url: string, options?: RequestInit): Promise<T>
 }
 
 export type Controls = Pick<Overview, 'id' | 'name' | 'colour' | 'visible'>;
+
+export type OriginalExport = {
+  id: number;
+  filename: string;
+  byteCount: number;
+  tracks: { id: number; name: string; retained: boolean }[];
+};
+
+export type RemovalPreview = Pick<OriginalExport, 'id' | 'filename' | 'tracks'> & {
+  revision: string;
+};
