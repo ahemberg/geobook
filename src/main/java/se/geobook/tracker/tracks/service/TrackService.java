@@ -11,25 +11,34 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import se.geobook.tracker.tracks.domain.ContentIdentity;
 import se.geobook.tracker.tracks.domain.DateRange;
+import se.geobook.tracker.tracks.domain.PointCountry;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
 import se.geobook.tracker.tracks.domain.TrackColours;
 import se.geobook.tracker.tracks.domain.TrackGeometry;
 import se.geobook.tracker.tracks.domain.TrackUpdate;
+import se.geobook.tracker.tracks.domain.Visit;
 import se.geobook.tracker.tracks.repository.TrackRepository;
+import se.geobook.tracker.tracks.repository.VisitRepository;
 
 // IDs retain the names used by the track model.
-@SuppressWarnings("PMD.ShortVariable")
+// Track controls and visit decisions share the collection writer transaction.
+@SuppressWarnings({"PMD.ShortVariable", "PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 @Service
 public class TrackService {
   private final ReentrantLock writerLock = new ReentrantLock();
   private final TrackRepository repository;
   private final TransactionTemplate transactions;
+  private final VisitRepository visitRepository;
 
-  TrackService(TrackRepository repository, TransactionTemplate transactions) {
+  TrackService(
+      TrackRepository repository,
+      TransactionTemplate transactions,
+      VisitRepository visitRepository) {
     this.repository = repository;
     this.transactions = transactions;
+    this.visitRepository = visitRepository;
   }
 
   long retainOriginal(String filename, byte[] bytes) {
@@ -50,6 +59,12 @@ public class TrackService {
                             point.latitude().doubleValue(),
                             point.longitude().doubleValue(),
                             point.time()))
+                .toList(),
+            recording.points().stream()
+                .map(
+                    point ->
+                        PointCountry.resolve(
+                            point.latitude().doubleValue(), point.longitude().doubleValue()))
                 .toList());
     return write(
         () -> {
@@ -70,7 +85,10 @@ public class TrackService {
         });
   }
 
-  public List<Track.Overview> overview(DateRange range, String search) {
+  public List<Track.Overview> overview(DateRange range, String search, String country) {
+    if (country != null) {
+      PointCountry.country(country);
+    }
     // shortcut: overview geometry is unsimplified; optimize it with the benchmark in #31.
     return repository.tracks().stream()
         .filter(
@@ -81,7 +99,7 @@ public class TrackService {
                     .contains(search.strip().toLowerCase(Locale.ROOT)))
         .map(
             track -> {
-              List<Track.Point> points = repository.points(track.id(), range);
+              List<Track.Point> points = repository.points(track.id(), range, country);
               return new Track.Overview(
                   track,
                   repository.startTime(track.id()),
@@ -102,7 +120,7 @@ public class TrackService {
 
   public Track.Detail detail(long id) {
     Track track = find(id);
-    List<Track.Point> points = repository.points(id, new DateRange(null, null));
+    List<Track.Point> points = repository.points(id, new DateRange(null, null), null);
     return new Track.Detail(
         track,
         repository.segmentCount(id),
@@ -129,6 +147,26 @@ public class TrackService {
 
   public List<Integer> years() {
     return repository.years();
+  }
+
+  public List<Visit.Candidate> visits(DateRange range) {
+    return visitRepository.candidates(range);
+  }
+
+  public int unresolvedVisits(DateRange range) {
+    return visitRepository.unresolvedPoints(range);
+  }
+
+  public List<Visit.Summary> countries(DateRange range) {
+    return visitRepository.summaries(range);
+  }
+
+  public void review(Visit.Review review) {
+    write(
+        () -> {
+          visitRepository.review(review);
+          return true;
+        });
   }
 
   private Track find(long id) {

@@ -105,11 +105,6 @@ p {
   font-weight: 700;
   letter-spacing: -0.02em;
 }
-.current-page {
-  font-weight: 600;
-  padding: 8px 2px;
-  border-bottom: 2px solid #bcd4f5;
-}
 .upload-button {
   margin-left: auto;
   color: var(--blue);
@@ -318,9 +313,6 @@ p {
   }
   .brand {
     font-size: 25px;
-  }
-  .current-page {
-    display: none;
   }
   .scope {
     min-height: 64px;
@@ -576,4 +568,131 @@ select {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
+}
+
+[hidden] {
+  display: none !important;
+}
+.main-nav {
+  display: flex;
+  gap: 8px;
+}
+.main-nav button {
+  color: white;
+  background: transparent;
+  border-color: transparent;
+}
+.main-nav button[aria-pressed='true'] {
+  background: var(--selection);
+  color: var(--blue);
+}
+.main-nav button:hover {
+  background: #28588f;
+  color: white;
+}
+.countries-panel {
+  padding: 24px 32px;
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr);
+  gap: 32px;
+}
+.country-summaries,
+.visit-review {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.country-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  text-align: left;
+  gap: 4px 12px;
+  border-radius: 0;
+  border-width: 0 0 1px;
+  border-color: var(--line);
+}
+.country-summary strong {
+  color: var(--blue);
+}
+.country-summary span {
+  font-size: 14px;
+}
+.review-controls,
+.visit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+.review-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.visit-row {
+  border-top: 1px solid var(--line);
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.visit-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.visit-choice input {
+  width: 20px;
+  height: 20px;
+}
+.visit-choice time {
+  white-space: nowrap;
+}
+.visit-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+.evidence-link {
+  border: 0;
+  padding: 8px 0;
+  color: var(--blue);
+  text-decoration: underline;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.visit-limitation {
+  background: #fff7e3;
+  color: #614511;
+  padding: 12px;
+}
+@media (max-width: 900px) {
+  .countries-panel {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 700px) {
+  .countries-panel {
+    padding: 20px 16px;
+    gap: 28px;
+  }
+  .app-header {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 64px;
+    gap: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .main-nav {
+    order: 3;
+    width: 100%;
+  }
+  .visit-choice {
+    flex-wrap: wrap;
+  }
 }

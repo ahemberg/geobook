@@ -53,9 +53,11 @@ public record Track(long id, String name, String colour, boolean visible) {
       Recording recording,
       String identity,
       TrackColours.Bounds bounds,
-      List<PointLocalTime.Attribution> local) {
+      List<PointLocalTime.Attribution> local,
+      List<String> countries) {
     public Prepared {
       local = List.copyOf(local);
+      countries = java.util.Collections.unmodifiableList(new java.util.ArrayList<>(countries));
     }
   }
 }

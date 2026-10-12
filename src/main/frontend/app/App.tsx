@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
-import type { Controls, Detail, MapConfig, Overview } from './api';
+import type { Controls, Country, Detail, MapConfig, Overview } from './api';
 import TrackMap from './TrackMap';
 import DateFilter from './DateFilter';
+import Countries from './Countries';
 import TrackLibrary from './TrackLibrary';
 import { useUpload, UploadFeedback } from './Upload';
 
 export default function App() {
+  const [country, setCountry] = useState<Country | null>(null);
+  const [showCountries, setShowCountries] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reload, setReload] = useState(0);
   const [importedIds, setImportedIds] = useState<number[]>([]);
@@ -17,6 +20,7 @@ export default function App() {
   const { tracks, years, config, loading, loadError, empty, clear, onSaved } = useOverview(
     range,
     reload,
+    country?.country ?? null,
   );
 
   function filter(next: { from: string; to: string } | null) {
@@ -35,6 +39,8 @@ export default function App() {
   }
 
   const uploadState = useUpload((trackIds) => {
+    setCountry(null);
+    setShowCountries(false);
     setRange(null);
     clear();
     setImportedIds(trackIds);
@@ -47,6 +53,21 @@ export default function App() {
     ...track,
     geometry: track.id === detail?.id ? detail.geometry : track.geometry,
   }));
+  if (detail && !mapTracks.some((track) => track.id === detail.id)) {
+    mapTracks.push({
+      ...detail,
+      startTime: null,
+      pointCount: detail.points.length,
+      unknownDateCount: 0,
+    });
+  }
+  function explore(next: Country | null) {
+    setCountry(next);
+    setSelectedId(null);
+    setImportedIds([]);
+    setShowCountries(false);
+    clear();
+  }
   const selectedName = tracks.find((track) => track.id === selectedId)?.name;
 
   return (
@@ -56,7 +77,14 @@ export default function App() {
       </a>
       <header className="app-header">
         <span className="brand">Geobook</span>
-        <span className="current-page">Map</span>
+        <nav className="main-nav" aria-label="Explore">
+          <button aria-pressed={!showCountries} onClick={() => setShowCountries(false)}>
+            Map
+          </button>
+          <button aria-pressed={showCountries} onClick={() => setShowCountries(true)}>
+            Countries
+          </button>
+        </nav>
         <button
           className="upload-button"
           disabled={uploading}
@@ -81,6 +109,12 @@ export default function App() {
       <div className="scope">
         <h1>Recorded travel</h1>
         <span className="scope-value">{range ? `${range.from} to ${range.to}` : 'All time'}</span>
+        {country && (
+          <>
+            <span className="scope-value">{country.name}</span>
+            <button onClick={() => explore(null)}>All countries</button>
+          </>
+        )}
         <span className="track-count">Tracks: {tracks.length}</span>
       </div>
       <DateFilter range={range} years={years} apply={filter} />
@@ -91,10 +125,21 @@ export default function App() {
           <button onClick={() => setReload((value) => value + 1)}>Retry loading</button>
         </div>
       )}
-      <main className="workspace">
+      {showCountries && (
+        <Countries
+          key={`${range?.from}-${range?.to}-${reload}`}
+          range={range}
+          explore={explore}
+          openRecording={(id) => {
+            select(id);
+            setShowCountries(false);
+          }}
+        />
+      )}
+      <main className="workspace" hidden={showCountries}>
         <TrackLibrary
           tracks={tracks}
-          filtered={range !== null}
+          filtered={range !== null || country !== null}
           onSaved={onSaved}
           selectedId={selectedId}
           select={select}
@@ -110,6 +155,7 @@ export default function App() {
               selectedId={selectedId}
               importedIds={importedIds}
               config={config}
+              country={selectedId === null ? country : null}
             />
           ) : (
             <div className="map-placeholder">{mapStatus}</div>
@@ -157,7 +203,7 @@ function SelectedRecording({
             {detail.segmentCount} {detail.segmentCount === 1 ? 'segment' : 'segments'}
           </p>
           <p className="hint">
-            Includes points outside the date filter. Hidden tracks stay off the map.
+            Includes points outside the date and country filters. Hidden tracks stay off the map.
           </p>
           <PointDetails points={detail.points} />
           <a href="/notices/timezones.md">Timezone data and limitations</a>
@@ -228,7 +274,11 @@ function PointDetails({ points }: { points: Detail['points'] }) {
   );
 }
 
-function useOverview(range: { from: string; to: string } | null, reload: number) {
+function useOverview(
+  range: { from: string; to: string } | null,
+  reload: number,
+  country: string | null,
+) {
   const [tracks, setTracks] = useState<Overview[]>([]);
   const [config, setConfig] = useState<MapConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -245,7 +295,9 @@ function useOverview(range: { from: string; to: string } | null, reload: number)
   useEffect(() => {
     const controller = new AbortController();
     savedControls.current.clear();
-    const query = range ? `?${new URLSearchParams(range).toString()}` : '';
+    const params = new URLSearchParams(range ?? {});
+    if (country) params.set('country', country);
+    const query = params.size ? `?${params.toString()}` : '';
     Promise.all([
       request<Overview[]>(`/api/tracks${query}`, { signal: controller.signal }),
       request<number[]>('/api/tracks/years', { signal: controller.signal }),
@@ -266,7 +318,7 @@ function useOverview(range: { from: string; to: string } | null, reload: number)
         }
       });
     return () => controller.abort();
-  }, [range, reload]);
+  }, [range, reload, country]);
 
   return {
     tracks,

@@ -9,5 +9,5 @@
     <suppress checks="MissingJavadocType|MissingJavadocMethod" files=".*"/>
     <!-- Flyway discovers Java migration versions from this required class name. -->
     <suppress checks="TypeName" files="V2__ImportIdentity.java"/>
-    <suppress checks="TypeName" files="V5__attribute_existing_points.java"/>
+    <suppress checks="TypeName" files="V[57]__attribute_existing_(points|countries).java"/>
 </suppressions>

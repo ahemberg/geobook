@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import type { MapConfig, Overview } from './api';
+import type { Country, MapConfig, Overview } from './api';
 import { mapGeometry } from './mapGeometry';
 
 export default function TrackMap({
@@ -8,11 +8,13 @@ export default function TrackMap({
   selectedId,
   importedIds,
   config,
+  country,
 }: {
   tracks: Overview[];
   selectedId: number | null;
   importedIds: number[];
   config: MapConfig;
+  country: Country | null;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -52,12 +54,14 @@ export default function TrackMap({
     const layer = L.featureGroup().addTo(map);
     for (const track of tracks.filter((track) => track.visible))
       drawTrack(track, selectedId, layer);
-    const bounds = trackBounds(fittedTracks(tracks, selectedId, importedIds));
+    const bounds = country
+      ? L.latLngBounds(country.bounds)
+      : trackBounds(fittedTracks(tracks, selectedId, importedIds));
     if (bounds.isValid()) map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16, animate: false });
     return () => {
       layer.remove();
     };
-  }, [tracks, selectedId, importedIds, config]);
+  }, [tracks, selectedId, importedIds, config, country]);
 
   function fitAll() {
     mapRef.current?.invalidateSize();

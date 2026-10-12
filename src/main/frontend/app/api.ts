@@ -48,3 +48,20 @@ export async function request<T>(url: string, options?: RequestInit): Promise<T>
 }
 
 export type Controls = Pick<Overview, 'id' | 'name' | 'colour' | 'visible'>;
+
+export type Country = {
+  country: string;
+  name: string;
+  firstVisit: string;
+  latestVisit: string;
+  recordedDays: number;
+  bounds: [LatLngTuple, LatLngTuple];
+};
+
+export type VisitCandidate = {
+  country: string;
+  name: string;
+  date: string;
+  state: 'pending' | 'confirmed' | 'excluded';
+  tracks: { trackId: number; name: string }[];
+};
