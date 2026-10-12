@@ -1,0 +1,298 @@
+{
+  "date": "2026-10-12",
+  "server": {
+    "model": "Raspberry Pi 5 Model B Rev 1.0",
+    "ramGiB": 8,
+    "os": "Debian 12 ARM64",
+    "kernel": "6.12.96+rpt-rpi-2712",
+    "docker": "29.8.2",
+    "java": "Temurin 27+35",
+    "storage": "Samsung PSSD T7 USB SSD, ext4",
+    "backgroundServices": "Existing Geobook, photo/database, DNS, VPN and monitoring services remained running. An idle isolated journey container was present during browser timing.",
+    "cacheConditions": "Fresh database import; JVM restarted before browser series, with readiness and original-download checks before navigation. No OS cache flush. Both machines used LAN Wi-Fi."
+  },
+  "measurement": {
+    "applicationSourceCommit": "de86403a24cfd0a57aa2ab2d2c17fdadfa785816",
+    "jarSha256": "d66c25b89e19acd5067f9d01d5d379e7369616c32bead524cb476669757b5daf",
+    "heap": "-Xmx1g",
+    "freshStartupSeconds": 13.808633795008063,
+    "imageId": "sha256:4b0dfffe25395b9877a9ff9a63d5ba7f4006fd6a023dfea6e72625ca10a8a3d8",
+    "import": {
+      "importSeconds": 227.93955228000414,
+      "firstProgressSeconds": 1.1420366279780865,
+      "outcomes": {
+        "progress": 50,
+        "imported": 500,
+        "complete": 50
+      },
+      "collectionReads": [
+        {
+          "seconds": 0.020553717971779406,
+          "tracks": 0
+        },
+        {
+          "seconds": 0.006060697021894157,
+          "tracks": 0
+        },
+        {
+          "seconds": 0.03762934997212142,
+          "tracks": 7
+        },
+        {
+          "seconds": 0.06384682300267741,
+          "tracks": 16
+        },
+        {
+          "seconds": 0.04598589800298214,
+          "tracks": 27
+        },
+        {
+          "seconds": 0.07820129301398993,
+          "tracks": 36
+        },
+        {
+          "seconds": 0.03625707601895556,
+          "tracks": 48
+        },
+        {
+          "seconds": 0.037594705005176365,
+          "tracks": 59
+        },
+        {
+          "seconds": 0.13386344898026437,
+          "tracks": 69
+        },
+        {
+          "seconds": 0.06601892097387463,
+          "tracks": 80
+        },
+        {
+          "seconds": 0.054748042952269316,
+          "tracks": 90
+        },
+        {
+          "seconds": 0.08018105896189809,
+          "tracks": 103
+        },
+        {
+          "seconds": 0.05354015703778714,
+          "tracks": 116
+        },
+        {
+          "seconds": 0.1281199479708448,
+          "tracks": 128
+        },
+        {
+          "seconds": 0.0924378500203602,
+          "tracks": 140
+        },
+        {
+          "seconds": 0.0891349469893612,
+          "tracks": 151
+        },
+        {
+          "seconds": 0.10584717598976567,
+          "tracks": 164
+        },
+        {
+          "seconds": 0.13081845501437783,
+          "tracks": 176
+        },
+        {
+          "seconds": 0.1432733929832466,
+          "tracks": 189
+        },
+        {
+          "seconds": 0.20211855496745557,
+          "tracks": 200
+        },
+        {
+          "seconds": 0.09439432102954015,
+          "tracks": 212
+        },
+        {
+          "seconds": 0.10329752101097256,
+          "tracks": 224
+        },
+        {
+          "seconds": 0.14399997500004247,
+          "tracks": 236
+        },
+        {
+          "seconds": 0.1133646090165712,
+          "tracks": 249
+        },
+        {
+          "seconds": 0.10333145101321861,
+          "tracks": 260
+        },
+        {
+          "seconds": 0.12250651500653476,
+          "tracks": 273
+        },
+        {
+          "seconds": 0.11825246398802847,
+          "tracks": 286
+        },
+        {
+          "seconds": 0.1558789979899302,
+          "tracks": 298
+        },
+        {
+          "seconds": 0.12563803797820583,
+          "tracks": 310
+        },
+        {
+          "seconds": 0.3044494929490611,
+          "tracks": 320
+        },
+        {
+          "seconds": 0.14622795599279925,
+          "tracks": 332
+        },
+        {
+          "seconds": 0.3565901050460525,
+          "tracks": 344
+        },
+        {
+          "seconds": 0.16386530303861946,
+          "tracks": 357
+        },
+        {
+          "seconds": 0.15961795602925122,
+          "tracks": 368
+        },
+        {
+          "seconds": 0.16567625204334036,
+          "tracks": 380
+        },
+        {
+          "seconds": 0.16880197497084737,
+          "tracks": 390
+        },
+        {
+          "seconds": 0.17949363897787407,
+          "tracks": 402
+        },
+        {
+          "seconds": 0.17796410497976467,
+          "tracks": 413
+        },
+        {
+          "seconds": 0.17569316498702392,
+          "tracks": 425
+        },
+        {
+          "seconds": 0.1730808529537171,
+          "tracks": 437
+        },
+        {
+          "seconds": 0.23687775596044958,
+          "tracks": 449
+        },
+        {
+          "seconds": 0.30750463902950287,
+          "tracks": 460
+        },
+        {
+          "seconds": 0.19293681596172974,
+          "tracks": 472
+        },
+        {
+          "seconds": 0.23850248800590634,
+          "tracks": 483
+        },
+        {
+          "seconds": 0.302317060995847,
+          "tracks": 494
+        }
+      ],
+      "readFailures": []
+    },
+    "restartReadySeconds": 7.264438776008319,
+    "originalMatchesAfterRestart": true
+  },
+  "browser": {
+    "workload": {
+      "tracks": 500,
+      "pointsPerTrack": 10000,
+      "points": 5000000,
+      "from": "2024-01-01",
+      "to": "2024-01-01",
+      "filteredTracks": 1,
+      "filteredPoints": 10000,
+      "filteredName": "Benchmark 0000"
+    },
+    "client": {
+      "platform": "linux",
+      "arch": "x64",
+      "cpu": "Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz",
+      "memoryBytes": 16626159616,
+      "chromium": "156.0.8078.4",
+      "viewport": "1440x900",
+      "conditions": "Headless Chromium, fresh context per run, external tiles stubbed, no CPU/network throttling"
+    },
+    "results": [
+      {
+        "run": 1,
+        "overviewMs": 1931.70396,
+        "filterMs": 250.5283770000001,
+        "allTimeMs": 1053.5897730000002,
+        "overviewBytes": 955393,
+        "withinTargets": true,
+        "overviewVertices": 34500
+      },
+      {
+        "run": 2,
+        "overviewMs": 1622.1369989999994,
+        "filterMs": 245.3574719999997,
+        "allTimeMs": 999.2761449999998,
+        "overviewBytes": 955393,
+        "withinTargets": true,
+        "overviewVertices": 34500
+      },
+      {
+        "run": 3,
+        "overviewMs": 1546.5253140000004,
+        "filterMs": 232.59142599999905,
+        "allTimeMs": 965.5375230000009,
+        "overviewBytes": 955393,
+        "withinTargets": true,
+        "overviewVertices": 34500
+      },
+      {
+        "run": 4,
+        "overviewMs": 1521.3415270000005,
+        "filterMs": 233.7643079999998,
+        "allTimeMs": 1003.3443729999999,
+        "overviewBytes": 955393,
+        "withinTargets": true,
+        "overviewVertices": 34500
+      },
+      {
+        "run": 5,
+        "overviewMs": 1516.2837220000001,
+        "filterMs": 252.3063259999999,
+        "allTimeMs": 1018.1876030000021,
+        "overviewBytes": 955393,
+        "withinTargets": true,
+        "overviewVertices": 34500
+      }
+    ]
+  },
+  "resources": {
+    "sampleIntervalSeconds": 2,
+    "samples": 114,
+    "peakRssKiB": 1444688,
+    "minimumHostAvailableKiB": 1451968,
+    "maximumProcessSwapKiB": 0,
+    "temperatureRangeC": [
+      45.75,
+      51.25
+    ],
+    "throttleSamples": [
+      "throttled=0x0"
+    ],
+    "oomKilled": false
+  }
+}

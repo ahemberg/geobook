@@ -136,7 +136,7 @@ The geometry size depends on the recording, not a fixed vertex quota. Very jagge
 or frequent date/country/segment/gap changes can retain many points. Sampling intervals over one
 second can retain every point to support the one-second gap setting. Full selected recordings remain
 unsimplified and can be expensive at the existing 250,000-point per-track import limit.
-The GPX reader still holds one file's XML in memory. The existing 32 MB file and 128 MB request
+The GPX reader still holds one file's XML in memory. The existing 32 MB file and 33 MB request
 limits remain; this benchmark uses files of about 10 MB. The timezone index trades more
 resident memory for faster imports. Do not extrapolate this run to a smaller-memory host.
 
@@ -149,3 +149,6 @@ Before the final MVP release, repeat the full import and browser measurements on
 after the remaining features land. Include both a fresh JVM and repeated navigation, verify
 the source/gap/date correctness suite, record resources and keep the resulting samples with
 the release commit. This issue's measurement does not certify future changes.
+
+The final issue #33 rerun, native image checks and full-app acceptance results are in
+[the MVP acceptance report](../docs/mvp-acceptance.md).
