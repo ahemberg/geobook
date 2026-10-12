@@ -1,15 +1,17 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 import { request } from './api';
-import type { Controls, MapConfig, Overview } from './api';
-import GapSettings from './GapSettings';
-import type { PlaybackSettings } from './api';
+import type { Controls, MapConfig, Overview, PlaybackSettings } from './api';
 import RecordingWorkspace from './RecordingWorkspace';
+import GapSettings from './GapSettings';
 import DateFilter from './DateFilter';
 import TrackLibrary from './TrackLibrary';
+import OriginalArchive from './OriginalArchive';
 import { useUpload, UploadFeedback } from './Upload';
 
 export default function App() {
   const [settingsReload, setSettingsReload] = useState(0);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reload, setReload] = useState(0);
   const [importedIds, setImportedIds] = useState<number[]>([]);
@@ -29,6 +31,14 @@ export default function App() {
     setSettings,
   } = useOverview(range, reload + settingsReload);
 
+  function removed() {
+    setSelectedId(null);
+    setImportedIds([]);
+    clear();
+    setReload((value) => value + 1);
+    document.getElementById('tracks')?.focus();
+  }
+
   function filter(next: { from: string; to: string } | null) {
     if (next !== range) {
       setRange(next);
@@ -36,10 +46,6 @@ export default function App() {
     }
     setSelectedId(null);
     setImportedIds([]);
-  }
-
-  function chooseFile() {
-    fileInput.current?.click();
   }
 
   function select(id: number) {
@@ -57,59 +63,128 @@ export default function App() {
   });
   const { upload, uploading } = uploadState;
   const mapStatus = loadError ? 'Map unavailable' : 'Loading map…';
+  const scopeLabel = range ? `${range.from} to ${range.to}` : 'All time';
 
   return (
     <>
-      <a className="skip-link" href="#tracks">
-        Skip to tracks
-      </a>
-      <UploadHeader uploading={uploading} fileInput={fileInput} upload={upload} />
-      <div className="scope">
-        <h1>Recorded travel</h1>
-        <span className="scope-value">{range ? `${range.from} to ${range.to}` : 'All time'}</span>
-        <span className="track-count">Tracks: {tracks.length}</span>
-      </div>
-      <DateFilter range={range} years={years} apply={filter} />
+      <AppHeader
+        archiveOpen={archiveOpen}
+        setArchiveOpen={setArchiveOpen}
+        fileInput={fileInput}
+        uploading={uploading}
+        upload={upload}
+      />
       <UploadFeedback {...uploadState} />
-      {settings && (
-        <GapSettings
-          settings={settings}
-          saved={(value) => {
-            setSettings(value);
-            setSettingsReload((count) => count + 1);
+      {archiveOpen ? (
+        <OriginalArchive reload={reload} onRemoved={removed} />
+      ) : (
+        <>
+          <div className="scope">
+            <h1>Recorded travel</h1>
+            <span className="scope-value">{scopeLabel}</span>
+            <span className="track-count">Tracks: {tracks.length}</span>
+          </div>
+          <DateFilter range={range} years={years} apply={filter} />
+          {settings && (
+            <GapSettings
+              settings={settings}
+              saved={(value) => {
+                setSettings(value);
+                setSettingsReload((count) => count + 1);
+              }}
+            />
+          )}
+          {loadError && (
+            <div className="notice error" role="alert">
+              {loadError}
+              <button onClick={() => setReload((value) => value + 1)}>Retry loading</button>
+            </div>
+          )}
+          <main className="workspace">
+            <TrackLibrary
+              tracks={tracks}
+              filtered={range !== null}
+              onSaved={onSaved}
+              onRemoved={removed}
+              selectedId={selectedId}
+              select={select}
+              loading={loading}
+              empty={empty}
+              uploading={uploading}
+              chooseFile={() => fileInput.current?.click()}
+            />
+            <RecordingWorkspace
+              tracks={tracks}
+              config={config}
+              selectedId={selectedId}
+              importedIds={importedIds}
+              reload={reload + settingsReload}
+              settings={settings}
+              mapStatus={mapStatus}
+              close={() => setSelectedId(null)}
+            />
+          </main>
+        </>
+      )}
+    </>
+  );
+}
+
+function AppHeader({
+  archiveOpen,
+  setArchiveOpen,
+  fileInput,
+  uploading,
+  upload,
+}: {
+  archiveOpen: boolean;
+  setArchiveOpen: (open: boolean) => void;
+  fileInput: RefObject<HTMLInputElement | null>;
+  uploading: boolean;
+  upload: (files: File[]) => Promise<void>;
+}) {
+  return (
+    <>
+      <a className="skip-link" href={archiveOpen ? '#originals' : '#tracks'}>
+        Skip to {archiveOpen ? 'original exports' : 'tracks'}
+      </a>
+      <header className="app-header">
+        <span className="brand">Geobook</span>
+        <nav aria-label="Main navigation">
+          <button
+            aria-current={!archiveOpen ? 'page' : undefined}
+            onClick={() => setArchiveOpen(false)}
+          >
+            Map
+          </button>
+          <button
+            aria-current={archiveOpen ? 'page' : undefined}
+            onClick={() => setArchiveOpen(true)}
+          >
+            Original exports
+          </button>
+        </nav>
+        <button
+          className="upload-button"
+          disabled={uploading}
+          onClick={() => fileInput.current?.click()}
+        >
+          {uploading ? 'Importing GPX…' : 'Upload GPX'}
+        </button>
+        <input
+          ref={fileInput}
+          className="file-input"
+          type="file"
+          multiple
+          accept=".gpx,application/gpx+xml,application/xml,text/xml"
+          aria-label="Choose GPX file"
+          disabled={uploading}
+          onChange={(event) => {
+            void upload(Array.from(event.target.files ?? []));
+            event.target.value = '';
           }}
         />
-      )}
-
-      {loadError && (
-        <div className="notice error" role="alert">
-          {loadError}
-          <button onClick={() => setReload((value) => value + 1)}>Retry loading</button>
-        </div>
-      )}
-      <main className="workspace">
-        <TrackLibrary
-          tracks={tracks}
-          filtered={range !== null}
-          onSaved={onSaved}
-          selectedId={selectedId}
-          select={select}
-          loading={loading}
-          empty={empty}
-          uploading={uploading}
-          chooseFile={chooseFile}
-        />
-        <RecordingWorkspace
-          tracks={tracks}
-          config={config}
-          selectedId={selectedId}
-          importedIds={importedIds}
-          reload={reload + settingsReload}
-          settings={settings}
-          mapStatus={mapStatus}
-          close={() => setSelectedId(null)}
-        />
-      </main>
+      </header>
     </>
   );
 }
@@ -172,41 +247,4 @@ function useOverview(range: { from: string; to: string } | null, reload: number)
       setLoading(true);
     },
   };
-}
-
-function UploadHeader({
-  uploading,
-  fileInput,
-  upload,
-}: {
-  uploading: boolean;
-  fileInput: RefObject<HTMLInputElement | null>;
-  upload: (files: File[]) => Promise<void>;
-}) {
-  return (
-    <header className="app-header">
-      <span className="brand">Geobook</span>
-      <span className="current-page">Map</span>
-      <button
-        className="upload-button"
-        disabled={uploading}
-        onClick={() => fileInput.current?.click()}
-      >
-        {uploading ? 'Importing GPX…' : 'Upload GPX'}
-      </button>
-      <input
-        ref={fileInput}
-        className="file-input"
-        type="file"
-        multiple
-        accept=".gpx,application/gpx+xml,application/xml,text/xml"
-        aria-label="Choose GPX file"
-        disabled={uploading}
-        onChange={(event) => {
-          void upload(Array.from(event.target.files ?? []));
-          event.target.value = '';
-        }}
-      />
-    </header>
-  );
 }

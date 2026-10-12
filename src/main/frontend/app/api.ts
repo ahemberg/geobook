@@ -5,6 +5,7 @@ export type Overview = {
   name: string;
   colour: string;
   visible: boolean;
+  revision: string;
   startTime: string | null;
   pointCount: number;
   unknownDateCount: number;
@@ -49,6 +50,17 @@ export async function request<T>(url: string, options?: RequestInit): Promise<T>
   return response.json() as Promise<T>;
 }
 
-export type Controls = Pick<Overview, 'id' | 'name' | 'colour' | 'visible'>;
+export type Controls = Pick<Overview, 'id' | 'name' | 'colour' | 'visible' | 'revision'>;
+
+export type OriginalExport = {
+  id: number;
+  filename: string;
+  byteCount: number;
+  tracks: { id: number; name: string; retained: boolean }[];
+};
+
+export type RemovalPreview = Pick<OriginalExport, 'id' | 'filename' | 'tracks'> & {
+  revision: string;
+};
 
 export type PlaybackSettings = { gapSeconds: number; showGapConnections: boolean };

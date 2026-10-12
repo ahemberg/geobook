@@ -3,6 +3,7 @@ package se.geobook.tracker.tracks.controller;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
@@ -20,13 +21,14 @@ final class TrackResponses {
 
   record Imported(long trackId, long originalId, boolean duplicate) {}
 
-  record Summary(long id, String name, String colour, boolean visible) {}
+  record Summary(long id, String name, String colour, boolean visible, String revision) {}
 
   record Overview(
       long id,
       String name,
       String colour,
       boolean visible,
+      String revision,
       Instant startTime,
       int pointCount,
       int unknownDateCount,
@@ -67,8 +69,19 @@ final class TrackResponses {
       List<String> warnings,
       String message) {}
 
+  record Original(long id, String filename, long byteCount, List<AffectedTrack> tracks) {}
+
+  record AffectedTrack(long id, String name, boolean retained) {}
+
+  record Removal(long id, String filename, String revision, List<AffectedTrack> tracks) {}
+
   static Settings from(PlaybackSettings settings) {
     return new Settings(settings.gapSeconds(), settings.showGapConnections());
+  }
+
+  static Original from(OriginalExport original) {
+    return new Original(
+        original.id(), original.filename(), original.byteCount(), affected(original));
   }
 
   static Imported from(Track.Imported imported) {
@@ -76,7 +89,7 @@ final class TrackResponses {
   }
 
   static Summary from(Track track) {
-    return new Summary(track.id(), track.name(), track.colour(), track.visible());
+    return new Summary(track.id(), track.name(), track.colour(), track.visible(), track.revision());
   }
 
   static Overview from(Track.Overview overview) {
@@ -86,6 +99,7 @@ final class TrackResponses {
         track.name(),
         track.colour(),
         track.visible(),
+        track.revision(),
         overview.startTime(),
         overview.pointCount(),
         overview.unknownDateCount(),
@@ -134,5 +148,17 @@ final class TrackResponses {
         event.originalId(),
         event.warnings(),
         event.message());
+  }
+
+  static Removal removal(OriginalExport original) {
+    return new Removal(original.id(), original.filename(), original.revision(), affected(original));
+  }
+
+  private static List<AffectedTrack> affected(OriginalExport original) {
+    return original.tracks().stream()
+        .map(
+            source ->
+                new AffectedTrack(source.track().id(), source.track().name(), source.retained()))
+        .toList();
   }
 }

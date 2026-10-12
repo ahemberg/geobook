@@ -101,7 +101,7 @@ components:
 
 Geobook puts a detailed travel map beside a compact library. A blue header anchors the page; white panels and pale blue selection keep saved recordings easy to scan. Source Sans 3 carries headings, controls and recording details.
 
-This system records the rendered upload, date-filter, track-library controls and point-inspection implementation. The [approved MVP brief](docs/design/mvp.md) remains the authority for later country filters and playback.
+This system records the rendered upload, date-filter, track-library controls, point inspection, playback, elevation plot, gap settings and original-export archive, including confirmed removal. The [approved MVP brief](docs/design/mvp.md) remains the authority for later country filters.
 
 **Key Characteristics:**
 
@@ -123,7 +123,7 @@ Use `surface` for panels, `ink` for text, `muted` for supporting text, `line` fo
 
 ### Status and focus
 
-Notices have separate informational, success, error and warning fills. Error and warning text use their matching text tokens. Explicit messages carry the meaning. `focus` marks keyboard focus; focus on the blue header uses white. `current-page` underlines Map in the desktop header.
+Notices have separate informational, success, error and warning fills. Error and warning text use their matching text tokens. Explicit messages carry the meaning. Destructive controls use `error-text` for text and borders, with `error-background` on hover. `focus` marks keyboard focus; focus on the blue header uses white. Header navigation uses `blue-hover` for hover and the current page.
 
 **The Saved Colour Rule.** A track's saved colour connects its swatch and map geometry; status colours describe application feedback.
 
@@ -137,11 +137,13 @@ The brand is the largest text. Library and recording headings use `title`; first
 
 The app fills at least the dynamic viewport height. Desktop has a 76px header and a scope strip at least 70px high. A 300px library sits beside a flexible map column. The map has a 460px minimum height, with the selected recording below it. Panels grow with content; long names wrap.
 
-At widths up to 700px, the header becomes 64px high and the scope strip has a 64px minimum height, wrapping as needed. Date controls start collapsed behind a Date filters button; the current scope stays visible. The map moves above the library and its minimum height becomes 48dvh. The selected recording stays beneath the map. The library starts collapsed behind a labelled toggle; the first-use upload prompt remains visible. Map in the header is hidden. Common horizontal padding contracts to 16px.
+At widths up to 700px, the header grows with its content, with a 64px minimum height. Navigation wraps onto a full-width row below the brand and upload button; both destinations remain visible. The scope strip has a 64px minimum height, wrapping as needed. Date controls start collapsed behind a Date filters button; the current scope stays visible. The map moves above the library and its minimum height becomes 48dvh. The selected recording stays beneath the map. The library starts collapsed behind a labelled toggle; the first-use upload prompt remains visible. Common horizontal padding contracts to 16px.
+
+The archive replaces the map workspace with a full-width list padded by 24px. File details sit opposite their download and removal actions. On mobile, padding becomes 20px vertically and 16px horizontally, and each row stacks its actions beneath the file details. Long filenames wrap.
 
 ## Elevation & Depth
 
-The workspace uses flat white panels and single-pixel dividers. Only the floating fit control and tile-failure notice use the application's soft shadow, `0 2px 8px #20312d24`. Leaflet supplies its own map-control frame. The app declares no custom transitions or animations.
+The workspace uses flat white panels and single-pixel dividers. Only the floating fit control and tile-failure notice use the application's soft shadow, `0 2px 8px #20312d24`. Removal dialogs use a translucent dark blue backdrop to separate the confirmation from the page. Leaflet supplies its own map-control frame. The app declares no custom transitions or animations.
 
 ## Shapes
 
@@ -155,7 +157,7 @@ Ordinary buttons have a white fill and a single-pixel border. Primary buttons us
 
 ### Header and scope
 
-The header contains the Geobook wordmark, a static Map label and Upload GPX aligned to the right. The scope strip contains Recorded travel, the applied date range or All time, and the matching track count. Below it, labelled native date fields apply an inclusive range using local time at each point. A year selector applies a full calendar year; All time clears the range and includes points with unknown dates. Form controls use white fills, outlined borders and the shared focus treatment. The upload button opens a hidden native file input.
+The header contains the Geobook wordmark, Map and Original exports navigation buttons, and Upload GPX aligned to the right. Navigation uses white text, a filled hover state and `aria-current` for the selected page. The scope strip appears in the map view and contains Recorded travel, the applied date range or All time, and the matching track count. Below it, labelled native date fields apply an inclusive range using local time at each point. A year selector applies a full calendar year; All time clears the range and includes points with unknown dates. Form controls use white fills, outlined borders and the shared focus treatment. The upload button opens a hidden native file input.
 
 ### Track rows
 
@@ -163,9 +165,19 @@ Rows contain an independent visibility checkbox, a selection button and a labell
 
 Search filters the library by name. Edit expands an inline form with name and native colour inputs, Save changes and Cancel. Visibility saves independently of an editing draft. A failed save keeps the previous saved choice and shows its error beneath the row. Closing the editor restores focus to Edit, or to search if a renamed track no longer matches.
 
+The expanded editor also exposes Delete track. Its confirmation explains that original exports stay in the archive. Successful deletion returns focus to the track library.
+
+### Original exports and removal
+
+The archive has a prominent heading and flat rows divided by single-pixel rules. Each row shows its filename, byte count, live track count and associated track names, followed by Download GPX and Preview removal. Loading, empty and retry states use explicit text. Opening the archive focuses its heading.
+
+Track deletion and permanent file removal share a native modal dialog with a white fill, the control radius and 24px padding. It is at most 560px wide, leaves 16px around the viewport and scrolls internally when needed. File removal lists tracks to remove separately from tracks kept through another original, and explains that historical backups remain unchanged.
+
+Cancel receives initial focus. Cancel or Escape returns focus to the triggering button; Escape is disabled while removal is pending. Confirmation uses a labelled destructive button. Pending removal disables both actions and shows a status message. A failure stays in the dialog as an alert and disables confirmation until the dialog is reopened. Successful file removal returns focus to the archive heading.
+
 ### Recording details
 
-A white panel beneath the map contains a heading, complete point and segment counts, gap guidance and original-export downloads. It explains that the recording includes points outside the date filter and that hidden tracks stay off the map. Previous point, Next point and a numbered input inspect each point's local time, timezone, coordinates and recorded elevation, with explicit unknown values. Close track floats right on desktop and precedes the heading on mobile. This panel has no playback or elevation plot yet.
+A white panel beneath the map contains a heading, complete point and segment counts, gap guidance and original-export downloads. It explains that the recording includes points outside the date filter and that hidden tracks stay off the map. Previous point, Next point and a numbered input inspect each point's local time, timezone, coordinates and recorded elevation, with explicit unknown values. Close track floats right on desktop and precedes the heading on mobile. Playback adds play and pause, four speed choices and an elapsed-time slider. The elevation plot uses the saved track colour, labelled axes and a selected-point marker; pointer and touch dragging select recorded points. Missing elevation breaks the plot, and recording gaps show shaded intervals with their duration. Playback moves a blue marker with a white border while the map camera stays under manual control. A collapsible gap-settings form beneath the date filter saves the gap threshold and optional dashed map connections.
 
 ### Map and notices
 
@@ -184,6 +196,6 @@ Upload and loading feedback use full-width notice strips. Tile failure uses a wa
 
 ### Don't:
 
-- Don't treat planned country filters or playback as existing components.
+- Don't treat planned country filters as existing components.
 - Don't substitute schematic geography for the application's detailed map.
 - Don't use track colour alone to communicate an error or warning.

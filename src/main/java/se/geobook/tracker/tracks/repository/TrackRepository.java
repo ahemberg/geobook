@@ -10,6 +10,7 @@ import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import se.geobook.tracker.tracks.domain.DateRange;
+import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
@@ -143,13 +144,14 @@ public class TrackRepository {
 
   public List<Track> tracks() {
     return jdbc.query(
-        "SELECT id, name, colour, visible FROM track ORDER BY id DESC", (row, index) -> track(row));
+        "SELECT id, name, colour, visible, content_hash FROM track ORDER BY id DESC",
+        (row, index) -> track(row));
   }
 
   public Optional<Track> find(long id) {
     return jdbc
         .query(
-            "SELECT id, name, colour, visible FROM track WHERE id = ?",
+            "SELECT id, name, colour, visible, content_hash FROM track WHERE id = ?",
             (row, index) -> track(row),
             id)
         .stream()
@@ -161,7 +163,8 @@ public class TrackRepository {
         row.getLong("id"),
         row.getString("name"),
         row.getString(COLOUR_COLUMN),
-        row.getBoolean("visible"));
+        row.getBoolean("visible"),
+        row.getString("content_hash"));
   }
 
   public int segmentCount(long id) {
@@ -172,7 +175,9 @@ public class TrackRepository {
 
   public List<Long> originalIds(long id) {
     return jdbc.queryForList(
-        "SELECT original_id FROM track_original WHERE track_id = ?", Long.class, id);
+        "SELECT original_id FROM track_original WHERE track_id = ? ORDER BY original_id",
+        Long.class,
+        id);
   }
 
   public Instant startTime(long id) {
@@ -207,6 +212,65 @@ public class TrackRepository {
             id)
         .stream()
         .findFirst();
+  }
+
+  public List<OriginalExport> originals() {
+    return jdbc.query(
+        "SELECT id, filename, length(bytes) AS byte_count, content_hash FROM original_export ORDER"
+            + " BY id DESC",
+        (row, index) ->
+            new OriginalExport(
+                row.getLong("id"),
+                row.getString("filename"),
+                row.getLong("byte_count"),
+                row.getString("content_hash"),
+                sourceTracks(row.getLong("id"))));
+  }
+
+  public Optional<OriginalExport> originalExport(long id) {
+    return jdbc
+        .query(
+            "SELECT id, filename, length(bytes) AS byte_count, content_hash FROM original_export"
+                + " WHERE id = ?",
+            (row, index) ->
+                new OriginalExport(
+                    row.getLong("id"),
+                    row.getString("filename"),
+                    row.getLong("byte_count"),
+                    row.getString("content_hash"),
+                    sourceTracks(id)),
+            id)
+        .stream()
+        .findFirst();
+  }
+
+  private List<OriginalExport.SourceTrack> sourceTracks(long originalId) {
+    return jdbc.query(
+        "SELECT t.* FROM track t JOIN track_original s ON s.track_id = t.id WHERE s.original_id = ?"
+            + " ORDER BY t.id",
+        (row, index) -> new OriginalExport.SourceTrack(track(row), originalIds(row.getLong("id"))),
+        originalId);
+  }
+
+  public boolean sourceExists(OriginalExport.Source source) {
+    return !jdbc.queryForList(
+            "SELECT id FROM original_export WHERE id = ? AND content_hash = ?",
+            Long.class,
+            source.id(),
+            source.identity())
+        .isEmpty();
+  }
+
+  public void deleteOriginal(long id) {
+    jdbc.update("DELETE FROM track_original WHERE original_id = ?", id);
+    jdbc.update("DELETE FROM original_export WHERE id = ?", id);
+  }
+
+  public void deleteTrack(long id) {
+    jdbc.update("DELETE FROM track_point WHERE track_id = ?", id);
+    jdbc.update("DELETE FROM track_segment WHERE track_id = ?", id);
+    jdbc.update("DELETE FROM track_original WHERE track_id = ?", id);
+    jdbc.update("DELETE FROM track WHERE id = ?", id);
   }
 
   public List<Integer> years() {

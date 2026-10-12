@@ -10,12 +10,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -23,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 import se.geobook.tracker.tracks.domain.DateRange;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.Track;
+import se.geobook.tracker.tracks.service.RemovalChangedException;
 import se.geobook.tracker.tracks.service.TrackImporter;
 import se.geobook.tracker.tracks.service.TrackNotFoundException;
 import se.geobook.tracker.tracks.service.TrackService;
@@ -30,7 +33,7 @@ import tools.jackson.databind.JsonNode;
 
 // Path variables match the public id contract.
 // Keep the track endpoints and their shared request-error handling together.
-@SuppressWarnings({"PMD.ShortVariable", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.ShortVariable", "PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 @RestController
 class TrackController {
   private final TrackService collection;
@@ -105,6 +108,38 @@ class TrackController {
   @PatchMapping("/api/tracks/{id}")
   TrackResponses.Summary update(@PathVariable long id, @RequestBody JsonNode input) {
     return TrackResponses.from(collection.update(id, TrackControls.read(input)));
+  }
+
+  @DeleteMapping("/api/tracks/{id}")
+  Map<String, Boolean> deleteTrack(
+      @PathVariable long id, @RequestHeader("If-Match") String revision) {
+    collection.deleteTrack(id, revision);
+    return Map.of("removed", true);
+  }
+
+  @GetMapping("/api/originals")
+  List<TrackResponses.Original> originals() {
+    return collection.originals().stream().map(TrackResponses::from).toList();
+  }
+
+  @GetMapping("/api/originals/{id}/removal")
+  ResponseEntity<TrackResponses.Removal> removal(@PathVariable long id) {
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CACHE_CONTROL, "no-store")
+        .body(TrackResponses.removal(collection.removalPreview(id)));
+  }
+
+  @DeleteMapping("/api/originals/{id}")
+  Map<String, Boolean> deleteOriginal(
+      @PathVariable long id, @RequestHeader("If-Match") String revision) {
+    collection.deleteOriginal(id, revision);
+    return Map.of("removed", true);
+  }
+
+  @ExceptionHandler(RemovalChangedException.class)
+  ResponseEntity<Map<String, String>> removalChanged(RemovalChangedException exception) {
+    return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED)
+        .body(Map.of("message", exception.getMessage()));
   }
 
   @GetMapping("/api/originals/{id}")
