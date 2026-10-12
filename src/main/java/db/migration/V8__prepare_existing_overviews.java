@@ -16,7 +16,7 @@ import se.geobook.tracker.tracks.domain.Recording;
 
 // Flyway names migrations by version and description.
 @SuppressWarnings("PMD.ClassNamingConventions")
-public class V7__prepare_existing_overviews extends BaseJavaMigration {
+public class V8__prepare_existing_overviews extends BaseJavaMigration {
   @Override
   public void migrate(Context context) throws SQLException {
     Connection connection = context.getConnection();
@@ -61,7 +61,7 @@ public class V7__prepare_existing_overviews extends BaseJavaMigration {
     try (PreparedStatement update =
             connection.prepareStatement("UPDATE track SET start_time = ? WHERE id = ?");
         PreparedStatement runInsert =
-            connection.prepareStatement("INSERT INTO overview_run VALUES (?, ?, ?, ?, ?)");
+            connection.prepareStatement("INSERT INTO overview_run VALUES (?, ?, ?, ?, ?, ?)");
         PreparedStatement pointInsert =
             connection.prepareStatement("INSERT INTO overview_point VALUES (?, ?, ?, ?, ?)")) {
       update.setString(1, start == null ? null : start.toString());
@@ -73,6 +73,7 @@ public class V7__prepare_existing_overviews extends BaseJavaMigration {
         runInsert.setInt(3, run.last());
         runInsert.setString(4, run.localDate());
         runInsert.setBoolean(5, run.breakBefore());
+        runInsert.setLong(6, run.secondsBefore());
         runInsert.executeUpdate();
         for (int index = 0; index < run.points().size(); index++) {
           Recording.Point point = run.points().get(index);

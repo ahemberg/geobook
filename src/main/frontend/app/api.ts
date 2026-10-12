@@ -10,6 +10,7 @@ export type Overview = {
   pointCount: number;
   unknownDateCount: number;
   geometry: LatLngTuple[][];
+  gaps: LatLngTuple[][];
 };
 
 export type Detail = {
@@ -20,6 +21,7 @@ export type Detail = {
   segmentCount: number;
   originalIds: number[];
   geometry: LatLngTuple[][];
+  gaps: LatLngTuple[][];
   points: {
     segment: number;
     latitude: number;
@@ -60,3 +62,5 @@ export type OriginalExport = {
 export type RemovalPreview = Pick<OriginalExport, 'id' | 'filename' | 'tracks'> & {
   revision: string;
 };
+
+export type PlaybackSettings = { gapSeconds: number; showGapConnections: boolean };

@@ -26,6 +26,7 @@ import tools.jackson.databind.json.JsonMapper;
 // HTTP journeys share transport helpers and use literal response expectations.
 @SuppressWarnings({
   "PMD.TooManyMethods",
+  "PMD.GodClass",
   "PMD.AvoidDuplicateLiterals",
   "PMD.UnitTestContainsTooManyAsserts"
 })
@@ -83,6 +84,19 @@ class TrackHttpTests {
                 .build()
                 .readTree(get(client, base(app) + "/api/tracks/" + trackId).body());
         measurements = before.get("points");
+        JsonMapper mapper = JsonMapper.builder().build();
+        JsonNode defaults =
+            mapper.readTree(get(client, base(app) + "/api/playback-settings").body());
+        assertThat(defaults.get("gapSeconds").asInt()).isEqualTo(300);
+        assertThat(defaults.get("showGapConnections").asBoolean()).isFalse();
+        assertThat(
+                patch(
+                        client,
+                        base(app) + "/api/playback-settings",
+                        "{\"gapSeconds\":7200,\"showGapConnections\":true}")
+                    .statusCode())
+            .isEqualTo(200);
+
         assertThat(before.get("visible").asBoolean()).isTrue();
         HttpResponse<byte[]> saved =
             patch(
@@ -101,6 +115,33 @@ class TrackHttpTests {
         assertThat(track.get("colour").asText()).isEqualTo("#123abc");
         assertThat(track.get("visible").asBoolean()).isFalse();
         assertThat(track.get("points")).isEqualTo(measurements);
+        JsonNode settings =
+            JsonMapper.builder()
+                .build()
+                .readTree(get(client, base(app) + "/api/playback-settings").body());
+        assertThat(settings.get("gapSeconds").asInt()).isEqualTo(7200);
+        assertThat(settings.get("showGapConnections").asBoolean()).isTrue();
+        assertThat(track.get("geometry").size()).isEqualTo(2);
+        assertThat(track.get("gaps").size()).isEqualTo(1);
+        for (String invalidSettings :
+            new String[] {
+              "{}",
+              "{\"gapSeconds\":0,\"showGapConnections\":true}",
+              "{\"gapSeconds\":1.5,\"showGapConnections\":true}",
+              "{\"gapSeconds\":300,\"showGapConnections\":\"yes\"}"
+            }) {
+          assertThat(
+                  patch(client, base(app) + "/api/playback-settings", invalidSettings).statusCode())
+              .isEqualTo(400);
+        }
+        assertThat(
+                patch(
+                        client,
+                        base(app) + "/api/playback-settings",
+                        "{\"gapSeconds\":300,\"showGapConnections\":false}")
+                    .statusCode())
+            .isEqualTo(200);
+
         assertThat(track.get("points").size()).isEqualTo(5);
         assertThat(track.get("points").get(0).get("latitude").asText()).isEqualTo("59.3200000001");
         assertThat(track.get("points").get(1).get("elevation").isNull()).isTrue();
@@ -469,6 +510,28 @@ class TrackHttpTests {
       assertThat(full.get("points").get(1).get("timezone").asText()).isEqualTo("America/Denver");
       assertThat(full.get("geometry").size()).isEqualTo(3);
       assertThat(
+              patch(
+                      client,
+                      base(app) + "/api/playback-settings",
+                      "{\"gapSeconds\":300,\"showGapConnections\":true}")
+                  .statusCode())
+          .isEqualTo(200);
+      JsonNode connected =
+          JsonMapper.builder()
+              .build()
+              .readTree(
+                  get(client, base(app) + "/api/tracks?from=2025-06-18&to=2025-06-18").body());
+      assertThat(connected.get(0).get("gaps").toString())
+          .isEqualTo("[[[36.97,-111.5],[36.96,-111.5]],[[36.95,-111.5],[36.94,-111.5]]]");
+      assertThat(
+              JsonMapper.builder()
+                  .build()
+                  .readTree(upload(client, base(app), original).body())
+                  .get("duplicate")
+                  .asBoolean())
+          .isTrue();
+
+      assertThat(
               new String(
                   get(client, base(app) + "/api/tracks/years").body(), StandardCharsets.UTF_8))
           .isEqualTo("[2025]");
@@ -650,6 +713,48 @@ class TrackHttpTests {
               new String(
                   get(client, base(app) + "/api/tracks/years").body(), StandardCharsets.UTF_8))
           .isEqualTo("[2025]");
+    }
+  }
+
+  @Test
+  void overviewAppliesChangedGapThresholdsWithoutReadingSourcePoints()
+      throws IOException, InterruptedException {
+    byte[] original =
+        gpx(
+            """
+            <trk><trkseg>
+              <trkpt lat="59.32" lon="18.07"><time>2025-06-19T10:00:00Z</time></trkpt>
+              <trkpt lat="59.321" lon="18.071"><time>2025-06-19T10:00:01Z</time></trkpt>
+              <trkpt lat="59.322" lon="18.072"><time>2025-06-19T10:00:02.001Z</time></trkpt>
+              <trkpt lat="59.323" lon="18.073"><time>2025-06-19T10:00:04.001Z</time></trkpt>
+              <trkpt lat="59.324" lon="18.074"><time>2025-06-19T10:00:03Z</time></trkpt>
+              <trkpt lat="59.325" lon="18.075"/>
+            </trkseg></trk>
+            """);
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(upload(client, base(app), original).statusCode()).isEqualTo(201);
+      app.getBean(org.springframework.jdbc.core.JdbcTemplate.class)
+          .execute("ALTER TABLE track_point RENAME TO unavailable_points");
+      JsonMapper mapper = JsonMapper.builder().build();
+      for (int seconds : new int[] {1, 2, 1}) {
+        assertThat(
+                patch(
+                        client,
+                        base(app) + "/api/playback-settings",
+                        "{\"gapSeconds\":" + seconds + ",\"showGapConnections\":true}")
+                    .statusCode())
+            .isEqualTo(200);
+        JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body()).get(0);
+        assertThat(overview.get("pointCount").asInt()).isEqualTo(6);
+        assertThat(overview.get("geometry").size()).isEqualTo(seconds == 1 ? 3 : 1);
+        assertThat(overview.get("gaps").size()).isEqualTo(seconds == 1 ? 2 : 0);
+        assertThat(overview.get("gaps").toString())
+            .isEqualTo(
+                seconds == 1
+                    ? "[[[59.321,18.071],[59.322,18.072]],[[59.322,18.072],[59.323,18.073]]]"
+                    : "[]");
+      }
     }
   }
 

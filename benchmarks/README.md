@@ -127,12 +127,15 @@ server used 446,384 KiB RSS, about 436 MiB, without loading the import-only time
 
 Overview drawing uses a conservative ten-metre simplification tolerance and retains each
 portion's endpoints and coordinate extrema. Portions split before simplification at local
-date changes, source segments and gaps. Adjacent matching portions reconnect only when
+date changes, source segments and elapsed intervals over one second, the smallest supported
+gap threshold. Stored boundary durations let reads apply the current gap settings without
+rebuilding geometry or scanning source points. Adjacent matching portions reconnect only when
 source order and the gap rule allow it. Counts describe original points. No viewport limit,
 track cap, source rewrite or original-BLOB read is involved in collection queries.
 
 The geometry size depends on the recording, not a fixed vertex quota. Very jagged recordings
-or frequent date/segment/gap changes can retain many points. Full selected recordings remain
+or frequent date/segment/gap changes can retain many points. Sampling intervals over one
+second can retain every point to support the one-second gap setting. Full selected recordings remain
 unsimplified and can be expensive at the existing 250,000-point per-track import limit.
 The GPX reader still holds one file's XML in memory. The existing 32 MB file and 128 MB request
 limits remain; this benchmark uses files of about 10 MB. The timezone index trades more
@@ -140,7 +143,7 @@ resident memory for faster imports. Do not extrapolate this run to a smaller-mem
 
 Upgrading an existing database computes overviews one recording at a time during Flyway
 startup, without loading originals or repeating timezone attribution. Allow the atomic
-migration to finish before browsing. Changing the gap rule or simplification later requires
+migration to finish before browsing. Changing the simplification algorithm later requires
 rebuilding this derived geometry; source measurements and identities remain untouched.
 
 Before the final MVP release, repeat the full import and browser measurements on the Pi

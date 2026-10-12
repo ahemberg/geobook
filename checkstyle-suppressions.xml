@@ -10,5 +10,5 @@
     <!-- Flyway discovers Java migration versions from this required class name. -->
     <suppress checks="TypeName" files="V2__ImportIdentity.java"/>
     <suppress checks="TypeName" files="V5__attribute_existing_points.java"/>
-    <suppress checks="TypeName" files="V7__prepare_existing_overviews.java"/>
+    <suppress checks="TypeName" files="V8__prepare_existing_overviews.java"/>
 </suppressions>

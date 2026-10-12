@@ -1,6 +1,7 @@
 package se.geobook.tracker.tracks.domain;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -9,7 +10,12 @@ import java.util.Objects;
 
 /** A contiguous portion with one point-local date, simplified only for overview drawing. */
 public record OverviewRun(
-    int first, int last, String localDate, boolean breakBefore, List<Recording.Point> points) {
+    int first,
+    int last,
+    String localDate,
+    boolean breakBefore,
+    long secondsBefore,
+    List<Recording.Point> points) {
   public OverviewRun {
     points = List.copyOf(points);
   }
@@ -18,10 +24,10 @@ public record OverviewRun(
       List<Recording.Point> points, List<PointLocalTime.Attribution> local) {
     List<OverviewRun> runs = new ArrayList<>();
     int first = 0;
-    boolean breakBefore = true;
     for (int index = 1; index <= points.size(); index++) {
       boolean end = index == points.size();
-      boolean broken = !end && TrackGeometry.breaks(points.get(index - 1), points.get(index));
+      // Retain every edge that any supported gap threshold can split.
+      boolean broken = !end && TrackGeometry.isGap(points.get(index - 1), points.get(index), 1);
       if (end
           || broken
           || !Objects.equals(local.get(first).localDate(), local.get(index).localDate())) {
@@ -30,13 +36,22 @@ public record OverviewRun(
                 first,
                 index - 1,
                 local.get(first).localDate(),
-                breakBefore,
+                first == 0 || points.get(first - 1).segment() != points.get(first).segment(),
+                first == 0 ? 0 : secondsBefore(points.get(first - 1), points.get(first)),
                 simplify(points.subList(first, index))));
         first = index;
-        breakBefore = broken;
       }
     }
     return runs;
+  }
+
+  private static long secondsBefore(Recording.Point previous, Recording.Point point) {
+    if (previous.time() == null || point.time() == null) {
+      return 0;
+    }
+    Duration elapsed = Duration.between(previous.time(), point.time());
+    // Round up so fractional seconds obey every supported whole-second gap threshold.
+    return Math.max(0, elapsed.getSeconds() + (elapsed.getNano() == 0 ? 0 : 1));
   }
 
   private static List<Recording.Point> simplify(List<Recording.Point> points) {

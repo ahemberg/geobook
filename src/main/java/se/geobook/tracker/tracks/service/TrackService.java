@@ -13,6 +13,7 @@ import se.geobook.tracker.tracks.domain.ContentIdentity;
 import se.geobook.tracker.tracks.domain.DateRange;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.OverviewRun;
+import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
@@ -84,7 +85,7 @@ public class TrackService {
   }
 
   public List<Track.Overview> overview(DateRange range, String search) {
-    return repository.overview(range).stream()
+    return repository.overview(range, playbackSettings()).stream()
         .filter(
             overview ->
                 overview
@@ -100,14 +101,24 @@ public class TrackService {
   }
 
   public Track.Detail detail(long id) {
+    PlaybackSettings settings = playbackSettings();
     Track track = find(id);
     List<Track.Point> points = repository.points(id);
     return new Track.Detail(
         track,
         repository.segmentCount(id),
         points,
-        TrackGeometry.lines(points),
+        TrackGeometry.lines(points, settings.gapSeconds()),
+        TrackGeometry.gaps(points, settings),
         repository.originalIds(id));
+  }
+
+  public PlaybackSettings playbackSettings() {
+    return repository.playbackSettings();
+  }
+
+  public PlaybackSettings savePlaybackSettings(PlaybackSettings settings) {
+    return write(() -> repository.savePlaybackSettings(settings));
   }
 
   public Track update(long id, TrackUpdate controls) {

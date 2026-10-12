@@ -14,6 +14,7 @@ import org.springframework.stereotype.Repository;
 import se.geobook.tracker.tracks.domain.DateRange;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.OverviewRun;
+import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
@@ -27,14 +28,29 @@ public class TrackRepository {
   private static final String COLOUR_COLUMN = "colour";
   private static final String OVERVIEW_SELECT =
       "SELECT t.id, t.name, t.colour, t.visible, t.content_hash, t.start_time, r.first_ordinal,"
-          + " r.last_ordinal, r.local_date, r.break_before, p.latitude, p.longitude FROM"
-          + " overview_run r JOIN track t ON t.id = r.track_id JOIN overview_point p ON p.track_id"
-          + " = r.track_id AND p.run_ordinal = r.first_ordinal";
+          + " r.last_ordinal, r.local_date, r.break_before, r.seconds_before, p.latitude,"
+          + " p.longitude FROM overview_run r JOIN track t ON t.id = r.track_id JOIN overview_point"
+          + " p ON p.track_id = r.track_id AND p.run_ordinal = r.first_ordinal";
   private static final String OVERVIEW_ORDER = " ORDER BY t.id, r.first_ordinal, p.ordinal";
   private final JdbcTemplate jdbc;
 
   TrackRepository(JdbcTemplate jdbc) {
     this.jdbc = jdbc;
+  }
+
+  public PlaybackSettings playbackSettings() {
+    return jdbc.queryForObject(
+        "SELECT gap_seconds, show_gap_connections FROM playback_settings WHERE singleton = 1",
+        (row, index) -> new PlaybackSettings(row.getInt(1), row.getBoolean(2)));
+  }
+
+  public PlaybackSettings savePlaybackSettings(PlaybackSettings settings) {
+    jdbc.update(
+        "UPDATE playback_settings SET gap_seconds = ?, show_gap_connections = ? WHERE singleton ="
+            + " 1",
+        settings.gapSeconds(),
+        settings.showGapConnections());
+    return settings;
   }
 
   public long retainOriginal(String filename, byte[] bytes, String identity) {
@@ -151,12 +167,13 @@ public class TrackRepository {
         trackId);
     for (OverviewRun run : prepared.overview()) {
       jdbc.update(
-          "INSERT INTO overview_run VALUES (?, ?, ?, ?, ?)",
+          "INSERT INTO overview_run VALUES (?, ?, ?, ?, ?, ?)",
           trackId,
           run.first(),
           run.last(),
           run.localDate(),
-          run.breakBefore());
+          run.breakBefore(),
+          run.secondsBefore());
       jdbc.batchUpdate(
           "INSERT INTO overview_point VALUES (?, ?, ?, ?, ?)",
           new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
@@ -181,7 +198,7 @@ public class TrackRepository {
 
   // Each recording needs an independent geometry accumulator.
   @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
-  public List<Track.Overview> overview(DateRange range) {
+  public List<Track.Overview> overview(DateRange range, PlaybackSettings settings) {
     Object[] arguments =
         range.from() == null ? new Object[0] : new Object[] {range.from(), range.through()};
     return jdbc.query(
@@ -199,7 +216,8 @@ public class TrackRepository {
                       track(rows),
                       rows.getString("start_time") == null
                           ? null
-                          : Instant.parse(rows.getString("start_time")));
+                          : Instant.parse(rows.getString("start_time")),
+                      settings);
               tracks.put(trackId, builder);
             }
             builder.add(
@@ -207,6 +225,7 @@ public class TrackRepository {
                 rows.getInt("last_ordinal"),
                 rows.getString("local_date"),
                 rows.getBoolean("break_before"),
+                rows.getLong("seconds_before"),
                 List.of(
                     new BigDecimal(rows.getString("latitude")),
                     new BigDecimal(rows.getString("longitude"))));

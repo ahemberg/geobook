@@ -5,6 +5,7 @@ CREATE TABLE overview_run (
     last_ordinal INTEGER NOT NULL,
     local_date TEXT,
     break_before INTEGER NOT NULL,
+    seconds_before INTEGER NOT NULL,
     PRIMARY KEY (track_id, first_ordinal)
 );
 CREATE INDEX overview_run_local_date ON overview_run(local_date, track_id, first_ordinal);
