@@ -1,0 +1,389 @@
+:root {
+  font-family: 'Source Sans 3', sans-serif;
+  color: #20312d;
+  background: #fff;
+  font-synthesis: none;
+  font-variant-numeric: tabular-nums;
+  --blue: #193f72;
+  --selection: #e5edf8;
+  --muted: #52645e;
+  --line: #d8e1dc;
+  --surface: #fff;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+#root {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+button,
+input {
+  font: inherit;
+}
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  border: 1px solid #9baca4;
+  border-radius: 6px;
+  padding: 10px 14px;
+  min-height: 44px;
+  background: var(--surface);
+  color: inherit;
+  cursor: pointer;
+}
+button:hover {
+  background: var(--selection);
+}
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+:focus-visible {
+  outline: 3px solid #2768ba;
+  outline-offset: 3px;
+}
+::selection {
+  background: #c6dbf7;
+  color: #102b50;
+}
+* {
+  scrollbar-color: #9baca4 var(--surface);
+  scrollbar-width: thin;
+}
+a {
+  color: var(--blue);
+  text-underline-offset: 3px;
+}
+a:hover {
+  text-decoration-thickness: 2px;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+h1 {
+  font-size: 18px;
+  font-weight: 600;
+}
+h2 {
+  font-size: 22px;
+  font-weight: 600;
+}
+h3 {
+  font-size: 21px;
+  font-weight: 600;
+}
+p {
+  line-height: 1.5;
+  max-width: 70ch;
+}
+.app-header {
+  height: 76px;
+  display: flex;
+  gap: 32px;
+  align-items: center;
+  background: var(--blue);
+  color: white;
+  padding: 0 26px;
+}
+.brand {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.current-page {
+  font-weight: 600;
+  padding: 8px 2px;
+  border-bottom: 2px solid #bcd4f5;
+}
+.upload-button {
+  margin-left: auto;
+  color: var(--blue);
+  border-color: transparent;
+  font-weight: 600;
+}
+.app-header :focus-visible {
+  outline-color: #fff;
+}
+.scope {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-height: 70px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.scope-value {
+  background: var(--selection);
+  color: var(--blue);
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-weight: 600;
+}
+.track-count {
+  margin-left: auto;
+  color: var(--muted);
+}
+.workspace {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+.library {
+  border-right: 1px solid var(--line);
+  min-width: 0;
+}
+.library-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+}
+.library-toggle {
+  display: none;
+}
+.library-copy,
+.empty-state {
+  padding: 12px 20px 24px;
+}
+.empty-state p {
+  margin: 12px 0 20px;
+}
+.primary {
+  background: var(--blue);
+  color: white;
+  border-color: var(--blue);
+}
+.primary:hover {
+  background: #28588f;
+}
+.hint {
+  font-size: 14px;
+  color: var(--muted);
+}
+.track-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.track-row {
+  display: flex;
+  gap: 12px;
+  text-align: left;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 16px 20px;
+}
+.track-row.selected {
+  background: var(--selection);
+}
+.track-label {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.track-label strong {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.track-label > span {
+  font-size: 14px;
+  color: var(--muted);
+}
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.map-workspace {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.map-panel,
+.map-placeholder {
+  position: relative;
+  flex: 1;
+  min-height: 460px;
+  background: #edf0ee;
+}
+.map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  font-family: inherit;
+}
+.map-placeholder {
+  display: grid;
+  place-content: center;
+  color: var(--muted);
+}
+.fit-map {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  z-index: 1;
+  box-shadow: 0 2px 8px #20312d24;
+  border: 0;
+}
+.leaflet-touch .leaflet-bar a {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+}
+.leaflet-container .leaflet-control-attribution {
+  font-family: inherit;
+  font-size: 12px;
+}
+.track-detail {
+  padding: 22px 24px;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.track-detail p {
+  margin: 8px 0;
+}
+.close-track {
+  float: right;
+  margin-left: 16px;
+}
+.notice {
+  padding: 12px 24px;
+  background: #eff4fa;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.success {
+  background: #eaf3ed;
+}
+.error {
+  background: #fff0ee;
+  color: #8a271c;
+}
+.tile-error {
+  position: absolute;
+  bottom: 30px;
+  left: 16px;
+  right: 16px;
+  z-index: 1;
+  padding: 12px 16px;
+  background: #fff7e3;
+  color: #614511;
+  box-shadow: 0 2px 8px #20312d24;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.file-input {
+  display: none;
+}
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 12px;
+  padding: 12px;
+  background: white;
+  z-index: 2000;
+}
+.skip-link:focus {
+  top: 12px;
+}
+@media (max-width: 700px) {
+  .app-header {
+    height: 64px;
+    padding: 0 16px;
+    gap: 20px;
+  }
+  .brand {
+    font-size: 25px;
+  }
+  .current-page {
+    display: none;
+  }
+  .scope {
+    min-height: 64px;
+    padding: 12px 16px;
+    gap: 12px;
+  }
+  .scope h1 {
+    font-size: 16px;
+  }
+  .scope-value {
+    padding: 6px 10px;
+  }
+  .track-count {
+    font-size: 14px;
+  }
+  .workspace {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .map-workspace {
+    order: 0;
+  }
+  .map-panel,
+  .map-placeholder {
+    min-height: 48dvh;
+  }
+  .library {
+    order: 1;
+    border-right: 0;
+    border-top: 1px solid var(--line);
+  }
+  .library-heading {
+    padding: 14px 16px;
+  }
+  .library-toggle {
+    display: block;
+  }
+  .library-content {
+    display: none;
+  }
+  .library.expanded .library-content,
+  .library:has(.empty-state) .library-content {
+    display: block;
+  }
+  .library:has(.empty-state) .library-toggle {
+    display: none;
+  }
+  .track-detail {
+    padding: 18px 16px;
+  }
+  .close-track {
+    float: none;
+    margin: 0 0 14px;
+  }
+  .notice {
+    padding: 12px 16px;
+    gap: 8px;
+  }
+  .tile-error {
+    flex-wrap: wrap;
+    font-size: 14px;
+    left: 10px;
+    right: 10px;
+  }
+}

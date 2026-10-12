@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- Endpoint inventory is informational; HTTP validation is covered by integration tests. -->
+    <Match>
+        <Class name="se.geobook.tracker.TrackController"/>
+        <Bug pattern="SPRING_ENDPOINT"/>
+    </Match>
+</FindBugsFilter>

@@ -7,20 +7,7 @@
     <rule ref="category/java/bestpractices.xml">
         <exclude name="UnitTestShouldIncludeAssert"/>
     </rule>
-    <rule ref="category/java/errorprone.xml/TestClassWithoutTestCases">
-        <properties>
-            <!-- Spring Initializr's test launcher and bean configuration are not test cases. -->
-            <property name="violationSuppressXPath"
-                      value="self::ClassDeclaration[@SimpleName = 'TestTrackerApplication' or @SimpleName = 'TestcontainersConfiguration']"/>
-        </properties>
-    </rule>
-    <rule ref="category/java/bestpractices.xml/UnitTestShouldIncludeAssert">
-        <properties>
-            <!-- This generated smoke test asserts successful Spring context startup. -->
-            <property name="violationSuppressXPath"
-                      value="self::MethodDeclaration[@Name = 'contextLoads' and ancestor::ClassDeclaration[@SimpleName = 'TrackerApplicationTests']]"/>
-        </properties>
-    </rule>
+    <rule ref="category/java/bestpractices.xml/UnitTestShouldIncludeAssert"/>
     <rule ref="category/java/codestyle.xml">
         <!-- Keep Tergo's conventions for Spring beans, early returns, and final modifiers. -->
         <exclude name="MethodArgumentCouldBeFinal"/>
@@ -36,7 +23,6 @@
         <exclude name="LoosePackageCoupling"/>
     </rule>
     <rule ref="category/java/errorprone.xml">
-        <exclude name="TestClassWithoutTestCases"/>
         <!-- Spring beans are not Java-serialized. -->
         <exclude name="MissingSerialVersionUID"/>
     </rule>

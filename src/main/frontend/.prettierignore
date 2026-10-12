@@ -4,6 +4,9 @@ node/
 .fallow/
 out/
 build/
+dist/
+test-results/
+playwright-report/
 coverage/
 next-env.d.ts
 package-lock.json

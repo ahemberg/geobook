@@ -7,5 +7,5 @@ useDefault = true
 description = "Downloaded tools, dependencies, and generated build output"
 paths = [
   '''(^|/)target/''',
-  '''(^|/)src/main/frontend/(node_modules|node|\.next|\.fallow|out|build|coverage)/''',
+  '''(^|/)src/main/frontend/(node_modules|node|\.fallow|dist|coverage|test-results|playwright-report)/''',
 ]

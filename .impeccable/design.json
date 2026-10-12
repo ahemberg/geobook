@@ -1,0 +1,374 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-12T07:51:47.145090Z",
+  "title": "Design System: Geobook",
+  "extensions": {
+    "colorMeta": {
+      "blue": {
+        "role": "primary",
+        "displayName": "Blue",
+        "tonalRamp": [
+          "oklch(15% 0.09780 256.79)",
+          "oklch(26% 0.09780 256.79)",
+          "oklch(38% 0.09780 256.79)",
+          "oklch(49% 0.09780 256.79)",
+          "oklch(61% 0.09780 256.79)",
+          "oklch(72% 0.09780 256.79)",
+          "oklch(84% 0.09780 256.79)",
+          "oklch(95% 0.09780 256.79)"
+        ]
+      },
+      "blue-hover": {
+        "role": "primary",
+        "displayName": "Blue hover",
+        "tonalRamp": [
+          "oklch(15% 0.10424 253.66)",
+          "oklch(26% 0.10424 253.66)",
+          "oklch(38% 0.10424 253.66)",
+          "oklch(49% 0.10424 253.66)",
+          "oklch(61% 0.10424 253.66)",
+          "oklch(72% 0.10424 253.66)",
+          "oklch(84% 0.10424 253.66)",
+          "oklch(95% 0.10424 253.66)"
+        ]
+      },
+      "selection": {
+        "role": "primary",
+        "displayName": "Selection",
+        "tonalRamp": [
+          "oklch(15% 0.01716 256.28)",
+          "oklch(26% 0.01716 256.28)",
+          "oklch(38% 0.01716 256.28)",
+          "oklch(49% 0.01716 256.28)",
+          "oklch(61% 0.01716 256.28)",
+          "oklch(72% 0.01716 256.28)",
+          "oklch(84% 0.01716 256.28)",
+          "oklch(95% 0.01716 256.28)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "tonalRamp": [
+          "oklch(15% 0.02361 178.34)",
+          "oklch(26% 0.02361 178.34)",
+          "oklch(38% 0.02361 178.34)",
+          "oklch(49% 0.02361 178.34)",
+          "oklch(61% 0.02361 178.34)",
+          "oklch(72% 0.02361 178.34)",
+          "oklch(84% 0.02361 178.34)",
+          "oklch(95% 0.02361 178.34)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "tonalRamp": [
+          "oklch(15% 0.02386 173.07)",
+          "oklch(26% 0.02386 173.07)",
+          "oklch(38% 0.02386 173.07)",
+          "oklch(49% 0.02386 173.07)",
+          "oklch(61% 0.02386 173.07)",
+          "oklch(72% 0.02386 173.07)",
+          "oklch(84% 0.02386 173.07)",
+          "oklch(95% 0.02386 173.07)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "tonalRamp": [
+          "oklch(15% 0.01177 162.02)",
+          "oklch(26% 0.01177 162.02)",
+          "oklch(38% 0.01177 162.02)",
+          "oklch(49% 0.01177 162.02)",
+          "oklch(61% 0.01177 162.02)",
+          "oklch(72% 0.01177 162.02)",
+          "oklch(84% 0.01177 162.02)",
+          "oklch(95% 0.01177 162.02)"
+        ]
+      },
+      "control-border": {
+        "role": "neutral",
+        "displayName": "Control border",
+        "tonalRamp": [
+          "oklch(15% 0.02217 165.85)",
+          "oklch(26% 0.02217 165.85)",
+          "oklch(38% 0.02217 165.85)",
+          "oklch(49% 0.02217 165.85)",
+          "oklch(61% 0.02217 165.85)",
+          "oklch(72% 0.02217 165.85)",
+          "oklch(84% 0.02217 165.85)",
+          "oklch(95% 0.02217 165.85)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "tonalRamp": [
+          "oklch(15% 0.00000 0.00)",
+          "oklch(26% 0.00000 0.00)",
+          "oklch(38% 0.00000 0.00)",
+          "oklch(49% 0.00000 0.00)",
+          "oklch(61% 0.00000 0.00)",
+          "oklch(72% 0.00000 0.00)",
+          "oklch(84% 0.00000 0.00)",
+          "oklch(95% 0.00000 0.00)"
+        ]
+      },
+      "map-placeholder": {
+        "role": "neutral",
+        "displayName": "Map placeholder",
+        "tonalRamp": [
+          "oklch(15% 0.00415 157.18)",
+          "oklch(26% 0.00415 157.18)",
+          "oklch(38% 0.00415 157.18)",
+          "oklch(49% 0.00415 157.18)",
+          "oklch(61% 0.00415 157.18)",
+          "oklch(72% 0.00415 157.18)",
+          "oklch(84% 0.00415 157.18)",
+          "oklch(95% 0.00415 157.18)"
+        ]
+      },
+      "focus": {
+        "role": "neutral",
+        "displayName": "Focus",
+        "tonalRamp": [
+          "oklch(15% 0.14481 256.08)",
+          "oklch(26% 0.14481 256.08)",
+          "oklch(38% 0.14481 256.08)",
+          "oklch(49% 0.14481 256.08)",
+          "oklch(61% 0.14481 256.08)",
+          "oklch(72% 0.14481 256.08)",
+          "oklch(84% 0.14481 256.08)",
+          "oklch(95% 0.14481 256.08)"
+        ]
+      },
+      "current-page": {
+        "role": "neutral",
+        "displayName": "Current page",
+        "tonalRamp": [
+          "oklch(15% 0.05282 256.39)",
+          "oklch(26% 0.05282 256.39)",
+          "oklch(38% 0.05282 256.39)",
+          "oklch(49% 0.05282 256.39)",
+          "oklch(61% 0.05282 256.39)",
+          "oklch(72% 0.05282 256.39)",
+          "oklch(84% 0.05282 256.39)",
+          "oklch(95% 0.05282 256.39)"
+        ]
+      },
+      "notice": {
+        "role": "neutral",
+        "displayName": "Notice",
+        "tonalRamp": [
+          "oklch(15% 0.00966 252.81)",
+          "oklch(26% 0.00966 252.81)",
+          "oklch(38% 0.00966 252.81)",
+          "oklch(49% 0.00966 252.81)",
+          "oklch(61% 0.00966 252.81)",
+          "oklch(72% 0.00966 252.81)",
+          "oklch(84% 0.00966 252.81)",
+          "oklch(95% 0.00966 252.81)"
+        ]
+      },
+      "success": {
+        "role": "neutral",
+        "displayName": "Success",
+        "tonalRamp": [
+          "oklch(15% 0.01240 157.00)",
+          "oklch(26% 0.01240 157.00)",
+          "oklch(38% 0.01240 157.00)",
+          "oklch(49% 0.01240 157.00)",
+          "oklch(61% 0.01240 157.00)",
+          "oklch(72% 0.01240 157.00)",
+          "oklch(84% 0.01240 157.00)",
+          "oklch(95% 0.01240 157.00)"
+        ]
+      },
+      "error-background": {
+        "role": "neutral",
+        "displayName": "Error background",
+        "tonalRamp": [
+          "oklch(15% 0.01650 26.65)",
+          "oklch(26% 0.01650 26.65)",
+          "oklch(38% 0.01650 26.65)",
+          "oklch(49% 0.01650 26.65)",
+          "oklch(61% 0.01650 26.65)",
+          "oklch(72% 0.01650 26.65)",
+          "oklch(84% 0.01650 26.65)",
+          "oklch(95% 0.01650 26.65)"
+        ]
+      },
+      "error-text": {
+        "role": "neutral",
+        "displayName": "Error text",
+        "tonalRamp": [
+          "oklch(15% 0.13588 29.96)",
+          "oklch(26% 0.13588 29.96)",
+          "oklch(38% 0.13588 29.96)",
+          "oklch(49% 0.13588 29.96)",
+          "oklch(61% 0.13588 29.96)",
+          "oklch(72% 0.13588 29.96)",
+          "oklch(84% 0.13588 29.96)",
+          "oklch(95% 0.13588 29.96)"
+        ]
+      },
+      "warning-background": {
+        "role": "neutral",
+        "displayName": "Warning background",
+        "tonalRamp": [
+          "oklch(15% 0.02759 88.75)",
+          "oklch(26% 0.02759 88.75)",
+          "oklch(38% 0.02759 88.75)",
+          "oklch(49% 0.02759 88.75)",
+          "oklch(61% 0.02759 88.75)",
+          "oklch(72% 0.02759 88.75)",
+          "oklch(84% 0.02759 88.75)",
+          "oklch(95% 0.02759 88.75)"
+        ]
+      },
+      "warning-text": {
+        "role": "neutral",
+        "displayName": "Warning text",
+        "tonalRamp": [
+          "oklch(15% 0.07617 78.48)",
+          "oklch(26% 0.07617 78.48)",
+          "oklch(38% 0.07617 78.48)",
+          "oklch(49% 0.07617 78.48)",
+          "oklch(61% 0.07617 78.48)",
+          "oklch(72% 0.07617 78.48)",
+          "oklch(84% 0.07617 78.48)",
+          "oklch(95% 0.07617 78.48)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "brand": {
+        "displayName": "Brand",
+        "purpose": "Geobook wordmark."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Library and recording headings."
+      },
+      "scope-title": {
+        "displayName": "Scope title",
+        "purpose": "Recorded travel label."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Browser base size; paragraphs use the recorded line height."
+      },
+      "label": {
+        "displayName": "Supporting label",
+        "purpose": "Point counts and explanatory hints."
+      }
+    },
+    "shadows": [
+      {
+        "name": "map-overlay",
+        "value": "0 2px 8px #20312d24",
+        "purpose": "Fit all tracks control and tile-failure notice."
+      }
+    ],
+    "motion": [],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "700px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Ordinary button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Close track control.",
+      "html": "<button class=\"ds-button\">Close track</button>",
+      "css": ".ds-button{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;border:1px solid #9baca4;border-radius:6px;padding:10px 14px;min-height:44px;background:var(--surface,#fff);cursor:pointer;}.ds-button:hover{background:var(--selection,#e5edf8)}.ds-button:focus-visible{outline:3px solid #2768ba;outline-offset:3px;}.ds-button:disabled{cursor:wait;opacity:.65}"
+    },
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Choose a GPX file control.",
+      "html": "<button class=\"ds-button\">Choose a GPX file</button>",
+      "css": ".ds-button{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;border:1px solid #9baca4;border-radius:6px;padding:10px 14px;min-height:44px;background:var(--surface,#fff);cursor:pointer;background:var(--blue,#193f72);color:#fff;border-color:var(--blue,#193f72);}.ds-button:hover{background:#28588f}.ds-button:focus-visible{outline:3px solid #2768ba;outline-offset:3px;}.ds-button:disabled{cursor:wait;opacity:.65}"
+    },
+    {
+      "name": "Header upload",
+      "kind": "button",
+      "refersTo": "button-upload",
+      "description": "Upload GPX control.",
+      "html": "<div class=\"ds-header-context\"><button class=\"ds-button\">Upload GPX</button></div>",
+      "css": ".ds-button{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;border:1px solid #9baca4;border-radius:6px;padding:10px 14px;min-height:44px;background:var(--surface,#fff);cursor:pointer;color:var(--blue,#193f72);border-color:transparent;font-weight:600;}.ds-button:hover{background:var(--selection,#e5edf8)}.ds-button:focus-visible{outline:3px solid #fff;outline-offset:3px;}.ds-button:disabled{cursor:wait;opacity:.65}.ds-header-context{padding:16px;background:var(--blue,#193f72)}"
+    },
+    {
+      "name": "Header",
+      "kind": "custom",
+      "description": "Wordmark and current-page label; Map is static in this slice.",
+      "html": "<header class=\"ds-header\"><span class=\"ds-brand\">Geobook</span><span class=\"ds-current\">Map</span></header>",
+      "css": ".ds-header{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;height:76px;display:flex;gap:32px;align-items:center;background:var(--blue,#193f72);color:#fff;padding:0 26px}.ds-brand{font-size:28px;font-weight:700;letter-spacing:-.02em}.ds-current{font-weight:600;padding:8px 2px;border-bottom:2px solid #bcd4f5}@media(max-width:700px){.ds-header{height:64px;padding:0 16px;gap:20px}.ds-brand{font-size:25px}.ds-current{display:none}}"
+    },
+    {
+      "name": "All time label",
+      "kind": "chip",
+      "refersTo": "scope-value",
+      "description": "Static scope indicator, not an interactive filter.",
+      "html": "<span class=\"ds-scope\">All time</span>",
+      "css": ".ds-scope{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;display:inline-block;background:var(--selection,#e5edf8);color:var(--blue,#193f72);border-radius:6px;padding:7px 14px;font-weight:600}@media(max-width:700px){.ds-scope{padding:6px 10px}}"
+    },
+    {
+      "name": "Selected track row",
+      "kind": "custom",
+      "refersTo": "track-row",
+      "description": "Saved-colour swatch, track name and recorded point count; colour here is synthetic sample data.",
+      "html": "<button class=\"ds-track\" aria-pressed=\"true\"><span class=\"ds-swatch\"></span><span class=\"ds-label\"><strong>Synthetic waterfront walk</strong><span>5 recorded points</span></span></button>",
+      "css": ".ds-track{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;border:1px solid #9baca4;border-radius:6px;padding:10px 14px;min-height:44px;background:var(--surface,#fff);cursor:pointer;display:flex;gap:12px;text-align:left;align-items:center;width:100%;border:0;border-bottom:1px solid var(--line,#d8e1dc);border-radius:0;padding:16px 20px;background:var(--selection,#e5edf8)}.ds-track:hover{background:var(--selection,#e5edf8)}.ds-track:focus-visible{outline:3px solid #2768ba;outline-offset:3px;}.ds-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:#ad466a}.ds-label{min-width:0;display:grid;gap:4px}.ds-label strong{overflow-wrap:anywhere;font-weight:600}.ds-label>span{font-size:14px;color:var(--muted,#52645e)}"
+    },
+    {
+      "name": "Recording details",
+      "kind": "custom",
+      "refersTo": "track-detail",
+      "description": "Flat detail panel with original-export link; no plot or playback controls.",
+      "html": "<section class=\"ds-detail\" aria-label=\"Complete recording\"><h2>Synthetic waterfront walk</h2><p>Complete recording \u00b7 5 points \u00b7 1 segment</p><p class=\"ds-hint\">Lines break at source segments and recording gaps over five minutes.</p><a href=\"#original-export\">Download GPX</a></section>",
+      "css": ".ds-detail{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;padding:22px 24px;border-top:1px solid var(--line,#d8e1dc);background:var(--surface,#fff);overflow-wrap:anywhere}.ds-detail h2{margin:0;font-size:22px;font-weight:600;text-wrap:balance}.ds-detail p{margin:8px 0;line-height:1.5;max-width:70ch}.ds-hint{font-size:14px;color:var(--muted,#52645e)}.ds-detail a{color:var(--blue,#193f72);text-underline-offset:3px}.ds-detail a:hover{text-decoration-thickness:2px}.ds-detail a:focus-visible{outline:3px solid #2768ba;outline-offset:3px;}@media(max-width:700px){.ds-detail{padding:18px 16px}}"
+    },
+    {
+      "name": "Error notice",
+      "kind": "custom",
+      "description": "Explicit alert text on a pale error fill.",
+      "html": "<div class=\"ds-notice\" role=\"alert\">Upload failed. Please try again.</div>",
+      "css": ".ds-notice{font-family:\"Source Sans 3\",sans-serif;font-size:16px;color:#20312d;padding:12px 24px;background:#fff0ee;color:#8a271c;display:flex;gap:16px;align-items:center;flex-wrap:wrap}@media(max-width:700px){.ds-notice{padding:12px 16px;gap:8px}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Travel timetable",
+    "overview": "Geobook puts a detailed travel map beside a compact library. A blue header anchors the page; white panels and pale blue selection keep saved recordings easy to scan. Source Sans 3 carries headings, controls and recording details.\n\nThis system records the rendered issue #24 implementation. The [approved MVP brief](docs/design/mvp.md) remains the authority for later search, date and country filters, track editing and playback. Those controls are not implemented conventions yet.",
+    "keyCharacteristics": [
+      "Map beside the library on desktop, above it on mobile.",
+      "Saved track colours connect library swatches and map geometry.",
+      "Flat panels, visible dividers and labelled controls."
+    ],
+    "rules": [
+      {
+        "name": "The Saved Colour Rule",
+        "body": "A track's saved colour connects its swatch and map geometry; status colours describe application feedback.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "Do preserve the saved track colour across the library and map.",
+      "Do keep keyboard focus, map attribution and labelled touch controls visible.",
+      "Do let track names wrap and keep supporting counts readable.",
+      "Do use synthetic recordings in public examples."
+    ],
+    "donts": [
+      "Don't treat planned search, date filters or playback as existing components.",
+      "Don't substitute schematic geography for the application's detailed map.",
+      "Don't use track colour alone to communicate an error or warning."
+    ]
+  }
+}

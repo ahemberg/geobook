@@ -1,9 +1,5 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# Frontend work
 
-## This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
+Before changing the UI, read `../../../docs/design/mvp.md` and use Impeccable.
+Keep the approved Travel timetable direction. Read `README.md` for the development
+and test workflow; the root `HELP.md` describes packaged application checks.

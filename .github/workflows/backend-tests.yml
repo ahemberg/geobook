@@ -31,6 +31,14 @@ jobs:
       - name: Run all checks, tests, and builds
         run: ./mvnw -B verify
 
+      - name: Install browser for full-app tests
+        working-directory: src/main/frontend
+        run: node/node node_modules/@playwright/test/cli.js install --with-deps chromium
+
+      - name: Test the packaged app on desktop and mobile
+        working-directory: src/main/frontend
+        run: node/node node_modules/@playwright/test/cli.js test
+
       - name: Upload analysis and test reports on failure
         if: failure()
         uses: actions/upload-artifact@v7
@@ -41,4 +49,5 @@ jobs:
             target/checkstyle-result.xml
             target/pmd.xml
             target/spotbugsXml.xml
+            src/main/frontend/test-results/
           if-no-files-found: ignore
