@@ -12,9 +12,15 @@ Use a blue header, white panels, pale blue selection states and readable Source 
 
 ## Desktop and mobile workspace
 
-On desktop, the searchable, newest-first library sits beside the map. Selecting a track opens its playback panel below the map. The header provides Map, Countries, Original exports, Settings and Upload GPX. Date controls stay above the content they filter. Clearly distinguish filtered portions from an opened complete recording.
+On desktop, the searchable, newest-first library sits beside the map. The library scrolls independently; browsing tracks must not scroll the map out of view. Keep the library, map and selected track's elevation plot visible together within the viewport. The header provides Map, Countries, Original exports, Settings and Upload GPX. Clearly distinguish filtered portions from an opened complete recording.
 
-On mobile, show the map above the selected track's plot and playback controls. The library expands beneath them. Keep the current date and country scope visible, with secondary controls collapsible. Use labelled touch controls; scrubbing must work without hover. Playback never moves the map camera.
+The layout revision agreed during the 12 October 2026 design interview keeps compact track rows with name, recorded date, saved colour and visibility control. Remove point counts and the repeated "Open complete recording" text from rows. Show the date once: when a saved name already communicates the recorded date, omit the duplicate date label without changing the saved name. Otherwise show the recorded date separately. Ordinary names should fit in a two-line row, with the full name accessible when shortened. Editing stays available through an options control.
+
+All time is the owner's usual date scope. Keep the applied range visible in a compact control that opens a panel for exact dates, year shortcuts and All time. Keep the panel collapsed while browsing.
+
+The owner selected B, Docked plot, from the [three interactive layout prototypes](https://github.com/ahemberg/geobook/tree/prototype/compact-map-layout). The [implementation issue](https://github.com/ahemberg/geobook/issues/50) records the verdict. Selecting a track immediately shows a compact elevation plot docked below the map within the viewport, with the current point's time, elevation and playback controls alongside it. The plot handles pointer, touch and keyboard scrubbing, replacing the separate elapsed-time slider. Point details and Recording details disclose secondary metadata, point controls and original-export downloads. Use Impeccable for all design work.
+
+On mobile, keep the map above the docked plot and playback controls. Selecting a track automatically collapses the library and returns to the map and plot. The library toggle reopens the list at its previous scroll position. Keep the current date and country scope visible, with secondary controls collapsible. Use labelled touch controls; scrubbing must work without hover. Playback never moves the map camera.
 
 ## Supporting flows
 
@@ -22,7 +28,7 @@ On mobile, show the map above the selected track's plot and playback controls. T
 | --- | --- |
 | Upload | Choose files, show progress, then distinguish imported tracks, duplicates, warnings and failures. Keep results available for review. |
 | Track controls | Visibility checkbox and colour swatch in each row; an options menu contains rename, recolour and confirmed deletion. |
-| Playback | Play/pause, speed selector, elapsed-time scrubber and elevation plot. Show point-local time and recorded elevation. Mark gaps and jump across them. |
+| Playback | Play/pause, speed selector and an elevation plot that scrubs elapsed time. Show point-local time and recorded elevation. Mark gaps and jump across them. |
 | Countries | Confirmed summaries plus a separate pending-review view. Confirm or exclude country/day suggestions individually or in bulk. Country selection preserves the date filter. |
 | Original exports | List retained files, downloads and associated tracks. Permanent removal previews tracks that will disappear and tracks retained through another source. |
 | Settings | Saved gap threshold and optional gray dashed gap connections, off by default. |
@@ -33,7 +39,7 @@ Design for first use, loading, an empty date filter, tile failure, partial impor
 
 Implementation uses the agreed React/Vite, Leaflet and Spring Boot/SQLite stack. Preserve visible map attribution, keyboard access, focus states and readable contrast. Public demonstrations use synthetic data. Photos, 3D, automatic backups and camera-follow experiments remain later work.
 
-The mobile layouts and supporting flows are approved as described here. They have not yet been rendered or tested. The selected desktop sketch's browser inspection failed, so its rendering remains unverified. A design system describing the finished application belongs to implementation, after rendered review.
+The docked layout has been rendered and reviewed on desktop and mobile. Browser tests cover viewport fit, independent library scrolling, plot scrubbing, mobile selection and scroll restoration, and the supporting flows. [DESIGN.md](../../DESIGN.md) records the implemented system.
 
 ## Implementation handoff
 

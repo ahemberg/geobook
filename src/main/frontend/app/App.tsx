@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { request } from './api';
 import type { Controls, Country, DateRange, MapConfig, Overview, PlaybackSettings } from './api';
 import RecordingWorkspace from './RecordingWorkspace';
@@ -76,29 +76,25 @@ export default function App() {
   }
 
   return (
-    <>
+    <div className={`app ${view}-view`}>
       <AppHeader view={view} setView={setView} uploadState={uploadState} fileInput={fileInput} />
       <UploadFeedback {...uploadState} />
       {view === 'originals' ? (
         <OriginalArchive reload={reload} onRemoved={removed} />
       ) : (
         <>
-          <TravelScope
-            range={range}
-            country={country}
-            count={tracks.length}
-            clearCountry={() => explore(null)}
-          />
-          <DateFilter range={range} years={years} apply={filter} />
-          {settings && (
-            <GapSettings
-              settings={settings}
-              saved={(value) => {
-                setSettings(value);
-                setSettingsReload((count) => count + 1);
-              }}
-            />
-          )}
+          <TravelScope country={country} count={tracks.length} clearCountry={() => explore(null)}>
+            <DateFilter range={range} years={years} apply={filter} />
+            {settings && (
+              <GapSettings
+                settings={settings}
+                saved={(value) => {
+                  setSettings(value);
+                  setSettingsReload((count) => count + 1);
+                }}
+              />
+            )}
+          </TravelScope>
           {loadError && (
             <div className="notice error" role="alert">
               {loadError}
@@ -143,17 +139,17 @@ export default function App() {
           </main>
         </>
       )}
-    </>
+    </div>
   );
 }
 
 function TravelScope({
-  range,
+  children,
   country,
   count,
   clearCountry,
 }: {
-  range: DateRange;
+  children: ReactNode;
   country: Country | null;
   count: number;
   clearCountry: () => void;
@@ -161,7 +157,7 @@ function TravelScope({
   return (
     <div className="scope">
       <h1>Recorded travel</h1>
-      <span className="scope-value">{range ? `${range.from} to ${range.to}` : 'All time'}</span>
+      {children}
       {country && (
         <>
           <span className="scope-value">{country.name}</span>

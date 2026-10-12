@@ -21,6 +21,12 @@ body {
   display: flex;
   flex-direction: column;
 }
+.app {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 button,
 input {
   font: inherit;
@@ -92,16 +98,17 @@ p {
   max-width: 70ch;
 }
 .app-header {
-  height: 76px;
+  height: 56px;
+  flex-shrink: 0;
   display: flex;
-  gap: 32px;
+  gap: 24px;
   align-items: center;
   background: var(--blue);
   color: white;
-  padding: 0 26px;
+  padding: 0 20px;
 }
 .brand {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
@@ -117,9 +124,11 @@ p {
 .scope {
   display: flex;
   align-items: center;
-  gap: 22px;
-  min-height: 70px;
-  padding: 12px 24px;
+  gap: 12px;
+  min-height: 56px;
+  padding: 4px 20px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
   border-bottom: 1px solid var(--line);
 }
 .scope-value {
@@ -135,19 +144,31 @@ p {
 }
 .workspace {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 304px minmax(0, 1fr);
   flex: 1;
   min-height: 0;
 }
 .library {
   border-right: 1px solid var(--line);
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.library-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 .library-heading {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
+  padding: 12px 16px;
+}
+.library-heading h2 {
+  font-size: 18px;
 }
 .library-toggle {
   display: none;
@@ -175,6 +196,11 @@ p {
   margin: 0;
   padding: 0;
   list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  min-height: 0;
+  flex: 1;
 }
 .track-row {
   display: flex;
@@ -198,6 +224,12 @@ p {
 .track-label strong {
   overflow-wrap: anywhere;
   font-weight: 600;
+  font-size: 15px;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .track-label > span {
   font-size: 14px;
@@ -211,6 +243,7 @@ p {
 }
 .map-workspace {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -218,7 +251,7 @@ p {
 .map-placeholder {
   position: relative;
   flex: 1;
-  min-height: 460px;
+  min-height: 0;
   background: #edf0ee;
 }
 .map {
@@ -250,16 +283,48 @@ p {
   font-size: 12px;
 }
 .track-detail {
-  padding: 22px 24px;
+  padding: 12px 16px;
   border-top: 1px solid var(--line);
   overflow-wrap: anywhere;
+  flex-shrink: 0;
+  max-height: 55%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .track-detail p {
-  margin: 8px 0;
+  margin: 0;
+}
+.recording-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.recording-heading h2 {
+  font-size: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-wrap: nowrap;
 }
 .close-track {
-  float: right;
-  margin-left: 16px;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 6px 10px;
+}
+.track-detail summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding-block: 12px;
+  font-size: 13px;
+}
+.recording-metadata > a {
+  display: inline-block;
+  padding-block: 10px;
+  margin-right: 16px;
+}
+.recording-metadata p {
+  margin-block: 8px;
 }
 .notice {
   padding: 12px 24px;
@@ -268,6 +333,7 @@ p {
   gap: 16px;
   align-items: center;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 .success {
   background: #eaf3ed;
@@ -315,9 +381,9 @@ p {
     font-size: 25px;
   }
   .scope {
-    min-height: 64px;
-    padding: 12px 16px;
-    gap: 12px;
+    min-height: 48px;
+    padding: 4px 8px;
+    gap: 8px;
   }
   .scope h1 {
     font-size: 16px;
@@ -332,41 +398,51 @@ p {
     display: flex;
     flex-direction: column;
     min-height: 0;
+    position: relative;
   }
   .map-workspace {
-    order: 0;
+    flex: 1;
   }
   .map-panel,
   .map-placeholder {
-    min-height: 48dvh;
+    min-height: 0;
   }
   .library {
-    order: 1;
     border-right: 0;
-    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
   }
   .library-heading {
-    padding: 14px 16px;
+    padding: 0 12px;
+    height: 44px;
   }
   .library-toggle {
     display: block;
   }
   .library-content {
-    display: none;
+    position: absolute;
+    inset: 44px 0 0;
+    z-index: 3;
+    background: var(--surface);
+    visibility: hidden;
   }
   .library.expanded .library-content,
   .library:has(.empty-state) .library-content {
-    display: block;
+    visibility: visible;
   }
   .library:has(.empty-state) .library-toggle {
     display: none;
   }
+  .workspace:has(.library.expanded) .map-workspace,
+  .workspace:has(.library .empty-state) .map-workspace {
+    visibility: hidden;
+  }
   .track-detail {
-    padding: 18px 16px;
+    padding: 8px 12px;
+    max-height: 60%;
   }
   .close-track {
-    float: none;
-    margin: 0 0 14px;
+    font-size: 13px;
   }
   .notice {
     padding: 12px 16px;
@@ -404,6 +480,7 @@ p {
 .track-item {
   display: flex;
   align-items: center;
+  min-height: 56px;
 }
 .track-list > li {
   border-bottom: 1px solid var(--line);
@@ -414,7 +491,8 @@ p {
 .track-item .track-row {
   flex: 1;
   min-width: 0;
-  padding: 14px 0;
+  padding: 6px 0;
+  gap: 8px;
   border: 0;
   background: transparent;
 }
@@ -434,8 +512,8 @@ p {
   accent-color: var(--blue);
 }
 .track-edit {
-  margin: 0 8px;
-  padding: 8px;
+  margin: 0 4px;
+  padding: 6px;
   border: 0;
   background: transparent;
 }
@@ -517,20 +595,39 @@ select {
   }
 }
 .date-toggle {
-  display: none;
+  display: block;
+  background: var(--selection);
+  color: var(--blue);
+  font-weight: 600;
+  border-color: transparent;
 }
-@media (max-width: 700px) {
-  .date-toggle {
-    display: block;
-    margin: 8px 16px;
-  }
-  .date-controls:not(.expanded) .date-filter {
-    display: none;
-  }
+.date-controls {
+  position: relative;
+}
+.date-panel,
+.gap-settings-panel {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 8px);
+  left: 0;
+  width: min(600px, calc(100vw - 32px));
+  max-height: calc(100dvh - 180px);
+  overflow: auto;
+  padding: 16px;
+  background: var(--surface);
+  border-radius: 6px;
+  box-shadow: 0 8px 32px #20312d30;
+}
+.date-panel .date-filter {
+  padding: 0 0 12px;
+  border: 0;
 }
 
 .import-feedback {
   border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+  max-height: 25dvh;
+  overflow-y: auto;
   overflow-wrap: anywhere;
 }
 .import-details {
@@ -578,6 +675,8 @@ select {
   display: grid;
   grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr);
   gap: 32px;
+  overflow: auto;
+  min-height: 0;
 }
 .country-summaries,
 .visit-review {
@@ -669,9 +768,11 @@ select {
 }
 
 .playback {
-  margin-top: 20px;
+  margin-top: 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 4px 24px;
 }
-.plot-heading,
 .plot-axis,
 .playback-controls {
   display: flex;
@@ -679,16 +780,12 @@ select {
   justify-content: space-between;
   gap: 12px;
 }
-.plot-heading {
-  margin-bottom: 8px;
-}
-.plot-heading span,
 .plot-axis {
   color: var(--muted);
   font-size: 14px;
 }
 .elevation-plot {
-  height: 170px;
+  height: 100px;
   border-block: 1px solid var(--line);
   touch-action: none;
   cursor: crosshair;
@@ -702,17 +799,33 @@ select {
   fill: #edf0ee;
 }
 .plot-axis {
-  margin-top: 6px;
+  margin-top: 2px;
+  font-size: 12px;
 }
-.timeline {
-  display: grid;
+.elevation {
+  grid-column: 1;
+  grid-row: 1 / 3;
+}
+.playback-controls {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
   font-size: 14px;
-  color: var(--muted);
 }
-.timeline input {
-  width: 100%;
-  accent-color: var(--blue);
-  padding: 0;
+.point-detail {
+  grid-column: 2;
+  grid-row: 2 / 4;
+}
+.point-reading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 14px;
+}
+.point-reading strong {
+  white-space: nowrap;
 }
 .playback-controls {
   justify-content: start;
@@ -721,16 +834,25 @@ select {
 .playback-controls label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0;
+}
+.playback-controls label > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 .gap-status {
-  min-height: 3em;
-  font-size: 14px;
+  grid-column: 1;
+  font-size: 12px;
   color: var(--muted);
 }
+.gap-status:empty {
+  display: none;
+}
 .gap-settings {
-  padding: 0 24px;
-  border-bottom: 1px solid var(--line);
+  position: relative;
 }
 .gap-settings summary {
   min-height: 44px;
@@ -764,8 +886,22 @@ select {
   border-radius: 50%;
 }
 @media (max-width: 700px) {
+  .playback {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .elevation-plot {
+    height: 80px;
+  }
+  .recording-heading h2 {
+    font-size: 16px;
+  }
+  .point-reading {
+    font-size: 12px;
+  }
   .gap-settings {
-    padding-inline: 16px;
+    padding: 0;
   }
   .playback-controls label {
     font-size: 14px;
@@ -774,6 +910,37 @@ select {
     align-items: stretch;
     flex-direction: column;
     gap: 8px;
+  }
+  .date-controls,
+  .gap-settings {
+    position: static;
+  }
+  .scope {
+    position: relative;
+  }
+  .date-panel,
+  .gap-settings-panel {
+    left: 8px;
+    right: 8px;
+    width: auto;
+  }
+  .date-toggle {
+    max-width: 100%;
+    font-size: 14px;
+    padding-inline: 8px;
+  }
+  .scope h1 {
+    width: 100%;
+    font-size: 14px;
+  }
+}
+@media (min-width: 701px) and (max-width: 1100px) {
+  .workspace {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+  .playback {
+    display: flex;
+    flex-direction: column;
   }
 }
 
@@ -834,6 +1001,8 @@ select {
 }
 .archive {
   padding: 24px;
+  overflow: auto;
+  min-height: 0;
 }
 .archive h1 {
   font-size: 26px;
@@ -880,8 +1049,8 @@ select {
     height: auto;
     min-height: 64px;
     flex-wrap: wrap;
-    gap: 8px;
-    padding: 12px 16px;
+    gap: 4px;
+    padding: 4px 12px;
   }
   .app-header nav {
     order: 2;

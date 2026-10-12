@@ -55,19 +55,6 @@ export default function Playback({
             scrub={scrub}
             selectPoint={selectPoint}
           />
-          <label className="timeline">
-            Elapsed time
-            <input
-              type="range"
-              min={0}
-              max={data.duration}
-              step={1}
-              value={position.elapsed}
-              disabled={data.duration === 0}
-              aria-valuetext={durationLabel(position.elapsed)}
-              onChange={(event) => scrub(event.target.valueAsNumber)}
-            />
-          </label>
           <div className="playback-controls">
             <button
               className="primary"
@@ -81,7 +68,7 @@ export default function Playback({
               {active ? 'Pause' : 'Play'}
             </button>
             <label>
-              Playback speed
+              <span>Playback speed</span>
               <select value={speed} onChange={(event) => setSpeed(Number(event.target.value))}>
                 {[1, 10, 100, 1000].map((value) => (
                   <option key={value} value={value}>
@@ -97,7 +84,7 @@ export default function Playback({
           <p className="gap-status" role="status">
             {position.gap !== null
               ? `Missing recording · ${durationLabel(position.gap)} skipped. Jumped to the next recorded position.`
-              : 'Playback leaves the map under your control.'}
+              : null}
           </p>
         </>
       ) : (
@@ -123,37 +110,51 @@ function PointDetails({
   if (!point) return null;
   return (
     <div className="point-detail">
-      <div className="point-controls">
-        <button disabled={pointIndex === 0} onClick={() => setPointIndex(pointIndex - 1)}>
-          Previous point
-        </button>
-        <label>
-          Point
-          <input
-            type="number"
-            min="1"
-            max={points.length}
-            value={pointIndex + 1}
-            onChange={(event) => {
-              const value = event.target.valueAsNumber;
-              if (Number.isInteger(value) && value >= 1 && value <= points.length)
-                setPointIndex(value - 1);
-            }}
-          />
-        </label>
-        <span>of {points.length.toLocaleString()}</span>
-        <button
-          disabled={pointIndex === points.length - 1}
-          onClick={() => setPointIndex(pointIndex + 1)}
-        >
-          Next point
-        </button>
-      </div>
+      <PointReading point={point} />
+      <details>
+        <summary>Point details</summary>
+        <div className="point-controls">
+          <button disabled={pointIndex === 0} onClick={() => setPointIndex(pointIndex - 1)}>
+            Previous point
+          </button>
+          <label>
+            Point
+            <input
+              type="number"
+              min="1"
+              max={points.length}
+              value={pointIndex + 1}
+              onChange={(event) => {
+                const value = event.target.valueAsNumber;
+                if (Number.isInteger(value) && value >= 1 && value <= points.length)
+                  setPointIndex(value - 1);
+              }}
+            />
+          </label>
+          <span>of {points.length.toLocaleString()}</span>
+          <button
+            disabled={pointIndex === points.length - 1}
+            onClick={() => setPointIndex(pointIndex + 1)}
+          >
+            Next point
+          </button>
+        </div>
+        <p>
+          {point.latitude}, {point.longitude}
+        </p>
+        {point.timezone && <p className="hint">{point.timezone}</p>}
+      </details>
+    </div>
+  );
+}
+
+function PointReading({ point }: { point: Detail['points'][number] }) {
+  return (
+    <div className="point-reading">
       <p>
         {point.localTime ? (
           <>
-            <time dateTime={point.localTime}>{point.localTime.replace('T', ' ')}</time> ·{' '}
-            {point.timezone}
+            <time dateTime={point.localTime}>{point.localTime.replace('T', ' ')}</time>
           </>
         ) : point.time ? (
           'Local time unresolved'
@@ -162,10 +163,7 @@ function PointDetails({
         )}
       </p>
       {point.time && !point.localTime && <p>Recorded UTC: {point.time}</p>}
-      <p>
-        {point.latitude}, {point.longitude} ·{' '}
-        {point.elevation === null ? 'Elevation unknown' : `${point.elevation} m`}
-      </p>
+      <strong>{point.elevation === null ? 'Elevation unknown' : `${point.elevation} m`}</strong>
     </div>
   );
 }

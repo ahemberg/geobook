@@ -107,6 +107,7 @@ test('review confirms selected days, excludes a flyover and explores a country w
   vi.stubGlobal('fetch', fetch);
   const user = userEvent.setup();
   render(<App />);
+  await user.click(screen.getByRole('button', { name: /^Date filters:/ }));
   await user.selectOptions(await screen.findByLabelText('Year'), '2025');
   await user.click(screen.getByRole('button', { name: 'Countries' }));
   expect(await screen.findByText(/No confirmed visits/)).toBeVisible();
@@ -121,6 +122,7 @@ test('review confirms selected days, excludes a flyover and explores a country w
   expect(await screen.findByText('2 recorded days')).toBeVisible();
   const germany = screen.getByRole('group', { name: 'Germany 2025-06-20' });
   await user.click(within(germany).getByRole('button', { name: 'Exclude' }));
+  await user.click(screen.getByRole('button', { name: /^Date filters:/ }));
   await user.selectOptions(screen.getByLabelText('Review state'), 'excluded');
   expect(await screen.findByRole('group', { name: 'Germany 2025-06-20' })).toBeVisible();
   await user.click(screen.getByRole('button', { name: /Explore Sweden/ }));
@@ -130,13 +132,9 @@ test('review confirms selected days, excludes a flyover and explores a country w
       expect.anything(),
     ),
   );
-  expect(
-    await screen.findByRole('button', { name: /Stockholm walk.*matching points/ }),
-  ).toBeVisible();
-  expect(
-    screen.queryByRole('button', { name: /Flyover.*matching points/ }),
-  ).not.toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: /^Stockholm walk.*/ })).toBeVisible();
+  expect(screen.queryByRole('button', { name: /^Flyover.*/ })).not.toBeInTheDocument();
   expect(screen.getByText('2025-01-01 to 2025-12-31')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'All countries' }));
-  expect(await screen.findByRole('button', { name: /Flyover.*matching points/ })).toBeVisible();
+  expect(await screen.findByRole('button', { name: /^Flyover.*/ })).toBeVisible();
 });

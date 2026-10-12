@@ -47,14 +47,14 @@ test('saved choices are shared with another browser and hidden tracks stay selec
     await page.getByLabel('Track name', { exact: true }).fill(renamed);
     await page.getByLabel('Track colour').fill('#123abc');
     await page.getByRole('button', { name: 'Save changes' }).click();
-    await expect(page.getByRole('heading', { name: renamed })).toBeVisible();
+    await expect(page.locator('.recording-heading h2')).toHaveText(renamed);
     await expect(page.locator('.leaflet-overlay-pane path[stroke="#123abc"]')).toHaveCount(1);
     await page.getByRole('checkbox', { name: `Show ${renamed} on map` }).click();
     await expect(page.locator('.leaflet-overlay-pane path[stroke="#123abc"]')).toHaveCount(0);
     await other.reload();
     await expect(other.getByRole('checkbox', { name: `Show ${renamed} on map` })).not.toBeChecked();
     await expect(other.locator('.leaflet-overlay-pane path[stroke="#123abc"]')).toHaveCount(0);
-    await other.getByRole('button', { name: new RegExp(`${renamed}.*recorded points`) }).click();
+    await other.getByRole('button', { name: new RegExp(`^${renamed}.*`) }).click();
     await expect(other.getByRole('region', { name: 'Complete recording' })).toContainText(
       '2 points · 1 segment',
     );

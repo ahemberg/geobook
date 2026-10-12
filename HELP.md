@@ -171,11 +171,12 @@ See [typed ESLint](https://typescript-eslint.io/getting-started/typed-linting/),
 
 ## Point-local dates
 
-Use From and To to include both endpoint dates, select a recorded year, or use
+Open the applied date range to edit From and To, select a recorded year, or use
 All time. Each point uses its own location's historical clock rules. The library
-shows matching point counts; Open complete recording shows every ordered point,
-including those outside the filter. Previous point, Next point and the Point
-number inspect local time, coordinates and recorded elevation. Closing the track
+shows compact rows with each date once and scrolls independently of the map.
+Selecting a row opens the complete recording, including points outside the filter,
+in a panel docked below the map. Point details contains Previous point, Next point
+and the Point number; Recording details contains counts and original downloads. Closing the track
 returns to the filtered map. A successful upload resets All time.
 
 Untimed and unresolved points appear under All time. Point details label missing
@@ -234,7 +235,7 @@ Pi startup, memory and large-collection timings remain release checks in #31.
 ## Playback and recording gaps
 
 Open a complete recording to play or pause it, choose 1x, 10x, 100x or 1000x,
-and seek with the elapsed-time slider or elevation plot. Drag the plot with a
+and seek with the elevation plot. Drag the plot with a
 mouse or touch, or use its arrow keys, Home and End. Point inspection and the
 marker use recorded positions, with point-local date/time. Playback and seeking
 leave pan and zoom under your control, even when the marker is outside the map.

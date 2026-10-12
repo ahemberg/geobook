@@ -1,3 +1,4 @@
+import { openDateFilters } from './workspaceControls';
 import { expect, test } from '@playwright/test';
 
 test('full recording playback and touch scrubbing keep the manual camera fixed', async ({
@@ -33,13 +34,13 @@ test('full recording playback and touch scrubbing keep the manual camera fixed',
     .getByLabel('Choose GPX file')
     .setInputFiles({ name: 'replay.gpx', mimeType: 'application/gpx+xml', buffer: original });
   await expect(page.getByRole('heading', { name })).toBeVisible();
-  if (mobile) await page.getByRole('button', { name: 'Date filters' }).click();
+  await openDateFilters(page);
   await page.getByLabel('From', { exact: true }).fill('2026-06-19');
   await page.getByLabel('To', { exact: true }).fill('2026-06-19');
   await page.getByRole('button', { name: 'Apply dates' }).click();
   if (mobile) await page.getByRole('button', { name: 'Show library' }).click();
   const row = page.getByRole('button', { name: new RegExp(`^${name} `) });
-  await expect(row).toContainText('3 matching points');
+  await expect(row).toBeVisible();
   await row.click();
   await expect(page.getByRole('region', { name: 'Complete recording' })).toContainText('6 points');
   await expect(page.locator('.playback-marker')).toHaveAttribute(
@@ -58,6 +59,7 @@ test('full recording playback and touch scrubbing keep the manual camera fixed',
   });
   await page.getByText('Recording gaps', { exact: true }).click();
 
+  await page.getByText('Point details', { exact: true }).click();
   await page.clock.install({ time: new Date('2026-06-20T00:00:00Z') });
   await page.clock.pauseAt(new Date('2026-06-20T00:00:01Z'));
   const map = page.getByLabel('Interactive map');

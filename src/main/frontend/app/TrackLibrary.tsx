@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { request } from './api';
 import RemovalDialog from './RemovalDialog';
 import type { Controls, Overview } from './api';
+import { trackDateLabel } from './trackDateLabel';
 
 export default function TrackLibrary({
   tracks,
@@ -29,6 +30,12 @@ export default function TrackLibrary({
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [search, setSearch] = useState('');
   const searchInput = useRef<HTMLInputElement>(null);
+  const libraryToggle = useRef<HTMLButtonElement>(null);
+  function openRecording(id: number) {
+    select(id);
+    setLibraryOpen(false);
+    if (libraryToggle.current?.getClientRects().length) libraryToggle.current.focus();
+  }
   function saved(controls: Controls) {
     onSaved(controls);
     if (!controls.name.toLowerCase().includes(search.trim().toLowerCase()))
@@ -42,6 +49,7 @@ export default function TrackLibrary({
       <div className="library-heading">
         <h2>Tracks</h2>
         <button
+          ref={libraryToggle}
           className="library-toggle"
           aria-expanded={libraryOpen}
           aria-controls="track-list"
@@ -59,17 +67,15 @@ export default function TrackLibrary({
         {empty && (
           <EmptyLibrary filtered={filtered} uploading={uploading} chooseFile={chooseFile} />
         )}
-        {tracks.length > 0 && (
-          <label className="library-search">
-            Search tracks
-            <input
-              ref={searchInput}
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
-        )}
+        <label className="library-search">
+          Search tracks
+          <input
+            ref={searchInput}
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
         {tracks.length > 0 && matches.length === 0 && (
           <p className="library-copy" role="status">
             No tracks match your search.
@@ -80,9 +86,8 @@ export default function TrackLibrary({
             <TrackRow
               key={track.id}
               track={track}
-              filtered={filtered}
               selected={track.id === selectedId}
-              select={() => select(track.id)}
+              select={() => openRecording(track.id)}
               onSaved={saved}
               onRemoved={onRemoved}
             />
@@ -129,20 +134,19 @@ function EmptyLibrary({
 
 function TrackRow({
   track,
-  filtered,
   selected,
   select,
   onSaved,
   onRemoved,
 }: {
   track: Overview;
-  filtered: boolean;
   selected: boolean;
   select: () => void;
   onSaved: (saved: Controls) => void;
   onRemoved: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const date = trackDateLabel(track);
   const editButton = useRef<HTMLButtonElement>(null);
   function closeEditor() {
     setEditing(false);
@@ -181,23 +185,11 @@ function TrackRow({
             }}
           />
         </label>
-        <button className="track-row" aria-pressed={selected} onClick={select}>
+        <button className="track-row" aria-pressed={selected} onClick={select} title={track.name}>
           <span className="swatch" style={{ backgroundColor: track.colour }} />
           <span className="track-label">
             <strong>{track.name}</strong>
-            <span>
-              {track.startTime
-                ? `${track.startTime.slice(0, 10)} UTC`
-                : `Date unknown · Track ${track.id}`}
-            </span>
-            <span>
-              {track.pointCount.toLocaleString()} {filtered ? 'matching' : 'recorded'} points
-              {!track.visible && ' · Hidden'}
-            </span>
-            {track.unknownDateCount > 0 && (
-              <span>{track.unknownDateCount} points with date unknown</span>
-            )}
-            <span>Open complete recording</span>
+            {date && <span>{date}</span>}
           </span>
         </button>
         <button

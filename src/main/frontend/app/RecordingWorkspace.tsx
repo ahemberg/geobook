@@ -73,36 +73,44 @@ function SelectedRecording({
   const gapSeconds = settings?.gapSeconds ?? 300;
   return (
     <section className="track-detail" aria-label="Complete recording">
-      <button className="close-track" onClick={close}>
-        Close track
-      </button>
+      <header className="recording-heading">
+        {detail && <h2 title={detail.name}>{detail.name}</h2>}
+        <button className="close-track" onClick={close}>
+          Close track
+        </button>
+      </header>
       {detailError && <p role="alert">{detailError}</p>}
       {!detail && !detailError && <p role="status">Opening complete recording…</p>}
       {detail && (
         <>
-          <h2>{detail.name}</h2>
-          <p>
-            Complete recording · {detail.points.length.toLocaleString()} points ·{' '}
-            {detail.segmentCount} {detail.segmentCount === 1 ? 'segment' : 'segments'}
-          </p>
-          <p className="hint">
-            Includes points outside the date and country filters. Hidden tracks stay off the map.
-          </p>
           <Playback
             points={detail.points}
             colour={detail.colour}
             gapSeconds={gapSeconds}
             onPosition={onPosition}
           />
-          <a href="/notices/timezones.md">Timezone data and limitations</a>
-          <p className="hint">
-            Lines break at source segments and recording gaps over {gapSeconds} seconds.
-          </p>
-          {detail.originalIds.map((id) => (
-            <a key={id} href={`/api/originals/${id}`}>
-              Download GPX
-            </a>
-          ))}
+          <details className="recording-metadata">
+            <summary>Recording details</summary>
+            <p>
+              Complete recording · {detail.points.length.toLocaleString()} points ·{' '}
+              {detail.segmentCount} {detail.segmentCount === 1 ? 'segment' : 'segments'}
+            </p>
+            <p className="hint">
+              Includes points outside the date and country filters. Hidden tracks stay off the map.
+            </p>
+            <p className="hint">
+              Shaded intervals are missing recording. Missing elevation breaks the plot.
+            </p>
+            <a href="/notices/timezones.md">Timezone data and limitations</a>
+            <p className="hint">
+              Lines break at source segments and recording gaps over {gapSeconds} seconds.
+            </p>
+            {detail.originalIds.map((id) => (
+              <a key={id} href={`/api/originals/${id}`}>
+                Download GPX
+              </a>
+            ))}
+          </details>
         </>
       )}
     </section>

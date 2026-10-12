@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { DateRange } from './api';
 
@@ -12,22 +12,43 @@ export default function DateFilter({
   apply: (range: DateRange) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const toggle = useRef<HTMLButtonElement>(null);
+  function close() {
+    setExpanded(false);
+    toggle.current?.focus();
+  }
+  useEffect(() => {
+    if (!expanded) return;
+    function escape(event: KeyboardEvent) {
+      if (event.key === 'Escape') close();
+    }
+    window.addEventListener('keydown', escape);
+    return () => window.removeEventListener('keydown', escape);
+  }, [expanded]);
   return (
-    <div className={`date-controls ${expanded ? 'expanded' : ''}`}>
+    <div className="date-controls">
       <button
+        ref={toggle}
         className="date-toggle"
+        aria-label={`Date filters: ${range ? `${range.from} to ${range.to}` : 'All time'}`}
         aria-expanded={expanded}
         aria-controls="date-fields"
         onClick={() => setExpanded(!expanded)}
       >
-        Date filters
+        {range ? `${range.from} to ${range.to}` : 'All time'}
       </button>
-      <DateFields
-        key={range ? `${range.from}-${range.to}` : 'all'}
-        range={range}
-        years={years}
-        apply={apply}
-      />
+      <div id="date-fields" className="date-panel" hidden={!expanded}>
+        <DateFields
+          key={range ? `${range.from}-${range.to}` : 'all'}
+          range={range}
+          years={years}
+          apply={(next) => {
+            apply(next);
+            close();
+          }}
+        />
+        <button onClick={close}>Close dates</button>
+      </div>
     </div>
   );
 }
@@ -50,7 +71,6 @@ function DateFields({
       : '';
   return (
     <form
-      id="date-fields"
       className="date-filter"
       aria-label="Filter recorded dates"
       onSubmit={(event) => {

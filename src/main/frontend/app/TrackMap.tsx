@@ -54,12 +54,7 @@ export default function TrackMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const layer = L.featureGroup().addTo(map);
     const longitude = country ? (country.bounds[0][1] + country.bounds[1][1]) / 2 : undefined;
-    for (const track of tracks.filter((track) => track.visible)) {
-      drawTrack(track, selectedId, layer, longitude);
-      drawGaps(track, layer, longitude);
-    }
 
     const fitKey = JSON.stringify([
       selectedId,
@@ -74,32 +69,35 @@ export default function TrackMap({
       map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16, animate: false });
       fitted.current = fitKey;
     }
-    return () => {
-      layer.remove();
-    };
+    return repeatWorlds(map, trackBounds(tracks, longitude), (layer, offset) => {
+      for (const track of tracks.filter((track) => track.visible)) {
+        const origin = longitude ?? track.geometry[0]?.[0]?.[1] ?? 0;
+        drawTrack(track, selectedId, layer, origin + offset);
+        drawGaps(track, layer, origin + offset);
+      }
+    });
   }, [tracks, selectedId, importedIds, config, country]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !position) return;
-    const element = document.createElement('span');
-    element.className = 'playback-marker-dot';
-    const marker = L.marker(position, {
-      icon: L.divIcon({
-        className: 'playback-marker',
-        html: element,
-        iconSize: [18, 18],
-        iconAnchor: [9, 9],
-      }),
-      keyboard: false,
-      interactive: false,
-    }).addTo(map);
-    marker
-      .getElement()
-      ?.setAttribute('aria-label', `Recorded position: ${position[0]}, ${position[1]}`);
-    return () => {
-      marker.remove();
-    };
+    return repeatWorlds(map, L.latLngBounds([position]), (layer, offset) => {
+      const element = document.createElement('span');
+      element.className = 'playback-marker-dot';
+      const marker = L.marker([position[0], position[1] + offset], {
+        icon: L.divIcon({
+          className: 'playback-marker',
+          html: element,
+          iconSize: [18, 18],
+          iconAnchor: [9, 9],
+        }),
+        keyboard: false,
+        interactive: false,
+      }).addTo(layer);
+      marker
+        .getElement()
+        ?.setAttribute('aria-label', `Recorded position: ${position[0]}, ${position[1]}`);
+    });
   }, [position, url, attribution, attributionUrl]);
 
   function fitAll() {
@@ -132,6 +130,38 @@ export default function TrackMap({
       )}
     </section>
   );
+}
+
+function repeatWorlds(
+  map: L.Map,
+  bounds: L.LatLngBounds,
+  draw: (layer: L.FeatureGroup, offset: number) => void,
+) {
+  const copies = new Map<number, L.FeatureGroup>();
+  function update() {
+    if (!bounds.isValid()) return;
+    const view = map.getBounds();
+    const first = Math.ceil((view.getWest() - bounds.getEast()) / 360);
+    const last = Math.floor((view.getEast() - bounds.getWest()) / 360);
+    for (const [world, layer] of copies) {
+      if (world < first || world > last) {
+        layer.remove();
+        copies.delete(world);
+      }
+    }
+    for (let world = first; world <= last; world++) {
+      if (copies.has(world)) continue;
+      const layer = L.featureGroup().addTo(map);
+      draw(layer, world * 360);
+      copies.set(world, layer);
+    }
+  }
+  map.on('move', update);
+  update();
+  return () => {
+    map.off('move', update);
+    for (const layer of copies.values()) layer.remove();
+  };
 }
 
 function drawTrack(
