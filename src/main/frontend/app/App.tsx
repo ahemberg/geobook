@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 import { request } from './api';
 import type { Controls, Detail, MapConfig, Overview } from './api';
 import TrackMap from './TrackMap';
 import DateFilter from './DateFilter';
 import TrackLibrary from './TrackLibrary';
+import OriginalArchive from './OriginalArchive';
 import { useUpload, UploadFeedback } from './Upload';
 
 export default function App() {
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reload, setReload] = useState(0);
   const [importedIds, setImportedIds] = useState<number[]>([]);
@@ -18,6 +21,14 @@ export default function App() {
     range,
     reload,
   );
+
+  function removed() {
+    setSelectedId(null);
+    setImportedIds([]);
+    clear();
+    setReload((value) => value + 1);
+    document.getElementById('tracks')?.focus();
+  }
 
   function filter(next: { from: string; to: string } | null) {
     if (next !== range) {
@@ -49,14 +60,112 @@ export default function App() {
   }));
   const selectedName = tracks.find((track) => track.id === selectedId)?.name;
 
+  const scopeLabel = range ? `${range.from} to ${range.to}` : 'All time';
+  const map = config ? (
+    <TrackMap
+      tracks={mapTracks}
+      selectedId={selectedId}
+      importedIds={importedIds}
+      config={config}
+    />
+  ) : (
+    <div className="map-placeholder">{mapStatus}</div>
+  );
+
   return (
     <>
-      <a className="skip-link" href="#tracks">
-        Skip to tracks
+      <AppHeader
+        archiveOpen={archiveOpen}
+        setArchiveOpen={setArchiveOpen}
+        fileInput={fileInput}
+        uploading={uploading}
+        upload={upload}
+      />
+      <UploadFeedback {...uploadState} />
+      {archiveOpen ? (
+        <OriginalArchive reload={reload} onRemoved={removed} />
+      ) : (
+        <>
+          <div className="scope">
+            <h1>Recorded travel</h1>
+            <span className="scope-value">{scopeLabel}</span>
+            <span className="track-count">Tracks: {tracks.length}</span>
+          </div>
+          <DateFilter range={range} years={years} apply={filter} />
+          {loadError && (
+            <div className="notice error" role="alert">
+              {loadError}
+              <button onClick={() => setReload((value) => value + 1)}>Retry loading</button>
+            </div>
+          )}
+          <main className="workspace">
+            <TrackLibrary
+              tracks={tracks}
+              filtered={range !== null}
+              onSaved={onSaved}
+              onRemoved={removed}
+              selectedId={selectedId}
+              select={select}
+              loading={loading}
+              empty={empty}
+              uploading={uploading}
+              chooseFile={() => fileInput.current?.click()}
+            />
+            <div className="map-workspace">
+              {map}
+              {selectedId !== null && (
+                <SelectedRecording
+                  key={`${selectedId}-${reload}`}
+                  detail={detail}
+                  name={selectedName}
+                  detailError={detailError}
+                  close={() => {
+                    setSelectedId(null);
+                  }}
+                />
+              )}
+            </div>
+          </main>
+        </>
+      )}
+    </>
+  );
+}
+
+function AppHeader({
+  archiveOpen,
+  setArchiveOpen,
+  fileInput,
+  uploading,
+  upload,
+}: {
+  archiveOpen: boolean;
+  setArchiveOpen: (open: boolean) => void;
+  fileInput: RefObject<HTMLInputElement | null>;
+  uploading: boolean;
+  upload: (files: File[]) => Promise<void>;
+}) {
+  return (
+    <>
+      <a className="skip-link" href={archiveOpen ? '#originals' : '#tracks'}>
+        Skip to {archiveOpen ? 'original exports' : 'tracks'}
       </a>
       <header className="app-header">
         <span className="brand">Geobook</span>
-        <span className="current-page">Map</span>
+        <nav aria-label="Main navigation">
+          <button
+            aria-current={!archiveOpen ? 'page' : undefined}
+            onClick={() => setArchiveOpen(false)}
+          >
+            Map
+          </button>
+          <button
+            aria-current={archiveOpen ? 'page' : undefined}
+            onClick={() => setArchiveOpen(true)}
+          >
+            Original exports
+          </button>
+        </nav>
         <button
           className="upload-button"
           disabled={uploading}
@@ -78,55 +187,6 @@ export default function App() {
           }}
         />
       </header>
-      <div className="scope">
-        <h1>Recorded travel</h1>
-        <span className="scope-value">{range ? `${range.from} to ${range.to}` : 'All time'}</span>
-        <span className="track-count">Tracks: {tracks.length}</span>
-      </div>
-      <DateFilter range={range} years={years} apply={filter} />
-      <UploadFeedback {...uploadState} />
-      {loadError && (
-        <div className="notice error" role="alert">
-          {loadError}
-          <button onClick={() => setReload((value) => value + 1)}>Retry loading</button>
-        </div>
-      )}
-      <main className="workspace">
-        <TrackLibrary
-          tracks={tracks}
-          filtered={range !== null}
-          onSaved={onSaved}
-          selectedId={selectedId}
-          select={select}
-          loading={loading}
-          empty={empty}
-          uploading={uploading}
-          chooseFile={() => fileInput.current?.click()}
-        />
-        <div className="map-workspace">
-          {config ? (
-            <TrackMap
-              tracks={mapTracks}
-              selectedId={selectedId}
-              importedIds={importedIds}
-              config={config}
-            />
-          ) : (
-            <div className="map-placeholder">{mapStatus}</div>
-          )}
-          {selectedId !== null && (
-            <SelectedRecording
-              key={`${selectedId}-${reload}`}
-              detail={detail}
-              name={selectedName}
-              detailError={detailError}
-              close={() => {
-                setSelectedId(null);
-              }}
-            />
-          )}
-        </div>
-      </main>
     </>
   );
 }
