@@ -1,6 +1,6 @@
 {
-  "importSeconds": 186.53439034504117,
-  "firstProgressSeconds": 1.6986894269939512,
+  "importSeconds": 179.80981362995226,
+  "firstProgressSeconds": 1.3759016379481182,
   "outcomes": {
     "progress": 50,
     "imported": 500,
@@ -8,163 +8,155 @@
   },
   "collectionReads": [
     {
-      "seconds": 0.21868051000637934,
+      "seconds": 0.24156809801934287,
       "tracks": 0
     },
     {
-      "seconds": 0.005858169985003769,
+      "seconds": 0.005545213003642857,
       "tracks": 0
     },
     {
-      "seconds": 0.033506126957945526,
-      "tracks": 10
+      "seconds": 0.052401538006961346,
+      "tracks": 11
     },
     {
-      "seconds": 0.026892271998804063,
-      "tracks": 20
+      "seconds": 0.034153098007664084,
+      "tracks": 26
     },
     {
-      "seconds": 0.04934128298191354,
-      "tracks": 30
+      "seconds": 0.037218028970528394,
+      "tracks": 39
     },
     {
-      "seconds": 0.0353296099929139,
-      "tracks": 47
+      "seconds": 0.05153172102291137,
+      "tracks": 50
     },
     {
-      "seconds": 0.0346214990131557,
-      "tracks": 60
+      "seconds": 0.037207472953014076,
+      "tracks": 66
     },
     {
-      "seconds": 0.037647925957571715,
-      "tracks": 76
+      "seconds": 0.04640963696874678,
+      "tracks": 79
     },
     {
-      "seconds": 0.035372202983126044,
-      "tracks": 90
+      "seconds": 0.0442482260405086,
+      "tracks": 91
     },
     {
-      "seconds": 0.17273040098370984,
-      "tracks": 103
+      "seconds": 0.061187422019429505,
+      "tracks": 109
     },
     {
-      "seconds": 0.0547779529588297,
-      "tracks": 118
+      "seconds": 0.07004349399358034,
+      "tracks": 123
     },
     {
-      "seconds": 0.29756848397664726,
-      "tracks": 130
+      "seconds": 0.08959728601621464,
+      "tracks": 138
     },
     {
-      "seconds": 0.06293214298784733,
-      "tracks": 145
+      "seconds": 0.3001086920266971,
+      "tracks": 150
     },
     {
-      "seconds": 0.14254901796812192,
-      "tracks": 159
+      "seconds": 0.07718826399650425,
+      "tracks": 164
     },
     {
-      "seconds": 0.07010848098434508,
-      "tracks": 173
+      "seconds": 0.09979221102548763,
+      "tracks": 178
     },
     {
-      "seconds": 0.06443210801808164,
-      "tracks": 188
+      "seconds": 0.15145307895727456,
+      "tracks": 190
     },
     {
-      "seconds": 0.07968828297453001,
-      "tracks": 201
+      "seconds": 0.12238449102733284,
+      "tracks": 204
     },
     {
-      "seconds": 0.08593108301283792,
-      "tracks": 216
+      "seconds": 0.10164743597852066,
+      "tracks": 219
     },
     {
-      "seconds": 0.12365547299850732,
-      "tracks": 230
+      "seconds": 0.09985221101669595,
+      "tracks": 234
     },
     {
-      "seconds": 0.07554170704679564,
-      "tracks": 243
+      "seconds": 0.11158273002365604,
+      "tracks": 250
     },
     {
-      "seconds": 0.09221579000586644,
-      "tracks": 259
+      "seconds": 0.11922239197883755,
+      "tracks": 266
     },
     {
-      "seconds": 0.10614652000367641,
-      "tracks": 272
+      "seconds": 0.14909368299413472,
+      "tracks": 280
     },
     {
-      "seconds": 0.09971449902513996,
-      "tracks": 286
+      "seconds": 0.13260661804815754,
+      "tracks": 294
     },
     {
-      "seconds": 0.1134892480331473,
-      "tracks": 300
+      "seconds": 0.34001740004168823,
+      "tracks": 309
     },
     {
-      "seconds": 0.1379704829887487,
-      "tracks": 315
+      "seconds": 0.13104639196535572,
+      "tracks": 320
     },
     {
-      "seconds": 0.10268655704567209,
+      "seconds": 0.1377719400334172,
       "tracks": 330
     },
     {
-      "seconds": 0.19740833202376962,
-      "tracks": 345
+      "seconds": 0.14519186003599316,
+      "tracks": 346
     },
     {
-      "seconds": 0.13822848501149565,
-      "tracks": 359
+      "seconds": 0.1854011329705827,
+      "tracks": 362
     },
     {
-      "seconds": 0.15022691700141877,
-      "tracks": 372
+      "seconds": 0.3395945999654941,
+      "tracks": 380
     },
     {
-      "seconds": 0.14145408000331372,
-      "tracks": 388
+      "seconds": 0.17248140601441264,
+      "tracks": 399
     },
     {
-      "seconds": 0.17934332403820008,
-      "tracks": 403
+      "seconds": 0.1963889459730126,
+      "tracks": 415
     },
     {
-      "seconds": 0.19138172001112252,
-      "tracks": 419
+      "seconds": 0.1968412240385078,
+      "tracks": 433
     },
     {
-      "seconds": 0.19245009100995958,
-      "tracks": 434
-    },
-    {
-      "seconds": 0.15051773498998955,
+      "seconds": 0.21893461397849023,
       "tracks": 450
     },
     {
-      "seconds": 0.34290993900503963,
-      "tracks": 463
+      "seconds": 0.20297878998098895,
+      "tracks": 468
     },
     {
-      "seconds": 0.15878455503843725,
-      "tracks": 480
-    },
-    {
-      "seconds": 0.18729059101315215,
-      "tracks": 491
+      "seconds": 0.3063983909669332,
+      "tracks": 483
     }
   ],
   "readFailures": [],
-  "serverPeakRssKiB": 1755008,
+  "serverCommit": "7da767daabc2575bad6faf65fe1307e2b7f030d8",
+  "serverPeakRssKiB": 1505296,
+  "serverSwapKiB": 0,
   "throttling": [
     "throttled=0x0"
   ],
   "temperatureSamples": [
-    "temp=43.9'C",
     "temp=44.4'C",
-    "temp=45.0'C",
     "temp=45.5'C",
     "temp=46.1'C",
     "temp=46.6'C",
@@ -172,6 +164,471 @@
     "temp=47.7'C",
     "temp=48.3'C",
     "temp=48.8'C",
-    "temp=49.4'C"
+    "temp=49.4'C",
+    "temp=50.5'C"
+  ],
+  "resourceSamples": [
+    {
+      "time": 1791806766.5250843,
+      "memory": [
+        "VmHWM:\t  323104 kB",
+        "VmRSS:\t  323104 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "0.97 2.40 5.27 2/762 1251210",
+      "temperature": "temp=45.5'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806771.5326889,
+      "memory": [
+        "VmHWM:\t 1144624 kB",
+        "VmRSS:\t 1144624 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "0.98 2.38 5.25 2/763 1251253",
+      "temperature": "temp=48.8'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806776.5364892,
+      "memory": [
+        "VmHWM:\t 1353808 kB",
+        "VmRSS:\t 1353808 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "0.98 2.36 5.23 3/763 1251320",
+      "temperature": "temp=50.5'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806781.542115,
+      "memory": [
+        "VmHWM:\t 1385664 kB",
+        "VmRSS:\t 1385664 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "0.98 2.33 5.20 2/763 1251382",
+      "temperature": "temp=47.7'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806786.5465934,
+      "memory": [
+        "VmHWM:\t 1405792 kB",
+        "VmRSS:\t 1405792 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "0.98 2.31 5.18 4/765 1251450",
+      "temperature": "temp=49.4'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806791.5499635,
+      "memory": [
+        "VmHWM:\t 1446064 kB",
+        "VmRSS:\t 1446064 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "0.98 2.29 5.16 1/774 1251507",
+      "temperature": "temp=48.3'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806796.555906,
+      "memory": [
+        "VmHWM:\t 1454976 kB",
+        "VmRSS:\t 1454976 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "0.98 2.27 5.14 2/763 1251559",
+      "temperature": "temp=47.7'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806801.5591877,
+      "memory": [
+        "VmHWM:\t 1456304 kB",
+        "VmRSS:\t 1456304 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.07 2.26 5.12 1/763 1251602",
+      "temperature": "temp=48.3'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806806.5623896,
+      "memory": [
+        "VmHWM:\t 1463040 kB",
+        "VmRSS:\t 1463040 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.14 2.26 5.10 1/765 1251690",
+      "temperature": "temp=48.3'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806811.5656135,
+      "memory": [
+        "VmHWM:\t 1472560 kB",
+        "VmRSS:\t 1472560 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.21 2.26 5.09 3/764 1251733",
+      "temperature": "temp=49.4'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806816.5693467,
+      "memory": [
+        "VmHWM:\t 1492432 kB",
+        "VmRSS:\t 1492432 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.19 2.23 5.06 3/775 1251809",
+      "temperature": "temp=49.4'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806821.57422,
+      "memory": [
+        "VmHWM:\t 1490288 kB",
+        "VmRSS:\t 1480432 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.18 2.21 5.04 1/764 1251863",
+      "temperature": "temp=48.3'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806826.577518,
+      "memory": [
+        "VmHWM:\t 1490288 kB",
+        "VmRSS:\t 1482528 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.24 2.21 5.02 3/766 1251927",
+      "temperature": "temp=48.3'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806831.5828862,
+      "memory": [
+        "VmHWM:\t 1505296 kB",
+        "VmRSS:\t 1505296 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.30 2.21 5.01 2/764 1251987",
+      "temperature": "temp=47.7'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806836.5862362,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1488960 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.36 2.20 4.99 2/764 1252073",
+      "temperature": "temp=47.7'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806841.5901754,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1489152 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.33 2.18 4.97 2/764 1252117",
+      "temperature": "temp=48.3'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806846.5946374,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1491136 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.30 2.16 4.95 1/764 1252183",
+      "temperature": "temp=48.3'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806851.5978434,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1492656 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.28 2.14 4.93 2/766 1252253",
+      "temperature": "temp=47.2'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806856.6012034,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1493568 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.26 2.12 4.91 2/764 1252326",
+      "temperature": "temp=48.3'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806861.607988,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1478384 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.32 2.12 4.89 2/764 1252368",
+      "temperature": "temp=47.2'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806866.612665,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1480416 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.37 2.12 4.87 1/764 1252433",
+      "temperature": "temp=47.7'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806871.6158595,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1480512 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.42 2.12 4.86 1/762 1252499",
+      "temperature": "temp=48.3'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806876.6190891,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1482736 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.47 2.11 4.84 2/762 1252542",
+      "temperature": "temp=48.3'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806881.6227274,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1482912 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.43 2.10 4.82 3/764 1252639",
+      "temperature": "temp=47.7'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806886.6274111,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1482992 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.40 2.08 4.80 2/763 1252695",
+      "temperature": "temp=46.1'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806891.6307228,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1470752 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.36 2.06 4.78 1/763 1252759",
+      "temperature": "temp=48.8'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806896.6359065,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1470832 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.33 2.04 4.76 2/765 1252829",
+      "temperature": "temp=47.7'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806901.6392214,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1470960 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.31 2.02 4.74 1/763 1252881",
+      "temperature": "temp=48.3'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806906.6426182,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1473056 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.28 2.01 4.72 2/763 1252943",
+      "temperature": "temp=47.7'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806911.6480663,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1480848 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.34 2.01 4.70 2/763 1253013",
+      "temperature": "temp=48.8'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806916.6520915,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1467552 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.63 2.06 4.71 2/763 1253076",
+      "temperature": "temp=47.2'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806921.6553068,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1467616 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.58 2.04 4.69 1/763 1253119",
+      "temperature": "temp=47.7'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806926.6585457,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1467584 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.62 2.04 4.67 2/763 1253184",
+      "temperature": "temp=47.2'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806931.6619248,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1467712 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.57 2.02 4.65 2/763 1253277",
+      "temperature": "temp=47.2'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806936.6655736,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1467696 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.52 2.00 4.63 1/763 1253322",
+      "temperature": "temp=47.7'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806941.6688244,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1457680 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.56 2.00 4.62 1/765 1253413",
+      "temperature": "temp=47.7'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806946.671984,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1457744 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.52 1.98 4.60 1/760 1253457",
+      "temperature": "temp=47.7'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806951.6752522,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1457744 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.39 1.95 4.57 4/760 1253520",
+      "temperature": "temp=45.5'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806956.6796951,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1457744 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.28 1.92 4.55 1/758 1253587",
+      "temperature": "temp=45.5'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806961.6829414,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1457744 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.18 1.89 4.52 1/758 1253631",
+      "temperature": "temp=44.4'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806966.6869142,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1457744 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.08 1.85 4.50 1/758 1253695",
+      "temperature": "temp=46.1'C",
+      "throttled": "throttled=0x0"
+    },
+    {
+      "time": 1791806971.6900887,
+      "memory": [
+        "VmHWM:\t 1502896 kB",
+        "VmRSS:\t 1457760 kB",
+        "VmSwap:\t       0 kB"
+      ],
+      "load": "1.08 1.84 4.48 1/760 1253764",
+      "temperature": "temp=46.6'C",
+      "throttled": "throttled=0x0"
+    }
   ]
 }

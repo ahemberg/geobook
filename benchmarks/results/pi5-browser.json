@@ -4,11 +4,11 @@
     "tracks": 500,
     "pointsPerTrack": 10000,
     "points": 5000000,
-    "from": "2024-01-01",
-    "to": "2024-01-01",
+    "from": "2024-06-01",
+    "to": "2024-06-01",
     "filteredTracks": 1,
     "filteredPoints": 10000,
-    "filteredName": "Benchmark 0000"
+    "filteredName": "Benchmark 0152"
   },
   "client": {
     "platform": "linux",
@@ -22,58 +22,58 @@
   "results": [
     {
       "run": 1,
-      "overviewMs": 2471.511338,
-      "filterMs": 250.34662500000013,
-      "allTimeMs": 1153.7293519999998,
-      "overviewBytes": 950393,
+      "overviewMs": 1856.608394,
+      "filterMs": 231.06680000000006,
+      "allTimeMs": 600.5958610000002,
+      "overviewBytes": 955393,
       "withinTargets": true,
       "overviewVertices": 34500
     },
     {
       "run": 2,
-      "overviewMs": 1558.534493,
-      "filterMs": 265.1568390000002,
-      "allTimeMs": 1234.990519,
-      "overviewBytes": 950393,
+      "overviewMs": 1595.22455,
+      "filterMs": 218.01156900000024,
+      "allTimeMs": 563.3244410000007,
+      "overviewBytes": 955393,
       "withinTargets": true,
       "overviewVertices": 34500
     },
     {
       "run": 3,
-      "overviewMs": 1715.4605800000008,
-      "filterMs": 253.66107700000066,
-      "allTimeMs": 1099.1531829999985,
-      "overviewBytes": 950393,
+      "overviewMs": 1529.4810129999996,
+      "filterMs": 365.72682899999927,
+      "allTimeMs": 565.7560140000005,
+      "overviewBytes": 955393,
       "withinTargets": true,
       "overviewVertices": 34500
     },
     {
       "run": 4,
-      "overviewMs": 1561.5248379999994,
-      "filterMs": 264.44936100000086,
-      "allTimeMs": 1119.7397629999996,
-      "overviewBytes": 950393,
+      "overviewMs": 1443.9029790000004,
+      "filterMs": 213.51837700000033,
+      "allTimeMs": 546.7963380000001,
+      "overviewBytes": 955393,
       "withinTargets": true,
       "overviewVertices": 34500
     },
     {
       "run": 5,
-      "overviewMs": 1998.1676280000029,
-      "filterMs": 350.4085460000024,
-      "allTimeMs": 1660.2092639999973,
-      "overviewBytes": 950393,
+      "overviewMs": 1443.5368769999986,
+      "filterMs": 201.21222300000045,
+      "allTimeMs": 961.2829359999996,
+      "overviewBytes": 955393,
       "withinTargets": true,
       "overviewVertices": 34500
     }
   ],
   "server": {
-    "commit": "85e1ea0f17006d41f2412d26c2e0c06033fb7431",
+    "commit": "7da767daabc2575bad6faf65fe1307e2b7f030d8",
     "freshJvmFirstRun": true,
     "osCachesFlushed": false,
     "java": "Temurin 27+35",
     "heap": "-Xmx2g",
     "device": "Raspberry Pi 5, 8 GB RAM, Samsung PSSD T7 USB SSD",
     "network": "Wi-Fi LAN",
-    "postRunRssKiB": 446384
+    "postRunRssKiB": 305248
   }
 }

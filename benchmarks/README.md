@@ -97,31 +97,30 @@ A Pi thread sample also showed import time in polygon intersection lookup, at ro
 seconds per 10,000-point track after initialization.
 
 With stored simplified geometry and the existing timezone library's polygon index enabled,
-the full 500-track workload produced 34,500 overview vertices and a 950,393-byte response after integrating the archive feature.
-All five browser runs on commit `85e1ea0` met both targets. The first run used a freshly
+the full 500-track workload produced 34,500 overview vertices and a 955,393-byte response after integrating the archive and playback features.
+All five browser runs on commit `7da767d` met both targets. The first run used a freshly
 started JVM; subsequent runs reused that JVM. OS caches were not flushed. Raw samples are in [pi5-browser.json](results/pi5-browser.json).
 
 | Operation | Minimum | Median | Maximum | Target |
 | --- | ---: | ---: | ---: | ---: |
-| Opening overview | 1.559 s | 1.715 s | 2.472 s | < 5 s |
-| One-day filter | 0.250 s | 0.264 s | 0.350 s | < 2 s |
-| Return to All time | 1.099 s | 1.154 s | 1.660 s | < 2 s |
+| Opening overview | 1.444 s | 1.529 s | 1.857 s | < 5 s |
+| One-day filter | 0.201 s | 0.218 s | 0.366 s | < 2 s |
+| Return to All time | 0.547 s | 0.566 s | 0.961 s | < 2 s |
 
-The initial import measurement, before the archive merge, took 186.534 seconds, with first progress after 1.699 seconds, 500 imported
-tracks, 50 completed files and no failures. All 37 concurrent collection reads succeeded;
-the slowest took 0.343 seconds. Steady-state track import took about 0.2 seconds. Parsing,
-attribution and simplification occur before the writer lock; one track and its overview
-commit together. Reads use SQLite WAL while writes remain serialized.
+A fresh import on the same commit took 179.810 seconds, with first progress after 1.376
+seconds, 500 imported tracks, 50 completed files and no failures. All 35 concurrent
+collection reads succeeded; the slowest took 0.340 seconds. Parsing, attribution and
+simplification occur before the writer lock; one track and its overview commit together.
+Reads use SQLite WAL while writes remain serialized.
 
-Sampled server high-water RSS was 1,755,008 KiB, about 1.67 GiB. Samples reported no server
-swap and no thermal throttling, with temperatures between 43.9 and 49.4 degrees Celsius.
-The database was about 1.3 GiB, including retained original BLOBs, with a 13 MB WAL at the
-end of import. Between the initial run and the final browser series, the host developed
-heavy storage contention, with a sample showing 96% I/O wait and a load average around 26.
-The server was stopped and later restarted for the final series. The latency targets above
-do not claim to cover that stalled-storage condition. After the final browser series, the
-server used 446,384 KiB RSS, about 436 MiB, without loading the import-only timezone index.
-[pi5-import.json](results/pi5-import.json) contains import and read timings.
+Sampled server high-water RSS was 1,505,296 KiB, about 1.44 GiB. Samples reported no server
+swap and no thermal throttling, with temperatures between 44.4 and 50.5 degrees Celsius.
+The database was about 1.3 GiB, including retained original BLOBs, with a 12 MB WAL at the
+end of import. The server was stopped and restarted for the browser series. After those
+runs it used 305,248 KiB RSS, about 298 MiB, without loading the import-only timezone index.
+Background services remained running, but these measurements do not cover sustained
+storage contention. [pi5-import.json](results/pi5-import.json) contains import and read
+timings plus the resource samples.
 
 ## Limits and release recheck
 
