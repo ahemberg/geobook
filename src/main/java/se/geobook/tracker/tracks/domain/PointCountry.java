@@ -51,15 +51,7 @@ public final class PointCountry {
         while (line != null) {
           String[] fields = line.split("\t", 3);
           Geometry geometry = parser.read(fields[2]);
-          Envelope bounds = geometry.getEnvelopeInternal();
-          Country country =
-              new Country(
-                  fields[0],
-                  fields[1],
-                  bounds.getMinY(),
-                  bounds.getMaxY(),
-                  bounds.getMinX(),
-                  bounds.getMaxX());
+          Country country = bounds(fields[0], fields[1], geometry);
           COUNTRIES.put(country.code(), country);
           line = reader.readLine();
           for (int part = 0; part < geometry.getNumGeometries(); part++) {
@@ -79,6 +71,28 @@ public final class PointCountry {
             "Bundled country boundaries could not be loaded.", exception);
       }
     }
+  }
+
+  private static Country bounds(String code, String name, Geometry geometry) {
+    Envelope envelope = geometry.getEnvelopeInternal();
+    double[] longitudes =
+        java.util.Arrays.stream(geometry.getCoordinates())
+            .mapToDouble(coordinate -> coordinate.x)
+            .sorted()
+            .toArray();
+    double west = longitudes[0];
+    double east = longitudes[longitudes.length - 1];
+    double largestGap = west + 360 - east;
+    // Exclude the largest empty longitude arc, keeping date-line countries together.
+    for (int index = 1; index < longitudes.length; index++) {
+      double gap = longitudes[index] - longitudes[index - 1];
+      if (gap > largestGap) {
+        largestGap = gap;
+        west = longitudes[index];
+        east = longitudes[index - 1] + 360;
+      }
+    }
+    return new Country(code, name, envelope.getMinY(), envelope.getMaxY(), west, east);
   }
 
   public static Country country(String code) {

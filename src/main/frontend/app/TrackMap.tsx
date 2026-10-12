@@ -9,11 +9,13 @@ export default function TrackMap({
   importedIds,
   config,
   country,
+  loadError,
 }: {
   tracks: Overview[];
   selectedId: number | null;
   importedIds: number[];
-  config: MapConfig;
+  config: MapConfig | null;
+  loadError: string;
   country: Country | null;
 }) {
   const container = useRef<HTMLDivElement>(null);
@@ -22,7 +24,7 @@ export default function TrackMap({
   const tilesRef = useRef<L.TileLayer | null>(null);
 
   useEffect(() => {
-    if (!container.current) return;
+    if (!container.current || !config) return;
     const map = L.map(container.current, { preferCanvas: false }).setView([25, 10], 2);
     mapRef.current = map;
     const credit = document.createElement('a');
@@ -52,8 +54,9 @@ export default function TrackMap({
     const map = mapRef.current;
     if (!map) return;
     const layer = L.featureGroup().addTo(map);
+    const longitude = country ? (country.bounds[0][1] + country.bounds[1][1]) / 2 : undefined;
     for (const track of tracks.filter((track) => track.visible))
-      drawTrack(track, selectedId, layer);
+      drawTrack(track, selectedId, layer, longitude);
     const bounds = country
       ? L.latLngBounds(country.bounds)
       : trackBounds(fittedTracks(tracks, selectedId, importedIds));
@@ -65,10 +68,13 @@ export default function TrackMap({
 
   function fitAll() {
     mapRef.current?.invalidateSize();
-    const bounds = trackBounds(tracks);
+    const longitude = country ? (country.bounds[0][1] + country.bounds[1][1]) / 2 : undefined;
+    const bounds = trackBounds(tracks, longitude);
     if (bounds.isValid()) mapRef.current?.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
   }
 
+  if (!config)
+    return <div className="map-placeholder">{loadError ? 'Map unavailable' : 'Loading map…'}</div>;
   return (
     <section className="map-panel" aria-label="Recorded travel map">
       <div ref={container} className="map" aria-label="Interactive map" />
@@ -94,8 +100,13 @@ export default function TrackMap({
   );
 }
 
-function drawTrack(track: Overview, selectedId: number | null, layer: L.FeatureGroup) {
-  for (const line of mapGeometry(track.geometry)) {
+function drawTrack(
+  track: Overview,
+  selectedId: number | null,
+  layer: L.FeatureGroup,
+  longitude?: number,
+) {
+  for (const line of mapGeometry(track.geometry, longitude)) {
     if (line.length === 1 && line[0]) {
       L.circleMarker(line[0], { radius: 4, color: track.colour, fillOpacity: 1 }).addTo(layer);
     } else {
@@ -107,11 +118,11 @@ function drawTrack(track: Overview, selectedId: number | null, layer: L.FeatureG
     }
   }
 }
-function trackBounds(tracks: Overview[]) {
+function trackBounds(tracks: Overview[], longitude?: number) {
   const bounds = L.latLngBounds([]);
   for (const track of tracks) {
     if (!track.visible) continue;
-    for (const line of mapGeometry(track.geometry)) {
+    for (const line of mapGeometry(track.geometry, longitude)) {
       for (const point of line) bounds.extend(point);
     }
   }

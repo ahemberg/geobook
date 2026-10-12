@@ -193,7 +193,7 @@ large-collection performance remain release checks under issue #31.
 
 Open Countries to see confirmed first/latest recorded visits and distinct recorded
 local days within the active date range. Review pending country days individually
-or select up to 1000 days for bulk confirmation. Confirm ground presence outside
+or select up to 1000 days to confirm or exclude together. Confirm ground presence outside
 an airport, including ground transit. Exclude flyovers and airport-only layovers.
 Use the review-state selector to revisit confirmed or excluded decisions or return
 them to pending. Evidence buttons open complete recordings.

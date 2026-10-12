@@ -9,6 +9,14 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("PMD.UnitTestContainsTooManyAsserts")
 class PointCountryTests {
   @Test
+  void dateLineCountryBoundsStayNearTheCountry() {
+    PointCountry.Country fiji = PointCountry.country("FJI");
+    assertThat(fiji.east() - fiji.west()).isLessThan(20);
+    assertThat(fiji.west()).isBetween(170.0, 180.0);
+    assertThat(fiji.east()).isBetween(180.0, 190.0);
+  }
+
+  @Test
   void oceanAndTheInternationalDateLineDoNotInventLand() {
     assertThat(PointCountry.resolve(0, -30)).isNull();
     assertThat(PointCountry.resolve(0, 180)).isNull();

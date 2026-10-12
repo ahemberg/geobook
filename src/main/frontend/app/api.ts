@@ -65,3 +65,5 @@ export type VisitCandidate = {
   state: 'pending' | 'confirmed' | 'excluded';
   tracks: { trackId: number; name: string }[];
 };
+
+export type DateRange = { from: string; to: string } | null;

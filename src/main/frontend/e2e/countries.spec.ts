@@ -38,10 +38,8 @@ test('reviewed visits persist and country exploration keeps dates and full recor
   await expect(page.getByRole('button', { name: 'Explore Sweden' })).toContainText(
     `First: ${year}-06-19`,
   );
-  await page
-    .getByRole('group', { name: `Germany ${year}-06-19` })
-    .getByRole('button', { name: 'Exclude', exact: true })
-    .click();
+  await page.getByRole('checkbox', { name: `Select Germany ${year}-06-19` }).check();
+  await page.getByRole('button', { name: 'Exclude selected (1)' }).click();
   await expect(page.getByText('No pending country days in these dates.')).toBeVisible();
   await page.getByLabel('Review state').selectOption('excluded');
   await expect(page.getByRole('group', { name: `Germany ${year}-06-19` })).toBeVisible();

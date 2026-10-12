@@ -30,6 +30,23 @@ test('review confirms selected days, excludes a flyover and explores a country w
     },
   ];
   let failSave = true;
+  function reviewResponse(options?: RequestInit) {
+    if (failSave)
+      return Promise.resolve(
+        Response.json({ message: 'Could not save. Retry your selection.' }, { status: 500 }),
+      );
+    if (typeof options?.body !== 'string') throw new Error('Expected a JSON review');
+    const body = JSON.parse(options.body) as {
+      visits: { country: string; date: string }[];
+      state: string;
+    };
+    for (const candidate of candidates)
+      if (
+        body.visits.some((key) => key.country === candidate.country && key.date === candidate.date)
+      )
+        candidate.state = body.state;
+    return Promise.resolve(Response.json({ saved: true }));
+  }
   const fetch = vi.fn((url: string, options?: RequestInit) => {
     if (url === '/api/map-config')
       return Promise.resolve(
@@ -41,23 +58,7 @@ test('review confirms selected days, excludes a flyover and explores a country w
       );
     if (url === '/api/tracks/years') return Promise.resolve(Response.json([2025]));
     if (url === '/api/visits/review') {
-      if (failSave)
-        return Promise.resolve(
-          Response.json({ message: 'Could not save. Retry your selection.' }, { status: 500 }),
-        );
-      if (typeof options?.body !== 'string') throw new Error('Expected a JSON review');
-      const body = JSON.parse(options.body) as {
-        visits: { country: string; date: string }[];
-        state: string;
-      };
-      for (const candidate of candidates)
-        if (
-          body.visits.some(
-            (key) => key.country === candidate.country && key.date === candidate.date,
-          )
-        )
-          candidate.state = body.state;
-      return Promise.resolve(Response.json({ saved: true }));
+      return reviewResponse(options);
     }
     if (url.startsWith('/api/visits'))
       return Promise.resolve(Response.json({ candidates, unresolvedPoints: 1 }));

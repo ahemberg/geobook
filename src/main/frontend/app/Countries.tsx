@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { request } from './api';
-import type { Country, VisitCandidate } from './api';
+import type { Country, DateRange, VisitCandidate } from './api';
 
 export default function Countries({
   range,
   explore,
   openRecording,
 }: {
-  range: { from: string; to: string } | null;
+  range: DateRange;
   explore: (country: Country) => void;
   openRecording: (id: number) => void;
 }) {
@@ -80,35 +80,7 @@ export default function Countries({
   const chosen = visible.filter((candidate) => selected.includes(key(candidate)));
   return (
     <section className="countries-panel" aria-label="Country visits">
-      <div className="country-summaries">
-        <h2>Confirmed visits</h2>
-        <p className="hint">
-          First and latest recorded visits, within the active dates. Each local recorded day counts
-          once.
-        </p>
-        {data && data.countries.length === 0 && (
-          <p>No confirmed visits in these dates. Review the suggestions below to start.</p>
-        )}
-        {data?.countries.map((country) => (
-          <button
-            className="country-summary"
-            key={country.country}
-            onClick={() => explore(country)}
-            aria-label={`Explore ${country.name}`}
-          >
-            <strong>{country.name}</strong>
-            <span>
-              {country.recordedDays} recorded {country.recordedDays === 1 ? 'day' : 'days'}
-            </span>
-            <span>
-              First: <time>{country.firstVisit}</time>
-            </span>
-            <span>
-              Latest: <time>{country.latestVisit}</time>
-            </span>
-          </button>
-        ))}
-      </div>
+      <CountrySummaries countries={data?.countries} explore={explore} />
       <div className="visit-review">
         <h2>Review country days</h2>
         <p>
@@ -126,98 +98,41 @@ export default function Countries({
             date in this scope. They remain on the map under All time and do not suggest visits.
           </p>
         )}
-        <div className="review-controls">
-          <label>
-            Review state
-            <select
-              value={state}
-              disabled={saving}
-              onChange={(event) => {
-                setState(event.target.value as VisitCandidate['state']);
-                setSelected([]);
-              }}
-            >
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="excluded">Excluded</option>
-            </select>
-          </label>
-          <button
-            disabled={saving || chosen.length === 0 || chosen.length > 1000}
-            onClick={() => void review(chosen, 'confirmed')}
-          >
-            Confirm selected ({chosen.length})
-          </button>
-          <button
-            disabled={saving || visible.length === 0}
-            onClick={() => setSelected(visible.slice(0, 1000).map(key))}
-          >
-            Select up to 1000 days
-          </button>
-        </div>
-        {message && <p role="status">{message}</p>}
-        {error && (
-          <div role="alert">
-            <p>{error}</p>
-            <button onClick={() => setRevision((value) => value + 1)}>Retry loading visits</button>
-          </div>
-        )}
-        {!data && !error && <p role="status">Loading country visits…</p>}
+        <ReviewControls
+          state={state}
+          saving={saving}
+          count={chosen.length}
+          empty={visible.length === 0}
+          changeState={(next) => {
+            setState(next);
+            setSelected([]);
+          }}
+          review={(next) => void review(chosen, next)}
+          selectAll={() => setSelected(visible.slice(0, 1000).map(key))}
+        />
+        <VisitStatus
+          message={message}
+          error={error}
+          loaded={data !== null}
+          retry={() => setRevision((value) => value + 1)}
+        />
         {data && visible.length === 0 && <p>No {state} country days in these dates.</p>}
         {visible.map((candidate) => (
-          <div
-            className="visit-row"
-            role="group"
-            aria-label={`${candidate.name} ${candidate.date}`}
+          <VisitRow
             key={key(candidate)}
-          >
-            <label className="visit-choice">
-              <input
-                type="checkbox"
-                aria-label={`Select ${candidate.name} ${candidate.date}`}
-                disabled={saving}
-                checked={selected.includes(key(candidate))}
-                onChange={(event) =>
-                  setSelected(
-                    event.target.checked
-                      ? [...selected, key(candidate)]
-                      : selected.filter((value) => value !== key(candidate)),
-                  )
-                }
-              />
-              <time>{candidate.date}</time>
-              <strong>{candidate.name}</strong>
-            </label>
-            <div className="visit-evidence">
-              <span className="hint">Recorded evidence</span>
-              {candidate.tracks.map((track) => (
-                <button
-                  className="evidence-link"
-                  key={track.trackId}
-                  onClick={() => openRecording(track.trackId)}
-                >
-                  {track.name}
-                </button>
-              ))}
-            </div>
-            <div className="visit-actions">
-              {candidate.state !== 'confirmed' && (
-                <button disabled={saving} onClick={() => void review([candidate], 'confirmed')}>
-                  Confirm
-                </button>
-              )}
-              {candidate.state !== 'excluded' && (
-                <button disabled={saving} onClick={() => void review([candidate], 'excluded')}>
-                  Exclude
-                </button>
-              )}
-              {candidate.state !== 'pending' && (
-                <button disabled={saving} onClick={() => void review([candidate], 'pending')}>
-                  Return to pending
-                </button>
-              )}
-            </div>
-          </div>
+            candidate={candidate}
+            saving={saving}
+            selected={selected.includes(key(candidate))}
+            choose={(checked) =>
+              setSelected(
+                checked
+                  ? [...selected, key(candidate)]
+                  : selected.filter((value) => value !== key(candidate)),
+              )
+            }
+            review={(next) => void review([candidate], next)}
+            openRecording={openRecording}
+          />
         ))}
       </div>
     </section>
@@ -226,4 +141,175 @@ export default function Countries({
 
 function key(candidate: VisitCandidate) {
   return `${candidate.country}-${candidate.date}`;
+}
+
+function CountrySummaries({
+  countries,
+  explore,
+}: {
+  countries: Country[] | undefined;
+  explore: (country: Country) => void;
+}) {
+  return (
+    <div className="country-summaries">
+      <h2>Confirmed visits</h2>
+      <p className="hint">
+        First and latest recorded visits, within the active dates. Each local recorded day counts
+        once.
+      </p>
+      {countries && countries.length === 0 && (
+        <p>No confirmed visits in these dates. Review the suggestions below to start.</p>
+      )}
+      {countries?.map((country) => (
+        <button
+          className="country-summary"
+          key={country.country}
+          onClick={() => explore(country)}
+          aria-label={`Explore ${country.name}`}
+        >
+          <strong>{country.name}</strong>
+          <span>
+            {country.recordedDays} recorded {country.recordedDays === 1 ? 'day' : 'days'}
+          </span>
+          <span>
+            First: <time>{country.firstVisit}</time>
+          </span>
+          <span>
+            Latest: <time>{country.latestVisit}</time>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function VisitRow({
+  candidate,
+  saving,
+  selected,
+  choose,
+  review,
+  openRecording,
+}: {
+  candidate: VisitCandidate;
+  saving: boolean;
+  selected: boolean;
+  choose: (selected: boolean) => void;
+  review: (state: VisitCandidate['state']) => void;
+  openRecording: (id: number) => void;
+}) {
+  return (
+    <div className="visit-row" role="group" aria-label={`${candidate.name} ${candidate.date}`}>
+      <label className="visit-choice">
+        <input
+          type="checkbox"
+          aria-label={`Select ${candidate.name} ${candidate.date}`}
+          disabled={saving}
+          checked={selected}
+          onChange={(event) => choose(event.target.checked)}
+        />
+        <time>{candidate.date}</time>
+        <strong>{candidate.name}</strong>
+      </label>
+      <div className="visit-evidence">
+        <span className="hint">Recorded evidence</span>
+        {candidate.tracks.map((track) => (
+          <button
+            className="evidence-link"
+            key={track.trackId}
+            onClick={() => openRecording(track.trackId)}
+          >
+            {track.name}
+          </button>
+        ))}
+      </div>
+      <div className="visit-actions">
+        {candidate.state !== 'confirmed' && (
+          <button disabled={saving} onClick={() => review('confirmed')}>
+            Confirm
+          </button>
+        )}
+        {candidate.state !== 'excluded' && (
+          <button disabled={saving} onClick={() => review('excluded')}>
+            Exclude
+          </button>
+        )}
+        {candidate.state !== 'pending' && (
+          <button disabled={saving} onClick={() => review('pending')}>
+            Return to pending
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReviewControls({
+  state,
+  saving,
+  count,
+  empty,
+  changeState,
+  review,
+  selectAll,
+}: {
+  state: VisitCandidate['state'];
+  saving: boolean;
+  count: number;
+  empty: boolean;
+  changeState: (state: VisitCandidate['state']) => void;
+  review: (state: VisitCandidate['state']) => void;
+  selectAll: () => void;
+}) {
+  const disabled = saving || count === 0 || count > 1000;
+  return (
+    <div className="review-controls">
+      <label>
+        Review state
+        <select
+          value={state}
+          disabled={saving}
+          onChange={(event) => changeState(event.target.value as VisitCandidate['state'])}
+        >
+          <option value="pending">Pending</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="excluded">Excluded</option>
+        </select>
+      </label>
+      <button disabled={disabled} onClick={() => review('confirmed')}>
+        Confirm selected ({count})
+      </button>
+      <button disabled={disabled} onClick={() => review('excluded')}>
+        Exclude selected ({count})
+      </button>
+      <button disabled={saving || empty} onClick={selectAll}>
+        Select up to 1000 days
+      </button>
+    </div>
+  );
+}
+
+function VisitStatus({
+  message,
+  error,
+  loaded,
+  retry,
+}: {
+  message: string;
+  error: string;
+  loaded: boolean;
+  retry: () => void;
+}) {
+  return (
+    <>
+      {message && <p role="status">{message}</p>}
+      {error && (
+        <div role="alert">
+          <p>{error}</p>
+          <button onClick={() => retry()}>Retry loading visits</button>
+        </div>
+      )}
+      {!loaded && !error && <p role="status">Loading country visits…</p>}
+    </>
+  );
 }
