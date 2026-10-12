@@ -1,4 +1,4 @@
-package se.geobook.tracker;
+package se.geobook.tracker.configuration;
 
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.IOException;

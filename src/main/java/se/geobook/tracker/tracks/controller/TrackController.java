@@ -1,4 +1,4 @@
-package se.geobook.tracker;
+package se.geobook.tracker.tracks.controller;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +20,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
+import se.geobook.tracker.tracks.domain.DateRange;
+import se.geobook.tracker.tracks.domain.Track;
+import se.geobook.tracker.tracks.service.TrackImporter;
+import se.geobook.tracker.tracks.service.TrackNotFoundException;
+import se.geobook.tracker.tracks.service.TrackService;
 import tools.jackson.databind.JsonNode;
 
 // Path variables match the public id contract.
@@ -27,19 +32,19 @@ import tools.jackson.databind.JsonNode;
 @SuppressWarnings({"PMD.ShortVariable", "PMD.TooManyMethods"})
 @RestController
 class TrackController {
-  private final TrackCollection collection;
+  private final TrackService collection;
   private final TrackImporter importer;
 
-  TrackController(TrackCollection collection, TrackImporter importer) {
+  TrackController(TrackService collection, TrackImporter importer) {
     this.collection = collection;
     this.importer = importer;
   }
 
   @PostMapping(value = "/api/tracks", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  ResponseEntity<TrackCollection.Imported> upload(@RequestParam("file") MultipartFile file)
+  ResponseEntity<TrackResponses.Imported> upload(@RequestParam("file") MultipartFile file)
       throws IOException {
     return ResponseEntity.status(HttpStatus.CREATED)
-        .body(importer.upload(filename(file), file.getBytes()));
+        .body(TrackResponses.from(importer.upload(filename(file), file.getBytes())));
   }
 
   @PostMapping(value = "/api/imports", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -59,7 +64,7 @@ class TrackController {
           filename(file),
           file.getBytes(),
           event -> {
-            response.getOutputStream().write(mapper.writeValueAsBytes(event));
+            response.getOutputStream().write(mapper.writeValueAsBytes(TrackResponses.from(event)));
             response.getOutputStream().write('\n');
             response.flushBuffer();
           });
@@ -77,11 +82,13 @@ class TrackController {
   }
 
   @GetMapping("/api/tracks")
-  List<TrackCollection.Overview> overview(
+  List<TrackResponses.Overview> overview(
       @RequestParam(required = false) String from,
       @RequestParam(required = false) String to,
       @RequestParam(defaultValue = "") String search) {
-    return collection.overview(new DateRange(from, to), search);
+    return collection.overview(new DateRange(from, to), search).stream()
+        .map(TrackResponses::from)
+        .toList();
   }
 
   @GetMapping("/api/tracks/years")
@@ -90,18 +97,18 @@ class TrackController {
   }
 
   @GetMapping("/api/tracks/{id}")
-  TrackCollection.Detail detail(@PathVariable long id) {
-    return collection.detail(id);
+  TrackResponses.Detail detail(@PathVariable long id) {
+    return TrackResponses.from(collection.detail(id));
   }
 
   @PatchMapping("/api/tracks/{id}")
-  TrackCollection.Summary update(@PathVariable long id, @RequestBody JsonNode input) {
-    return collection.update(id, TrackControls.read(input));
+  TrackResponses.Summary update(@PathVariable long id, @RequestBody JsonNode input) {
+    return TrackResponses.from(collection.update(id, TrackControls.read(input)));
   }
 
   @GetMapping("/api/originals/{id}")
   ResponseEntity<byte[]> original(@PathVariable long id) {
-    TrackCollection.Original original = collection.original(id);
+    Track.Original original = collection.original(id);
     return ResponseEntity.ok()
         .contentType(MediaType.parseMediaType("application/gpx+xml"))
         .header(
@@ -121,6 +128,12 @@ class TrackController {
       @Value("${geobook.tiles.attribution-url:https://www.openstreetmap.org/copyright}")
           String attributionUrl) {
     return Map.of("url", url, "attribution", attribution, "attributionUrl", attributionUrl);
+  }
+
+  @ExceptionHandler(TrackNotFoundException.class)
+  void notFound(TrackNotFoundException exception, jakarta.servlet.http.HttpServletResponse response)
+      throws IOException {
+    response.sendError(HttpStatus.NOT_FOUND.value(), exception.getMessage());
   }
 
   @ExceptionHandler(IllegalArgumentException.class)

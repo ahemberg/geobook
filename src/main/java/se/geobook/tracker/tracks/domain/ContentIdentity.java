@@ -1,4 +1,4 @@
-package se.geobook.tracker;
+package se.geobook.tracker.tracks.domain;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -6,14 +6,14 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
-final class ContentIdentity {
+public final class ContentIdentity {
   private ContentIdentity() {}
 
-  static String original(byte[] bytes) {
+  public static String original(byte[] bytes) {
     return HexFormat.of().formatHex(digest().digest(bytes));
   }
 
-  static String recording(Recording recording) {
+  public static String recording(Recording recording) {
     MessageDigest digest = digest();
     update(digest, Integer.toString(recording.segmentCount()));
     for (Recording.Point point : recording.points()) {

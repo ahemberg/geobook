@@ -1,4 +1,4 @@
-package se.geobook.tracker;
+package se.geobook.tracker.tracks.controller;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

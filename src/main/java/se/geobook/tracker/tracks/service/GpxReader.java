@@ -1,4 +1,4 @@
-package se.geobook.tracker;
+package se.geobook.tracker.tracks.service;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -16,6 +16,7 @@ import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 import org.xml.sax.helpers.DefaultHandler;
+import se.geobook.tracker.tracks.domain.Recording;
 
 final class GpxReader {
   private static final int SINGLE_TRACK = 1;

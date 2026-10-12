@@ -17,6 +17,14 @@ PMD enables the same eight categories as Tergo, without its application-specific
 HTTP journey tests allow multiple assertions to verify related response and persistence behavior.
 The SpotBugs filter excludes only the informational endpoint inventory for TrackController.
 
+`ArchitectureTests` runs ArchUnit layer checks and Spring Modulith verification during
+the Maven test phase. Violations fail `test`, `package`, and `verify`, including CI.
+Java features live below `se.geobook.tracker`, with controller, service, repository,
+and domain packages inside each feature. Controllers own HTTP and JSON, repositories
+own SQL, and domain code has no framework dependencies. New feature packages are
+included automatically. Configuration and Flyway migrations have explicit exceptions.
+See [the package decision](docs/adr/0001-feature-packages-with-enforced-layers.md).
+
 Run `./mvnw spotless:apply` to format Java with Google Java Format. Builds check formatting
 and fail on violations; they do not rewrite source files.
 
