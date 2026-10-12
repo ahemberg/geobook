@@ -24,13 +24,14 @@ test('saved choices are shared with another browser and hidden tracks stay selec
       );
     }
     const name = `Synthetic controls ${testInfo.project.name}`;
+    const longitude = testInfo.project.name === 'mobile' ? '18.08' : '18.07';
     await page.goto('/');
     await page.getByLabel('Choose GPX file').setInputFiles({
       name: 'controls.gpx',
       mimeType: 'application/gpx+xml',
       buffer:
         Buffer.from(`<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${name}</name><trkseg>
-        <trkpt lat="59.32" lon="18.07"><time>2026-06-18T10:00:00Z</time></trkpt>
+        <trkpt lat="59.32" lon="${longitude}"><time>2026-06-18T10:00:00Z</time></trkpt>
         <trkpt lat="59.321" lon="18.071"><time>2026-06-18T10:02:00Z</time></trkpt>
         </trkseg></trk></gpx>`),
     });

@@ -464,3 +464,44 @@ p {
 .row-feedback {
   padding: 8px 16px;
 }
+
+.import-feedback {
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.import-details {
+  padding: 0 24px;
+}
+.import-details summary {
+  cursor: pointer;
+  padding: 12px 0;
+  min-height: 44px;
+}
+.import-result-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+.import-details ul {
+  margin: 0 0 12px;
+  padding-left: 24px;
+}
+.import-details li {
+  margin-bottom: 12px;
+}
+.import-failure {
+  color: #8a271c;
+}
+.import-warning {
+  color: #614511;
+}
+.original-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  padding: 0 0 12px;
+}
+.original-downloads a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}

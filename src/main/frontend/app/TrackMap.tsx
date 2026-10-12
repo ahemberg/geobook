@@ -6,10 +6,12 @@ import { mapGeometry } from './mapGeometry';
 export default function TrackMap({
   tracks,
   selectedId,
+  importedIds,
   config,
 }: {
   tracks: Overview[];
   selectedId: number | null;
+  importedIds: number[];
   config: MapConfig;
 }) {
   const container = useRef<HTMLDivElement>(null);
@@ -50,14 +52,12 @@ export default function TrackMap({
     const layer = L.featureGroup().addTo(map);
     for (const track of tracks.filter((track) => track.visible))
       drawTrack(track, selectedId, layer);
-    const bounds = trackBounds(
-      selectedId === null ? tracks : tracks.filter((track) => track.id === selectedId),
-    );
+    const bounds = trackBounds(fittedTracks(tracks, selectedId, importedIds));
     if (bounds.isValid()) map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16, animate: false });
     return () => {
       layer.remove();
     };
-  }, [tracks, selectedId, config]);
+  }, [tracks, selectedId, importedIds, config]);
 
   function fitAll() {
     mapRef.current?.invalidateSize();
@@ -112,4 +112,9 @@ function trackBounds(tracks: Overview[]) {
     }
   }
   return bounds;
+}
+
+function fittedTracks(tracks: Overview[], selectedId: number | null, importedIds: number[]) {
+  if (importedIds.length) return tracks.filter((track) => importedIds.includes(track.id));
+  return selectedId === null ? tracks : tracks.filter((track) => track.id === selectedId);
 }

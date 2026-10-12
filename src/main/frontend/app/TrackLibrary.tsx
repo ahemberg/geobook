@@ -60,7 +60,9 @@ export default function TrackLibrary({
             <button className="primary" disabled={uploading} onClick={chooseFile}>
               Choose a GPX file
             </button>
-            <p className="hint">One track per file. Up to 32 MB and 250,000 points.</p>
+            <p className="hint">
+              Choose files or collection exports. Up to 32 MB per file and 250,000 points per track.
+            </p>
           </div>
         )}
         {tracks.length > 0 && (

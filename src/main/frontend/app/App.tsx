@@ -3,22 +3,27 @@ import { request } from './api';
 import type { Controls, Detail, MapConfig, Overview } from './api';
 import TrackMap from './TrackMap';
 import TrackLibrary from './TrackLibrary';
+import { useUpload, UploadFeedback } from './Upload';
 
 export default function App() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reload, setReload] = useState(0);
+  const [importedIds, setImportedIds] = useState<number[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
   const { tracks, onSaved, config, loading, loadError } = useCollection(reload);
 
   function select(id: number) {
+    setImportedIds([]);
     if (selectedId === id) setReload((value) => value + 1);
     setSelectedId(id);
   }
 
-  const { upload, uploading, imported, uploadError } = useUpload((trackId) => {
-    select(trackId);
+  const uploadState = useUpload((trackIds) => {
+    setImportedIds(trackIds);
+    setSelectedId(trackIds.length === 1 ? (trackIds[0] ?? null) : null);
     setReload((value) => value + 1);
   });
+  const { upload, uploading } = uploadState;
 
   return (
     <>
@@ -39,11 +44,12 @@ export default function App() {
           ref={fileInput}
           className="file-input"
           type="file"
+          multiple
           accept=".gpx,application/gpx+xml,application/xml,text/xml"
           aria-label="Choose GPX file"
           disabled={uploading}
           onChange={(event) => {
-            void upload(event.target.files?.[0]);
+            void upload(Array.from(event.target.files ?? []));
             event.target.value = '';
           }}
         />
@@ -53,7 +59,7 @@ export default function App() {
         <span className="scope-value">All time</span>
         <span className="track-count">Tracks: {tracks.length}</span>
       </div>
-      <UploadFeedback uploading={uploading} imported={imported} uploadError={uploadError} />
+      <UploadFeedback {...uploadState} />
       {loadError && (
         <div className="notice error" role="alert">
           {loadError}
@@ -73,7 +79,12 @@ export default function App() {
         />
         <div className="map-workspace">
           {config ? (
-            <TrackMap tracks={tracks} selectedId={selectedId} config={config} />
+            <TrackMap
+              tracks={tracks}
+              selectedId={selectedId}
+              importedIds={importedIds}
+              config={config}
+            />
           ) : (
             <div className="map-placeholder">{loadError ? 'Map unavailable' : 'Loading map…'}</div>
           )}
@@ -178,68 +189,5 @@ function SelectedRecording({
         </>
       )}
     </section>
-  );
-}
-
-function useUpload(onImported: (trackId: number) => void) {
-  const [uploadError, setUploadError] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [imported, setImported] = useState<{ trackId: number; originalId: number } | null>(null);
-  async function upload(file: File | undefined) {
-    if (!file) return;
-    setUploadError('');
-    setImported(null);
-    if (file.size > 32 * 1024 * 1024) {
-      setUploadError('Choose a GPX file no larger than 32 MB.');
-      return;
-    }
-    setUploading(true);
-    const body = new FormData();
-    body.append('file', file);
-    try {
-      const result = await request<{ trackId: number; originalId: number }>('/api/tracks', {
-        method: 'POST',
-        body,
-      });
-      setImported(result);
-      onImported(result.trackId);
-    } catch (error) {
-      setUploadError(error instanceof Error ? error.message : 'Upload failed. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  return { upload, uploading, imported, uploadError };
-}
-
-function UploadFeedback({
-  uploading,
-  imported,
-  uploadError,
-}: {
-  uploading: boolean;
-  imported: { originalId: number } | null;
-  uploadError: string;
-}) {
-  return (
-    <>
-      {uploading && (
-        <div className="notice" role="status">
-          Importing your recording. Keep this page open.
-        </div>
-      )}
-      {imported && (
-        <div className="notice success" role="status">
-          Track imported.
-          <a href={`/api/originals/${imported.originalId}`}>Download original export</a>
-        </div>
-      )}
-      {uploadError && (
-        <div className="notice error" role="alert">
-          {uploadError}
-        </div>
-      )}
-    </>
   );
 }
