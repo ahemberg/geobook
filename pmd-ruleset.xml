@@ -19,7 +19,7 @@
     <rule ref="category/java/design.xml">
         <!-- Spring fluent APIs are intentional. -->
         <exclude name="LawOfDemeter"/>
-        <!-- Package boundaries require a domain model; none is defined yet. -->
+        <!-- ArchUnit and Spring Modulith enforce the feature and layer dependencies. -->
         <exclude name="LoosePackageCoupling"/>
     </rule>
     <rule ref="category/java/errorprone.xml">

@@ -1,23 +1,25 @@
-package se.geobook.tracker;
+package se.geobook.tracker.tracks.service;
 
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import se.geobook.tracker.tracks.domain.Recording;
+import se.geobook.tracker.tracks.domain.Track;
 
 @Service
-class TrackImporter {
-  private final TrackCollection collection;
+public class TrackImporter {
+  private final TrackService collection;
 
-  TrackImporter(TrackCollection collection) {
+  TrackImporter(TrackService collection) {
     this.collection = collection;
   }
 
-  TrackCollection.Imported upload(String filename, byte[] bytes) {
+  public Track.Imported upload(String filename, byte[] bytes) {
     Recording recording = GpxReader.read(bytes);
     return collection.save(collection.retainOriginal(filename, bytes), recording);
   }
 
-  record ImportEvent(
+  public record ImportEvent(
       String status,
       int completed,
       int total,
@@ -25,14 +27,19 @@ class TrackImporter {
       Long trackId,
       Long originalId,
       List<String> warnings,
-      String message) {}
+      String message) {
+    public ImportEvent {
+      warnings = List.copyOf(warnings);
+    }
+  }
 
   @FunctionalInterface
-  interface Progress {
+  public interface Progress {
     void send(ImportEvent event) throws java.io.IOException;
   }
 
-  void importFile(String filename, byte[] bytes, Progress progress) throws java.io.IOException {
+  public void importFile(String filename, byte[] bytes, Progress progress)
+      throws java.io.IOException {
     List<org.w3c.dom.Element> tracks;
     try {
       tracks = GpxReader.tracks(bytes);
@@ -56,7 +63,7 @@ class TrackImporter {
       org.w3c.dom.Element element, int completed, int total, long originalId) {
     try {
       Recording recording = GpxReader.recording(element);
-      TrackCollection.Imported imported = collection.save(originalId, recording);
+      Track.Imported imported = collection.save(originalId, recording);
       List<String> warnings = new ArrayList<>();
       if (recording.points().stream().anyMatch(point -> point.time() == null)) {
         warnings.add("Some points have no timestamps. Their dates remain unknown.");

@@ -1,4 +1,4 @@
-package se.geobook.tracker;
+package se.geobook.tracker.tracks.domain;
 
 import java.time.DateTimeException;
 import java.time.Instant;

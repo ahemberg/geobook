@@ -6,7 +6,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
-import se.geobook.tracker.PointLocalTime;
+import se.geobook.tracker.tracks.domain.PointLocalTime;
 
 // Flyway names migrations by version and description.
 @SuppressWarnings("PMD.ClassNamingConventions")

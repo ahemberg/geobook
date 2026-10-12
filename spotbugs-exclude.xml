@@ -2,7 +2,7 @@
 <FindBugsFilter>
     <!-- Endpoint inventory is informational; HTTP validation is covered by integration tests. -->
     <Match>
-        <Class name="se.geobook.tracker.TrackController"/>
+        <Class name="se.geobook.tracker.tracks.controller.TrackController"/>
         <Bug pattern="SPRING_ENDPOINT"/>
     </Match>
 </FindBugsFilter>

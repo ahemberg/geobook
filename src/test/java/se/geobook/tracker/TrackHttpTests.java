@@ -334,6 +334,28 @@ class TrackHttpTests {
   }
 
   @Test
+  void opensCollectionWithOriginalJavaMigrationHistory()
+      throws IOException, InterruptedException, SQLException {
+    String url = "jdbc:sqlite:" + directory.resolve("geobook.db");
+    Flyway.configure().dataSource(url, null, null).target("2").load().migrate();
+    // Before the package refactor, Spring registered V2 under this class name.
+    try (Connection connection = DriverManager.getConnection(url);
+        Statement statement = connection.createStatement()) {
+      assertThat(
+              statement.executeUpdate(
+                  "UPDATE flyway_schema_history SET script ="
+                      + " 'se.geobook.tracker.V2__ImportIdentity' WHERE version = '2'"))
+          .isEqualTo(1);
+    }
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      HttpResponse<byte[]> response = get(client, base(app) + "/api/tracks");
+      assertThat(response.statusCode()).isEqualTo(200);
+      assertThat(new String(response.body(), StandardCharsets.UTF_8)).isEqualTo("[]");
+    }
+  }
+
+  @Test
   void upgradingExistingCollectionKeepsIdsControlsAndOriginals()
       throws IOException, InterruptedException, SQLException {
     byte[] original =

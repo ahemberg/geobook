@@ -1,10 +1,10 @@
-package se.geobook.tracker;
+package se.geobook.tracker.tracks.domain;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 
-record DateRange(String from, String through) {
-  DateRange {
+public record DateRange(String from, String through) {
+  public DateRange {
     if (from != null || through != null) {
       if (from == null || through == null) {
         throw new IllegalArgumentException("Choose both dates in YYYY-MM-DD format.");

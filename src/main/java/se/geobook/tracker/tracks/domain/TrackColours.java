@@ -1,15 +1,15 @@
-package se.geobook.tracker;
+package se.geobook.tracker.tracks.domain;
 
 import java.util.List;
 
-final class TrackColours {
+public final class TrackColours {
   private static final List<String> PALETTE =
       List.of(
           "#ad466a", "#2677b8", "#23845b", "#a66715", "#7654a3", "#bd4935", "#227f87", "#626e25");
 
   private TrackColours() {}
 
-  static String choose(long sequence, List<String> neighbours) {
+  public static String choose(long sequence, List<String> neighbours) {
     String best = PALETTE.getFirst();
     long fewest = Long.MAX_VALUE;
     for (int offset = 0; offset < PALETTE.size(); offset++) {
@@ -27,9 +27,9 @@ final class TrackColours {
     return best;
   }
 
-  record Bounds(double south, double north, double west, double east) {
+  public record Bounds(double south, double north, double west, double east) {
     // shortcut: bounds can overcount neighbours on long tracks; use segment proximity if needed.
-    static Bounds enclosing(List<Recording.Point> points) {
+    public static Bounds enclosing(List<Recording.Point> points) {
       double south = 90;
       double north = -90;
       double west = 180;
@@ -43,7 +43,7 @@ final class TrackColours {
       return new Bounds(south, north, west, east);
     }
 
-    boolean near(Bounds other) {
+    public boolean near(Bounds other) {
       // A five-kilometre margin groups separate days in the same city.
       double margin = 5 / 111.32;
       if (south > other.north + margin || other.south > north + margin) {
