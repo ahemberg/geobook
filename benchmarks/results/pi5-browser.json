@@ -1,0 +1,79 @@
+{
+  "url": "http://PI_LAN_IP:18081",
+  "workload": {
+    "tracks": 500,
+    "pointsPerTrack": 10000,
+    "points": 5000000,
+    "from": "2024-06-01",
+    "to": "2024-06-01",
+    "filteredTracks": 1,
+    "filteredPoints": 10000,
+    "filteredName": "Benchmark 0152"
+  },
+  "client": {
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz",
+    "memoryBytes": 16626159616,
+    "chromium": "156.0.8078.4",
+    "viewport": "1440x900",
+    "conditions": "Headless Chromium, fresh context per run, external tiles stubbed, no CPU/network throttling"
+  },
+  "results": [
+    {
+      "run": 1,
+      "overviewMs": 1898.1486260000001,
+      "filterMs": 214.43252200000006,
+      "allTimeMs": 612.9101970000002,
+      "overviewBytes": 955393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    },
+    {
+      "run": 2,
+      "overviewMs": 1530.5394160000005,
+      "filterMs": 219.16810999999961,
+      "allTimeMs": 546.3943920000002,
+      "overviewBytes": 955393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    },
+    {
+      "run": 3,
+      "overviewMs": 1498.1998900000008,
+      "filterMs": 218.69281599999886,
+      "allTimeMs": 579.7291320000004,
+      "overviewBytes": 955393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    },
+    {
+      "run": 4,
+      "overviewMs": 1524.6113690000002,
+      "filterMs": 220.13853000000017,
+      "allTimeMs": 562.0746650000001,
+      "overviewBytes": 955393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    },
+    {
+      "run": 5,
+      "overviewMs": 1387.9468849999994,
+      "filterMs": 214.460113000001,
+      "allTimeMs": 579.9607160000014,
+      "overviewBytes": 955393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    }
+  ],
+  "server": {
+    "commit": "b1ba5aa279b941c0692e1c1dbbef9c3979e66604",
+    "freshJvmFirstRun": true,
+    "osCachesFlushed": false,
+    "java": "Temurin 27+35",
+    "heap": "-Xmx2g",
+    "device": "Raspberry Pi 5, 8 GB RAM, Samsung PSSD T7 USB SSD",
+    "network": "Wi-Fi LAN",
+    "postRunRssKiB": 358624
+  }
+}

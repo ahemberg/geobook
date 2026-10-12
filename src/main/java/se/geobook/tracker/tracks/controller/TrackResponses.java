@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import se.geobook.tracker.tracks.domain.OriginalExport;
+import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
@@ -13,6 +14,10 @@ import se.geobook.tracker.tracks.service.TrackImporter;
 @SuppressWarnings("PMD.ShortVariable")
 final class TrackResponses {
   private TrackResponses() {}
+
+  // The setting names are the public JSON contract.
+  @SuppressWarnings("PMD.LongVariable")
+  record Settings(int gapSeconds, boolean showGapConnections) {}
 
   record Imported(long trackId, long originalId, boolean duplicate) {}
 
@@ -27,7 +32,8 @@ final class TrackResponses {
       Instant startTime,
       int pointCount,
       int unknownDateCount,
-      List<List<List<BigDecimal>>> geometry) {}
+      List<List<List<BigDecimal>>> geometry,
+      List<List<List<BigDecimal>>> gaps) {}
 
   record Point(
       int segment,
@@ -50,6 +56,7 @@ final class TrackResponses {
       int segmentCount,
       List<Point> points,
       List<List<List<BigDecimal>>> geometry,
+      List<List<List<BigDecimal>>> gaps,
       List<Long> originalIds) {}
 
   record ImportEvent(
@@ -67,6 +74,10 @@ final class TrackResponses {
   record AffectedTrack(long id, String name, boolean retained) {}
 
   record Removal(long id, String filename, String revision, List<AffectedTrack> tracks) {}
+
+  static Settings from(PlaybackSettings settings) {
+    return new Settings(settings.gapSeconds(), settings.showGapConnections());
+  }
 
   static Original from(OriginalExport original) {
     return new Original(
@@ -92,7 +103,8 @@ final class TrackResponses {
         overview.startTime(),
         overview.pointCount(),
         overview.unknownDateCount(),
-        overview.geometry());
+        overview.geometry(),
+        overview.gaps());
   }
 
   static Point from(Track.Point point) {
@@ -122,6 +134,7 @@ final class TrackResponses {
         detail.segmentCount(),
         detail.points().stream().map(TrackResponses::from).toList(),
         detail.geometry(),
+        detail.gaps(),
         detail.originalIds());
   }
 

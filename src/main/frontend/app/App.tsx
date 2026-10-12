@@ -1,26 +1,38 @@
-import { useEffect, useRef, useState } from 'react';
-import type { RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { request } from './api';
-import type { Controls, Detail, MapConfig, Overview } from './api';
-import TrackMap from './TrackMap';
+import type { Controls, Country, DateRange, MapConfig, Overview, PlaybackSettings } from './api';
+import RecordingWorkspace from './RecordingWorkspace';
+import GapSettings from './GapSettings';
 import DateFilter from './DateFilter';
-import TrackLibrary from './TrackLibrary';
+import Countries from './Countries';
 import OriginalArchive from './OriginalArchive';
+import TrackLibrary from './TrackLibrary';
 import { useUpload, UploadFeedback } from './Upload';
 
+type View = 'map' | 'countries' | 'originals';
+
 export default function App() {
-  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [settingsReload, setSettingsReload] = useState(0);
+  const [country, setCountry] = useState<Country | null>(null);
+  const [view, setView] = useState<View>('map');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reload, setReload] = useState(0);
   const [importedIds, setImportedIds] = useState<number[]>([]);
-  const [range, setRange] = useState<{ from: string; to: string } | null>(null);
-  const { detail, detailError } = useRecording(selectedId, reload);
+  const [range, setRange] = useState<DateRange>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const { tracks, years, config, loading, loadError, empty, clear, onSaved } = useOverview(
-    range,
-    reload,
-  );
+  const {
+    tracks,
+    years,
+    config,
+    loading,
+    loadError,
+    empty,
+    clear,
+    onSaved,
+    settings,
+    setSettings,
+  } = useOverview(range, reload + settingsReload, country);
 
   function removed() {
     setSelectedId(null);
@@ -30,7 +42,7 @@ export default function App() {
     document.getElementById('tracks')?.focus();
   }
 
-  function filter(next: { from: string; to: string } | null) {
+  function filter(next: DateRange) {
     if (next !== range) {
       setRange(next);
       clear();
@@ -46,62 +58,68 @@ export default function App() {
   }
 
   const uploadState = useUpload((trackIds) => {
+    setCountry(null);
+    setView('map');
     setRange(null);
     clear();
     setImportedIds(trackIds);
     setSelectedId(trackIds.length === 1 ? (trackIds[0] ?? null) : null);
     setReload((value) => value + 1);
   });
-  const { upload, uploading } = uploadState;
-  const mapStatus = loadError ? 'Map unavailable' : 'Loading map…';
-  const mapTracks = tracks.map((track) => ({
-    ...track,
-    geometry: track.id === detail?.id ? detail.geometry : track.geometry,
-  }));
-  const selectedName = tracks.find((track) => track.id === selectedId)?.name;
-
-  const scopeLabel = range ? `${range.from} to ${range.to}` : 'All time';
-  const map = config ? (
-    <TrackMap
-      tracks={mapTracks}
-      selectedId={selectedId}
-      importedIds={importedIds}
-      config={config}
-    />
-  ) : (
-    <div className="map-placeholder">{mapStatus}</div>
-  );
+  const { uploading } = uploadState;
+  function explore(next: Country | null) {
+    setCountry(next);
+    setSelectedId(null);
+    setImportedIds([]);
+    setView('map');
+    clear();
+  }
 
   return (
     <>
-      <AppHeader
-        archiveOpen={archiveOpen}
-        setArchiveOpen={setArchiveOpen}
-        fileInput={fileInput}
-        uploading={uploading}
-        upload={upload}
-      />
+      <AppHeader view={view} setView={setView} uploadState={uploadState} fileInput={fileInput} />
       <UploadFeedback {...uploadState} />
-      {archiveOpen ? (
+      {view === 'originals' ? (
         <OriginalArchive reload={reload} onRemoved={removed} />
       ) : (
         <>
-          <div className="scope">
-            <h1>Recorded travel</h1>
-            <span className="scope-value">{scopeLabel}</span>
-            <span className="track-count">Tracks: {tracks.length}</span>
-          </div>
+          <TravelScope
+            range={range}
+            country={country}
+            count={tracks.length}
+            clearCountry={() => explore(null)}
+          />
           <DateFilter range={range} years={years} apply={filter} />
+          {settings && (
+            <GapSettings
+              settings={settings}
+              saved={(value) => {
+                setSettings(value);
+                setSettingsReload((count) => count + 1);
+              }}
+            />
+          )}
           {loadError && (
             <div className="notice error" role="alert">
               {loadError}
               <button onClick={() => setReload((value) => value + 1)}>Retry loading</button>
             </div>
           )}
-          <main className="workspace">
+          {view === 'countries' && (
+            <Countries
+              key={`${range?.from}-${range?.to}-${reload}`}
+              range={range}
+              explore={explore}
+              openRecording={(id) => {
+                select(id);
+                setView('map');
+              }}
+            />
+          )}
+          <main className="workspace" hidden={view !== 'map'}>
             <TrackLibrary
               tracks={tracks}
-              filtered={range !== null}
+              filtered={range !== null || country !== null}
               onSaved={onSaved}
               onRemoved={removed}
               selectedId={selectedId}
@@ -111,20 +129,17 @@ export default function App() {
               uploading={uploading}
               chooseFile={() => fileInput.current?.click()}
             />
-            <div className="map-workspace">
-              {map}
-              {selectedId !== null && (
-                <SelectedRecording
-                  key={`${selectedId}-${reload}`}
-                  detail={detail}
-                  name={selectedName}
-                  detailError={detailError}
-                  close={() => {
-                    setSelectedId(null);
-                  }}
-                />
-              )}
-            </div>
+            <RecordingWorkspace
+              tracks={tracks}
+              config={config}
+              selectedId={selectedId}
+              importedIds={importedIds}
+              country={country}
+              reload={reload + settingsReload}
+              settings={settings}
+              loadError={loadError}
+              close={() => setSelectedId(null)}
+            />
           </main>
         </>
       )}
@@ -132,39 +147,65 @@ export default function App() {
   );
 }
 
-function AppHeader({
-  archiveOpen,
-  setArchiveOpen,
-  fileInput,
-  uploading,
-  upload,
+function TravelScope({
+  range,
+  country,
+  count,
+  clearCountry,
 }: {
-  archiveOpen: boolean;
-  setArchiveOpen: (open: boolean) => void;
-  fileInput: RefObject<HTMLInputElement | null>;
-  uploading: boolean;
-  upload: (files: File[]) => Promise<void>;
+  range: DateRange;
+  country: Country | null;
+  count: number;
+  clearCountry: () => void;
 }) {
   return (
+    <div className="scope">
+      <h1>Recorded travel</h1>
+      <span className="scope-value">{range ? `${range.from} to ${range.to}` : 'All time'}</span>
+      {country && (
+        <>
+          <span className="scope-value">{country.name}</span>
+          <button onClick={() => clearCountry()}>All countries</button>
+        </>
+      )}
+      <span className="track-count">Tracks: {count}</span>
+    </div>
+  );
+}
+
+function AppHeader({
+  view,
+  setView,
+  uploadState,
+  fileInput,
+}: {
+  view: View;
+  setView: (view: View) => void;
+  uploadState: ReturnType<typeof useUpload>;
+  fileInput: RefObject<HTMLInputElement | null>;
+}) {
+  const { upload, uploading } = uploadState;
+  return (
     <>
-      <a className="skip-link" href={archiveOpen ? '#originals' : '#tracks'}>
-        Skip to {archiveOpen ? 'original exports' : 'tracks'}
+      <a
+        className="skip-link"
+        href={`#${{ map: 'tracks', countries: 'country-visits', originals: 'originals' }[view]}`}
+      >
+        Skip to{' '}
+        {{ map: 'tracks', countries: 'country visits', originals: 'original exports' }[view]}
       </a>
       <header className="app-header">
         <span className="brand">Geobook</span>
         <nav aria-label="Main navigation">
-          <button
-            aria-current={!archiveOpen ? 'page' : undefined}
-            onClick={() => setArchiveOpen(false)}
-          >
-            Map
-          </button>
-          <button
-            aria-current={archiveOpen ? 'page' : undefined}
-            onClick={() => setArchiveOpen(true)}
-          >
-            Original exports
-          </button>
+          {(['map', 'countries', 'originals'] as const).map((destination) => (
+            <button
+              key={destination}
+              aria-current={view === destination ? 'page' : undefined}
+              onClick={() => setView(destination)}
+            >
+              {{ map: 'Map', countries: 'Countries', originals: 'Original exports' }[destination]}
+            </button>
+          ))}
         </nav>
         <button
           className="upload-button"
@@ -191,104 +232,8 @@ function AppHeader({
   );
 }
 
-function SelectedRecording({
-  name,
-  detail,
-  detailError,
-  close,
-}: {
-  name: string | undefined;
-  detail: Detail | null;
-  detailError: string;
-  close: () => void;
-}) {
-  return (
-    <section className="track-detail" aria-label="Complete recording">
-      <button className="close-track" onClick={close}>
-        Close track
-      </button>
-      {detailError && <p role="alert">{detailError}</p>}
-      {!detail && !detailError && <p role="status">Opening complete recording…</p>}
-      {detail && (
-        <>
-          <h2>{name ?? detail.name}</h2>
-          <p>
-            Complete recording · {detail.points.length.toLocaleString()} points ·{' '}
-            {detail.segmentCount} {detail.segmentCount === 1 ? 'segment' : 'segments'}
-          </p>
-          <p className="hint">
-            Includes points outside the date filter. Hidden tracks stay off the map.
-          </p>
-          <PointDetails points={detail.points} />
-          <a href="/notices/timezones.md">Timezone data and limitations</a>
-          <p className="hint">
-            Lines break at source segments and recording gaps over five minutes.
-          </p>
-          {detail.originalIds.map((id) => (
-            <a key={id} href={`/api/originals/${id}`}>
-              Download GPX
-            </a>
-          ))}
-        </>
-      )}
-    </section>
-  );
-}
-
-function PointDetails({ points }: { points: Detail['points'] }) {
-  const [pointIndex, setPointIndex] = useState(0);
-  const point = points[pointIndex];
-  if (!point) return null;
-  return (
-    <div className="point-detail">
-      <div className="point-controls">
-        <button disabled={pointIndex === 0} onClick={() => setPointIndex(pointIndex - 1)}>
-          Previous point
-        </button>
-        <label>
-          Point
-          <input
-            type="number"
-            min="1"
-            max={points.length}
-            value={pointIndex + 1}
-            onChange={(event) => {
-              const value = event.target.valueAsNumber;
-              if (Number.isInteger(value) && value >= 1 && value <= points.length)
-                setPointIndex(value - 1);
-            }}
-          />
-        </label>
-        <span>of {points.length.toLocaleString()}</span>
-        <button
-          disabled={pointIndex === points.length - 1}
-          onClick={() => setPointIndex(pointIndex + 1)}
-        >
-          Next point
-        </button>
-      </div>
-      <p>
-        {point.localTime ? (
-          <>
-            <time dateTime={point.localTime}>{point.localTime.replace('T', ' ')}</time> ·{' '}
-            {point.timezone}
-          </>
-        ) : point.time ? (
-          'Local time unresolved'
-        ) : (
-          'Date unknown'
-        )}
-      </p>
-      {point.time && !point.localTime && <p>Recorded UTC: {point.time}</p>}
-      <p>
-        {point.latitude}, {point.longitude} ·{' '}
-        {point.elevation === null ? 'Elevation unknown' : `${point.elevation} m`}
-      </p>
-    </div>
-  );
-}
-
-function useOverview(range: { from: string; to: string } | null, reload: number) {
+function useOverview(range: DateRange, reload: number, country: Country | null) {
+  const [settings, setSettings] = useState<PlaybackSettings | null>(null);
   const [tracks, setTracks] = useState<Overview[]>([]);
   const [config, setConfig] = useState<MapConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -305,17 +250,21 @@ function useOverview(range: { from: string; to: string } | null, reload: number)
   useEffect(() => {
     const controller = new AbortController();
     savedControls.current.clear();
-    const query = range ? `?${new URLSearchParams(range).toString()}` : '';
+    const params = new URLSearchParams(range ?? {});
+    if (country) params.set('country', country.country);
+    const query = params.size ? `?${params.toString()}` : '';
     Promise.all([
       request<Overview[]>(`/api/tracks${query}`, { signal: controller.signal }),
       request<number[]>('/api/tracks/years', { signal: controller.signal }),
       request<MapConfig>('/api/map-config', { signal: controller.signal }),
+      request<PlaybackSettings>('/api/playback-settings', { signal: controller.signal }),
     ])
-      .then(([saved, savedYears, mapConfig]) => {
+      .then(([saved, savedYears, mapConfig, playbackSettings]) => {
         if (controller.signal.aborted) return;
         setTracks(saved.map((track) => ({ ...track, ...savedControls.current.get(track.id) })));
         setYears(savedYears);
         setConfig(mapConfig);
+        setSettings(playbackSettings);
         setLoadError('');
         setLoading(false);
       })
@@ -326,10 +275,12 @@ function useOverview(range: { from: string; to: string } | null, reload: number)
         }
       });
     return () => controller.abort();
-  }, [range, reload]);
+  }, [range, reload, country]);
 
   return {
     tracks,
+    settings,
+    setSettings,
     onSaved,
     years,
     config,
@@ -341,35 +292,4 @@ function useOverview(range: { from: string; to: string } | null, reload: number)
       setLoading(true);
     },
   };
-}
-
-function useRecording(selectedId: number | null, reload: number) {
-  const [result, setResult] = useState<{
-    id: number;
-    reload: number;
-    detail: Detail | null;
-    detailError: string;
-  } | null>(null);
-  useEffect(() => {
-    if (selectedId === null) return;
-    const controller = new AbortController();
-    request<Detail>(`/api/tracks/${selectedId}`, { signal: controller.signal })
-      .then((detail) => {
-        if (!controller.signal.aborted)
-          setResult({ id: selectedId, reload, detail, detailError: '' });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted)
-          setResult({
-            id: selectedId,
-            reload,
-            detail: null,
-            detailError: 'This track could not be opened. Select it again to retry.',
-          });
-      });
-    return () => controller.abort();
-  }, [selectedId, reload]);
-  return result?.id === selectedId && result?.reload === reload
-    ? result
-    : { detail: null, detailError: '' };
 }

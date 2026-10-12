@@ -1,15 +1,15 @@
 import { useState } from 'react';
 
-type Range = { from: string; to: string } | null;
+import type { DateRange } from './api';
 
 export default function DateFilter({
   range,
   years,
   apply,
 }: {
-  range: Range;
+  range: DateRange;
   years: number[];
-  apply: (range: Range) => void;
+  apply: (range: DateRange) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -37,9 +37,9 @@ function DateFields({
   years,
   apply,
 }: {
-  range: Range;
+  range: DateRange;
   years: number[];
-  apply: (range: Range) => void;
+  apply: (range: DateRange) => void;
 }) {
   const [from, setFrom] = useState(range?.from ?? '');
   const [to, setTo] = useState(range?.to ?? '');
