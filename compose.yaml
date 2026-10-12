@@ -1,0 +1,19 @@
+services:
+  geobook:
+    image: ${GEOBOOK_IMAGE:?Set GEOBOOK_IMAGE to an explicit image version}
+    user: "${GEOBOOK_UID:-10001}:${GEOBOOK_GID:-10001}"
+    restart: unless-stopped
+    stop_grace_period: 60s
+    ports:
+      - "${GEOBOOK_BIND_ADDRESS:-127.0.0.1}:${GEOBOOK_PORT:-8080}:8080"
+    environment:
+      - GEOBOOK_DATA_DIRECTORY=/data
+      - GEOBOOK_TILES_URL
+      - GEOBOOK_TILES_ATTRIBUTION
+      - GEOBOOK_TILES_ATTRIBUTIONURL
+    volumes:
+      - type: bind
+        source: ${GEOBOOK_DATA_DIRECTORY:?Set GEOBOOK_DATA_DIRECTORY to an existing local SSD directory}
+        target: /data
+        bind:
+          create_host_path: false

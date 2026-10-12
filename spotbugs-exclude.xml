@@ -5,4 +5,8 @@
         <Class name="se.geobook.tracker.tracks.controller.TrackController"/>
         <Bug pattern="SPRING_ENDPOINT"/>
     </Match>
+    <Match>
+        <Class name="se.geobook.tracker.web.controller.FrontendController"/>
+        <Bug pattern="SPRING_ENDPOINT"/>
+    </Match>
 </FindBugsFilter>
