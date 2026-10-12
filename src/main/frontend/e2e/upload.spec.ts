@@ -23,10 +23,14 @@ test('upload, select, reopen and download a recording on the packaged map', asyn
       </trkseg><trkseg><trkpt lat="59.35" lon="18.10"/></trkseg></trk>
     </gpx>`);
   const existingResponse = await page.request.get('/api/tracks');
-  const existing: { geometry: unknown[][] }[] = (await existingResponse.json()) as {
-    geometry: unknown[][];
-  }[];
-  const previousPaths = existing.reduce((count, track) => count + track.geometry.length, 0);
+  const existing: { geometry: unknown[][]; visible: boolean }[] =
+    (await existingResponse.json()) as {
+      geometry: unknown[][];
+      visible: boolean;
+    }[];
+  const previousPaths = existing
+    .filter((track) => track.visible)
+    .reduce((count, track) => count + track.geometry.length, 0);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Recorded travel' })).toBeVisible();
   await page
@@ -42,7 +46,7 @@ test('upload, select, reopen and download a recording on the packaged map', asyn
   await page.reload();
   if (testInfo.project.name === 'mobile')
     await page.getByRole('button', { name: 'Show library' }).click();
-  await page.getByRole('button', { name: new RegExp(name) }).click();
+  await page.getByRole('button', { name: new RegExp(`${name}.*recorded points`) }).click();
   await expect(page.getByRole('region', { name: 'Complete recording' })).toContainText(
     '5 points · 2 segments',
   );

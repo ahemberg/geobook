@@ -1,37 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
-import type { Detail, MapConfig, Overview } from './api';
+import type { Controls, Detail, MapConfig, Overview } from './api';
 import TrackMap from './TrackMap';
+import TrackLibrary from './TrackLibrary';
 
 export default function App() {
-  const [tracks, setTracks] = useState<Overview[]>([]);
-  const [config, setConfig] = useState<MapConfig | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reload, setReload] = useState(0);
   const fileInput = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    Promise.all([
-      request<Overview[]>('/api/tracks', { signal: controller.signal }),
-      request<MapConfig>('/api/map-config', { signal: controller.signal }),
-    ])
-      .then(([saved, mapConfig]) => {
-        setTracks(saved);
-        setConfig(mapConfig);
-        setLoadError('');
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setLoadError('Your tracks could not be loaded. Check the connection and retry.');
-          setLoading(false);
-        }
-      });
-    return () => controller.abort();
-  }, [reload]);
+  const { tracks, onSaved, config, loading, loadError } = useCollection(reload);
 
   function select(id: number) {
     if (selectedId === id) setReload((value) => value + 1);
@@ -86,10 +63,11 @@ export default function App() {
       <main className="workspace">
         <TrackLibrary
           tracks={tracks}
+          onSaved={onSaved}
           selectedId={selectedId}
           select={select}
           loading={loading}
-          loadError={loadError}
+          empty={!loading && !loadError && tracks.length === 0}
           uploading={uploading}
           chooseFile={() => fileInput.current?.click()}
         />
@@ -103,6 +81,7 @@ export default function App() {
             <SelectedRecording
               key={`${selectedId}-${reload}`}
               selectedId={selectedId}
+              name={tracks.find((track) => track.id === selectedId)?.name}
               close={() => setSelectedId(null)}
             />
           )}
@@ -112,78 +91,54 @@ export default function App() {
   );
 }
 
-function TrackLibrary({
-  tracks,
-  selectedId,
-  select,
-  loading,
-  loadError,
-  uploading,
-  chooseFile,
-}: {
-  tracks: Overview[];
-  selectedId: number | null;
-  select: (id: number) => void;
-  loading: boolean;
-  loadError: string;
-  uploading: boolean;
-  chooseFile: () => void;
-}) {
-  const [libraryOpen, setLibraryOpen] = useState(false);
-  return (
-    <aside className={`library ${libraryOpen ? 'expanded' : ''}`} id="tracks" tabIndex={-1}>
-      <div className="library-heading">
-        <h2>Tracks</h2>
-        <button
-          className="library-toggle"
-          aria-expanded={libraryOpen}
-          aria-controls="track-list"
-          onClick={() => setLibraryOpen((open) => !open)}
-        >
-          {libraryOpen ? 'Hide library' : 'Show library'}
-        </button>
-      </div>
-      <div id="track-list" className="library-content">
-        {loading && (
-          <p className="library-copy" role="status">
-            Loading your tracks…
-          </p>
-        )}
-        {!loading && !loadError && tracks.length === 0 && (
-          <div className="empty-state">
-            <h3>Your travels start here</h3>
-            <p>
-              Upload a GPX recording to see it on your map. Your original export stays unchanged.
-            </p>
-            <button className="primary" disabled={uploading} onClick={chooseFile}>
-              Choose a GPX file
-            </button>
-            <p className="hint">One track per file. Up to 32 MB and 250,000 points.</p>
-          </div>
-        )}
-        <ul className="track-list">
-          {tracks.map((track) => (
-            <li key={track.id}>
-              <button
-                className={`track-row ${track.id === selectedId ? 'selected' : ''}`}
-                aria-pressed={track.id === selectedId}
-                onClick={() => select(track.id)}
-              >
-                <span className="swatch" style={{ backgroundColor: track.colour }} />
-                <span className="track-label">
-                  <strong>{track.name}</strong>
-                  <span>{track.pointCount.toLocaleString()} recorded points</span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </aside>
-  );
+function useCollection(reload: number) {
+  const [tracks, setTracks] = useState<Overview[]>([]);
+  const [config, setConfig] = useState<MapConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const savedControls = useRef(new Map<number, Controls>());
+  function onSaved(saved: Controls) {
+    savedControls.current.set(saved.id, saved);
+    setTracks((current) =>
+      current.map((track) => (track.id === saved.id ? { ...track, ...saved } : track)),
+    );
+  }
+
+  useEffect(() => {
+    savedControls.current.clear();
+    const controller = new AbortController();
+    Promise.all([
+      request<Overview[]>('/api/tracks', { signal: controller.signal }),
+      request<MapConfig>('/api/map-config', { signal: controller.signal }),
+    ])
+      .then(([saved, mapConfig]) => {
+        if (controller.signal.aborted) return;
+        setTracks(saved.map((track) => ({ ...track, ...savedControls.current.get(track.id) })));
+        setConfig(mapConfig);
+        setLoadError('');
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setLoadError('Your tracks could not be loaded. Check the connection and retry.');
+          setLoading(false);
+        }
+      });
+    return () => controller.abort();
+  }, [reload]);
+
+  return { tracks, onSaved, config, loading, loadError };
 }
 
-function SelectedRecording({ selectedId, close }: { selectedId: number; close: () => void }) {
+function SelectedRecording({
+  selectedId,
+  name,
+  close,
+}: {
+  selectedId: number;
+  name: string | undefined;
+  close: () => void;
+}) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [detailError, setDetailError] = useState('');
   useEffect(() => {
@@ -206,7 +161,7 @@ function SelectedRecording({ selectedId, close }: { selectedId: number; close: (
       {!detail && !detailError && <p role="status">Opening complete recording…</p>}
       {detail && (
         <>
-          <h2>{detail.name}</h2>
+          <h2>{name ?? detail.name}</h2>
           <p>
             Complete recording · {detail.points.length.toLocaleString()} points ·{' '}
             {detail.segmentCount} {detail.segmentCount === 1 ? 'segment' : 'segments'}

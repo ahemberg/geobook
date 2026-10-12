@@ -60,6 +60,19 @@ The current slice imports GPX 1.0/1.1 files with exactly one track, up to 32 MB 
 250,000 recorded points. It preserves source segments, point order, coordinate precision,
 timestamps, missing elevation and the unchanged original export. Collection imports and
 exact-duplicate handling follow in #25. Uploading the same track twice currently adds it twice.
+The library orders tracks by their earliest recorded timestamp, newest first, with untimed
+tracks last and newer imports first for ties. Search matches track names without case sensitivity.
+Use Edit to rename or recolour a track and its checkbox to show or hide it. Changes are saved
+on the server; reopening or refreshing another browser loads the saved choices. Hidden tracks
+remain searchable and selectable, with their full recording and original download available.
+
+New tracks start visible and rotate through eight colours. Assignment avoids colours used
+by tracks whose geographic bounds overlap or lie within roughly five kilometres. If all eight
+colours are already used nearby, it chooses the least repeated one. Bounds are conservative
+for long tracks and dateline crossings. Existing colours remain unchanged on import, including
+manual choices; source colour metadata is ignored. Names accept 1 to 200 characters without
+control characters, and manual colours use six-digit hex values.
+
 The map breaks solid lines at source segments and timestamp gaps over five minutes.
 Date attribution and filtering follow in #27; no local dates are inferred in this slice.
 
