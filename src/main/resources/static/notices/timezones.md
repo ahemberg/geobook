@@ -22,3 +22,8 @@ reconstruction of historical borders. Overlapping zones, unmatched locations,
 generic ocean zones and timestamps outside supported calendar years remain
 unresolved. No country is inferred from a timezone. Untimed points stay date unknown.
 Updating dependencies does not silently recompute existing stored attribution.
+
+The bundled frontend's copyright and licence texts are in [frontend notices](frontend.txt).
+Backend notices are in [additional backend notices](backend.txt) and in the nested
+JARs under `BOOT-INF/lib` in the application JAR. The container retains Java's notices under
+`/opt/java/openjdk/legal` and operating-system notices under `/usr/share/doc`.
