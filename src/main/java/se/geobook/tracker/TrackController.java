@@ -43,8 +43,14 @@ class TrackController {
   }
 
   @GetMapping("/api/tracks")
-  List<TrackCollection.Overview> overview() {
-    return collection.overview();
+  List<TrackCollection.Overview> overview(
+      @RequestParam(required = false) String from, @RequestParam(required = false) String to) {
+    return collection.overview(new DateRange(from, to));
+  }
+
+  @GetMapping("/api/tracks/years")
+  List<Integer> years() {
+    return collection.years();
   }
 
   @GetMapping("/api/tracks/{id}")

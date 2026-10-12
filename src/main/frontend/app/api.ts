@@ -5,6 +5,7 @@ export type Overview = {
   name: string;
   colour: string;
   pointCount: number;
+  unknownDateCount: number;
   geometry: LatLngTuple[][];
 };
 
@@ -14,12 +15,17 @@ export type Detail = {
   colour: string;
   segmentCount: number;
   originalIds: number[];
+  geometry: LatLngTuple[][];
   points: {
     segment: number;
     latitude: number;
     longitude: number;
     elevation: number | null;
     time: string | null;
+    timezone: string | null;
+    localDate: string | null;
+    localTime: string | null;
+    timeStatus: 'resolved' | 'untimed' | 'unresolved';
   }[];
 };
 
