@@ -3,35 +3,46 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "start": "vite preview --host 0.0.0.0",
     "lint": "eslint . --max-warnings 0",
     "prebuild": "npm run check",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "next typegen && tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "fallow": "fallow --fail-on-issues",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run fallow"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run fallow && npm test",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
-    "next": "16.4.0",
+    "@fontsource/source-sans-3": "5.3.1",
+    "leaflet": "1.9.4",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "@tailwindcss/turbopack": "^4",
+    "@playwright/test": "1.64.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/leaflet": "^1.9.21",
     "@types/node": "^24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@typescript/native": "npm:typescript@^7.0.2",
-    "eslint": "10.12.0",
-    "eslint-config-next": "16.4.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "eslint": "^9.39.4",
     "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "7.1.1",
     "fallow": "3.33.1",
+    "jsdom": "^29.0.0",
     "prettier": "3.9.10",
-    "tailwindcss": "^4",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "typescript-eslint": "8.71.1"
-  }
+    "typescript-eslint": "8.71.1",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  },
+  "type": "module"
 }
