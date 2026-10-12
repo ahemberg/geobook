@@ -27,7 +27,7 @@ test('reviewed visits persist and country exploration keeps dates and full recor
   await expect(page.getByRole('heading', { name })).toBeVisible();
   if (testInfo.project.name === 'mobile')
     await page.getByRole('button', { name: 'Date filters', exact: true }).click();
-  await page.getByLabel('Year', { exact: true }).selectOption(year);
+  await page.getByRole('combobox', { name: 'Year', exact: true }).selectOption(year);
   await page.getByRole('button', { name: 'Countries', exact: true }).click();
   await page.getByRole('checkbox', { name: `Select Sweden ${year}-06-19` }).check();
   await page.getByRole('checkbox', { name: `Select Sweden ${year}-06-20` }).check();
@@ -57,7 +57,7 @@ test('reviewed visits persist and country exploration keeps dates and full recor
   await page.reload();
   if (testInfo.project.name === 'mobile')
     await page.getByRole('button', { name: 'Date filters', exact: true }).click();
-  await page.getByLabel('Year', { exact: true }).selectOption(year);
+  await page.getByRole('combobox', { name: 'Year', exact: true }).selectOption(year);
   await page.getByRole('button', { name: 'Countries', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Explore Sweden' })).toContainText(
     '2 recorded days',
