@@ -12,6 +12,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import se.geobook.tracker.tracks.domain.ContentIdentity;
 import se.geobook.tracker.tracks.domain.DateRange;
 import se.geobook.tracker.tracks.domain.OriginalExport;
+import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointCountry;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
@@ -97,6 +98,7 @@ public class TrackService {
     if (country != null) {
       PointCountry.country(country);
     }
+    PlaybackSettings settings = playbackSettings();
     // shortcut: overview geometry is unsimplified; optimize it with the benchmark in #31.
     return repository.tracks().stream()
         .filter(
@@ -116,7 +118,8 @@ public class TrackService {
                       points.stream()
                           .filter(point -> point.attribution().localDate() == null)
                           .count(),
-                  TrackGeometry.lines(points));
+                  TrackGeometry.lines(points, settings.gapSeconds()),
+                  TrackGeometry.gaps(points, settings));
             })
         .filter(track -> track.pointCount() > 0)
         .sorted(
@@ -127,14 +130,24 @@ public class TrackService {
   }
 
   public Track.Detail detail(long id) {
+    PlaybackSettings settings = playbackSettings();
     Track track = find(id);
     List<Track.Point> points = repository.points(id, new DateRange(null, null), null);
     return new Track.Detail(
         track,
         repository.segmentCount(id),
         points,
-        TrackGeometry.lines(points),
+        TrackGeometry.lines(points, settings.gapSeconds()),
+        TrackGeometry.gaps(points, settings),
         repository.originalIds(id));
+  }
+
+  public PlaybackSettings playbackSettings() {
+    return repository.playbackSettings();
+  }
+
+  public PlaybackSettings savePlaybackSettings(PlaybackSettings settings) {
+    return write(() -> repository.savePlaybackSettings(settings));
   }
 
   public Track update(long id, TrackUpdate controls) {

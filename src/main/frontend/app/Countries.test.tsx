@@ -48,6 +48,8 @@ test('review confirms selected days, excludes a flyover and explores a country w
     return Promise.resolve(Response.json({ saved: true }));
   }
   const fetch = vi.fn((url: string, options?: RequestInit) => {
+    if (url === '/api/playback-settings')
+      return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
     if (url === '/api/map-config')
       return Promise.resolve(
         Response.json({

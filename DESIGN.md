@@ -101,7 +101,7 @@ components:
 
 Geobook puts a detailed travel map beside a compact library. A blue header anchors the page; white panels and pale blue selection keep saved recordings easy to scan. Source Sans 3 carries headings, controls and recording details.
 
-This system records the rendered upload, date filters, track library, point inspection, country visit review and the original-export archive, including confirmed removal. The [approved MVP brief](docs/design/mvp.md) remains the authority for playback.
+This system records the rendered upload, date-filter, track-library controls, point inspection, playback, elevation plot, gap settings, country visit review and original-export archive, including confirmed removal. The [approved MVP brief](docs/design/mvp.md) records the approved MVP direction.
 
 **Key Characteristics:**
 
@@ -187,7 +187,7 @@ Cancel receives initial focus. Cancel or Escape returns focus to the triggering 
 
 ### Recording details
 
-A white panel beneath the map contains a heading, complete point and segment counts, gap guidance and original-export downloads. It explains that the recording includes points outside the date and country filters and that hidden tracks stay off the map. Previous point, Next point and a numbered input inspect each point's local time, timezone, coordinates and recorded elevation, with explicit unknown values. Close track floats right on desktop and precedes the heading on mobile. This panel has no playback or elevation plot yet.
+A white panel beneath the map contains a heading, complete point and segment counts, gap guidance and original-export downloads. It explains that the recording includes points outside the date and country filters and that hidden tracks stay off the map. Previous point, Next point and a numbered input inspect each point's local time, timezone, coordinates and recorded elevation, with explicit unknown values. Close track floats right on desktop and precedes the heading on mobile. Playback adds play and pause, four speed choices and an elapsed-time slider. The elevation plot uses the saved track colour, labelled axes and a selected-point marker; pointer and touch dragging select recorded points. Missing elevation breaks the plot, and recording gaps show shaded intervals with their duration. Playback moves a blue marker with a white border while the map camera stays under manual control. A collapsible gap-settings form beneath the date filter saves the gap threshold and optional dashed map connections.
 
 ### Map and notices
 
@@ -206,6 +206,5 @@ Upload and loading feedback use full-width notice strips. Tile failure uses a wa
 
 ### Don't:
 
-- Don't treat planned playback as an existing component.
 - Don't substitute schematic geography for the application's detailed map.
 - Don't use track colour alone to communicate an error or warning.

@@ -8,36 +8,36 @@ export default function TrackMap({
   selectedId,
   importedIds,
   config,
+  position,
   country: scope,
-  loadError,
 }: {
   tracks: MapTrack[];
+  country: Country | null;
   selectedId: number | null;
   importedIds: number[];
-  config: MapConfig | null;
-  loadError: string;
-  country: Country | null;
+  config: MapConfig;
+  position: L.LatLngTuple | null;
 }) {
   const country = selectedId === null ? scope : null;
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const [tileFailed, setTileFailed] = useState(false);
+  const fitted = useRef('');
   const tilesRef = useRef<L.TileLayer | null>(null);
 
+  const { url, attribution, attributionUrl } = config;
   useEffect(() => {
-    if (!container.current || !config) return;
+    if (!container.current) return;
     const map = L.map(container.current, { preferCanvas: false }).setView([25, 10], 2);
     mapRef.current = map;
     const credit = document.createElement('a');
-    credit.textContent = config.attribution;
-    credit.href = /^https?:\/\//.test(config.attributionUrl)
-      ? config.attributionUrl
+    credit.textContent = attribution;
+    credit.href = /^https?:\/\//.test(attributionUrl)
+      ? attributionUrl
       : 'https://www.openstreetmap.org/copyright';
     credit.target = '_blank';
     credit.rel = 'noopener noreferrer';
-    const tiles = L.tileLayer(config.url, { attribution: credit.outerHTML, maxZoom: 19 }).addTo(
-      map,
-    );
+    const tiles = L.tileLayer(url, { attribution: credit.outerHTML, maxZoom: 19 }).addTo(map);
     tilesRef.current = tiles;
     tiles.on('tileerror', () => setTileFailed(true));
     const resize =
@@ -49,23 +49,58 @@ export default function TrackMap({
       mapRef.current = null;
       tilesRef.current = null;
     };
-  }, [config]);
+  }, [url, attribution, attributionUrl]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const layer = L.featureGroup().addTo(map);
     const longitude = country ? (country.bounds[0][1] + country.bounds[1][1]) / 2 : undefined;
-    for (const track of tracks.filter((track) => track.visible))
+    for (const track of tracks.filter((track) => track.visible)) {
       drawTrack(track, selectedId, layer, longitude);
+      drawGaps(track, layer, longitude);
+    }
+
+    const fitKey = JSON.stringify([
+      selectedId,
+      importedIds,
+      country?.country,
+      tracks.map((track) => [track.id, track.geometry]),
+    ]);
     const bounds = country
       ? L.latLngBounds(country.bounds)
       : trackBounds(fittedTracks(tracks, selectedId, importedIds));
-    if (bounds.isValid()) map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16, animate: false });
+    if (fitKey !== fitted.current && bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16, animate: false });
+      fitted.current = fitKey;
+    }
     return () => {
       layer.remove();
     };
   }, [tracks, selectedId, importedIds, config, country]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !position) return;
+    const element = document.createElement('span');
+    element.className = 'playback-marker-dot';
+    const marker = L.marker(position, {
+      icon: L.divIcon({
+        className: 'playback-marker',
+        html: element,
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+      }),
+      keyboard: false,
+      interactive: false,
+    }).addTo(map);
+    marker
+      .getElement()
+      ?.setAttribute('aria-label', `Recorded position: ${position[0]}, ${position[1]}`);
+    return () => {
+      marker.remove();
+    };
+  }, [position, url, attribution, attributionUrl]);
 
   function fitAll() {
     mapRef.current?.invalidateSize();
@@ -74,8 +109,6 @@ export default function TrackMap({
     if (bounds.isValid()) mapRef.current?.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
   }
 
-  if (!config)
-    return <div className="map-placeholder">{loadError ? 'Map unavailable' : 'Loading map…'}</div>;
   return (
     <section className="map-panel" aria-label="Recorded travel map">
       <div ref={container} className="map" aria-label="Interactive map" />
@@ -117,6 +150,19 @@ function drawTrack(
         opacity: selectedId === null || track.id === selectedId ? 1 : 0.5,
       }).addTo(layer);
     }
+  }
+}
+
+function drawGaps(track: MapTrack, layer: L.FeatureGroup, longitude = track.geometry[0]?.[0]?.[1]) {
+  for (const gap of mapGeometry(track.gaps ?? [], longitude)) {
+    L.polyline(gap, {
+      color: '#68716d',
+      weight: 2,
+      dashArray: '6 6',
+      className: 'recording-gap',
+    })
+      .bindTooltip('Missing recording')
+      .addTo(layer);
   }
 }
 function trackBounds(tracks: MapTrack[], longitude?: number) {

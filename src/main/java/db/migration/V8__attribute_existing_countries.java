@@ -9,7 +9,7 @@ import se.geobook.tracker.tracks.domain.PointCountry;
 
 // Flyway names migrations by version and description.
 @SuppressWarnings("PMD.ClassNamingConventions")
-public class V7__attribute_existing_countries extends BaseJavaMigration {
+public class V8__attribute_existing_countries extends BaseJavaMigration {
   @Override
   public void migrate(Context context) throws SQLException {
     // Bound memory during upgrades; Flyway commits the whole migration atomically.

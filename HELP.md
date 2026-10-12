@@ -106,7 +106,8 @@ for long tracks and dateline crossings. Existing colours remain unchanged on imp
 manual choices; source colour metadata is ignored. Names accept 1 to 200 characters without
 control characters, and manual colours use six-digit hex values.
 
-The map breaks solid lines at source segments and timestamp gaps over five minutes.
+The map breaks solid lines at source segments and timestamp gaps over the saved threshold,
+five minutes by default.
 Date filters use each point's local calendar date; see Point-local dates below.
 
 Configure an OSM-based raster provider through Spring properties or their environment forms:
@@ -180,7 +181,7 @@ returns to the filtered map. A successful upload resets All time.
 Untimed and unresolved points appear under All time. Point details label missing
 times as Date unknown and failed attribution as Local time unresolved, retaining
 the recorded UTC timestamp when available. Filtered lines break at omitted points,
-source segments and intervals over five minutes.
+source segments and intervals over the saved gap threshold.
 
 The application bundles Timeshape 2026b.29 and timezone-boundary-builder 2026b.
 Historical rules come from the JDK's offline IANA tzdb. Each derived result stores
@@ -228,3 +229,27 @@ Review decisions survive restart and duplicate import. Summaries derive from liv
 track evidence instead of cached totals, so recording removal must delete its
 points and relationships and cannot leave a stored summary contribution behind.
 Pi startup, memory and large-collection timings remain release checks in #31.
+## Playback and recording gaps
+
+Open a complete recording to play or pause it, choose 1x, 10x, 100x or 1000x,
+and seek with the elapsed-time slider or elevation plot. Drag the plot with a
+mouse or touch, or use its arrow keys, Home and End. Point inspection and the
+marker use recorded positions, with point-local date/time. Playback and seeking
+leave pan and zoom under your control, even when the marker is outside the map.
+
+The plot includes missing intervals in its elapsed-time axis. Missing elevation
+breaks the line. Playback jumps across source-segment breaks and intervals above
+the threshold, and reports the skipped duration. Repeated timestamps keep their
+source order. Missing or decreasing timestamps disable timed playback; the
+recorded points remain available through Previous point, Next point and Point.
+
+Expand Recording gaps to save a positive whole-number threshold in seconds and
+optional gray dashed connections. Connections are off by default and describe
+missing recording, without supplying travel or country-visit evidence. These
+server settings survive restarts and apply to both overview and full recordings.
+They never rewrite points, original exports or duplicate identity.
+
+The HTTP settings contract is GET and PATCH /api/playback-settings. PATCH accepts
+both gapSeconds and showGapConnections. Track responses include a separate gaps
+geometry field, empty when connections are disabled; filtered-out points never
+produce connections across the omitted portion.
