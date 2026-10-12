@@ -26,6 +26,7 @@ import tools.jackson.databind.json.JsonMapper;
 // HTTP journeys share transport helpers and use literal response expectations.
 @SuppressWarnings({
   "PMD.TooManyMethods",
+  "PMD.GodClass",
   "PMD.AvoidDuplicateLiterals",
   "PMD.UnitTestContainsTooManyAsserts"
 })
@@ -891,12 +892,124 @@ class TrackHttpTests {
   }
 
   @Test
-  void deletingTrackRetainsOriginalAndOtherRecordings() throws IOException, InterruptedException {
-    byte[] original =
-        gpx("<trk><name>Remove me</name><trkseg><trkpt lat='59.32' lon='18.07'/></trkseg></trk>");
+  void overviewIsSmallWhileCompleteRecordingAndOriginalStayExact()
+      throws IOException, InterruptedException {
+    StringBuilder points = new StringBuilder(100_000);
+    for (int index = 0; index < 1000; index++) {
+      points
+          .append("<trkpt lat='")
+          .append(index == 500 ? "59.341" : "59.34")
+          .append("' lon='")
+          .append(java.math.BigDecimal.valueOf(180_400_000L + index, 7))
+          .append("'><time>2025-06-19T10:00:00Z</time></trkpt>");
+    }
+    byte[] original = gpx("<trk><name>Dense recording</name><trkseg>" + points + "</trkseg></trk>");
     try (HttpClient client = HttpClient.newHttpClient();
         ConfigurableApplicationContext app = start()) {
       assertThat(upload(client, base(app), original).statusCode()).isEqualTo(201);
+      JsonMapper mapper = JsonMapper.builder().build();
+      JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body()).get(0);
+      assertThat(overview.get("pointCount").asInt()).isEqualTo(1000);
+      JsonNode line = overview.get("geometry").get(0);
+      assertThat(line.size()).isLessThan(20);
+      assertThat(line.toString()).contains("[59.341,");
+      assertThat(line.get(0).get(1).asDouble()).isEqualTo(18.04);
+      assertThat(line.get(line.size() - 1).get(1).asDouble()).isEqualTo(18.040_099_9);
+      JsonNode filtered =
+          mapper
+              .readTree(get(client, base(app) + "/api/tracks?from=2025-06-19&to=2025-06-19").body())
+              .get(0);
+      assertThat(filtered).isEqualTo(overview);
+      JsonNode full = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(full.get("points").size()).isEqualTo(1000);
+      assertThat(full.get("points").get(500).get("longitude").asDouble()).isEqualTo(18.040_05);
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(original);
+      // Make the source stores unavailable: collection reads must use only derived overview data.
+      org.springframework.jdbc.core.JdbcTemplate jdbc =
+          app.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+      jdbc.execute("ALTER TABLE track_point RENAME TO unavailable_points");
+      jdbc.execute("ALTER TABLE original_export RENAME TO unavailable_originals");
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks").body()).get(0))
+          .isEqualTo(overview);
+      assertThat(
+              mapper
+                  .readTree(
+                      get(client, base(app) + "/api/tracks?from=2025-06-19&to=2025-06-19").body())
+                  .get(0))
+          .isEqualTo(filtered);
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks?country=SWE").body()).get(0))
+          .isEqualTo(overview);
+      assertThat(
+              mapper
+                  .readTree(
+                      get(
+                              client,
+                              base(app) + "/api/tracks?country=SWE&from=2025-06-19&to=2025-06-19")
+                          .body())
+                  .get(0))
+          .isEqualTo(filtered);
+      assertThat(
+              new String(
+                  get(client, base(app) + "/api/tracks/years").body(), StandardCharsets.UTF_8))
+          .isEqualTo("[2025]");
+    }
+  }
+
+  @Test
+  void overviewAppliesChangedGapThresholdsWithoutReadingSourcePoints()
+      throws IOException, InterruptedException {
+    byte[] original =
+        gpx(
+            """
+            <trk><trkseg>
+              <trkpt lat="59.32" lon="18.07"><time>2025-06-19T10:00:00Z</time></trkpt>
+              <trkpt lat="59.321" lon="18.071"><time>2025-06-19T10:00:01Z</time></trkpt>
+              <trkpt lat="59.322" lon="18.072"><time>2025-06-19T10:00:02.001Z</time></trkpt>
+              <trkpt lat="59.323" lon="18.073"><time>2025-06-19T10:00:04.001Z</time></trkpt>
+              <trkpt lat="59.324" lon="18.074"><time>2025-06-19T10:00:03Z</time></trkpt>
+              <trkpt lat="59.325" lon="18.075"/>
+            </trkseg></trk>
+            """);
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(upload(client, base(app), original).statusCode()).isEqualTo(201);
+      app.getBean(org.springframework.jdbc.core.JdbcTemplate.class)
+          .execute("ALTER TABLE track_point RENAME TO unavailable_points");
+      JsonMapper mapper = JsonMapper.builder().build();
+      for (int seconds : new int[] {1, 2, 1}) {
+        assertThat(
+                patch(
+                        client,
+                        base(app) + "/api/playback-settings",
+                        "{\"gapSeconds\":" + seconds + ",\"showGapConnections\":true}")
+                    .statusCode())
+            .isEqualTo(200);
+        JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body()).get(0);
+        assertThat(overview.get("pointCount").asInt()).isEqualTo(6);
+        assertThat(overview.get("geometry").size()).isEqualTo(seconds == 1 ? 3 : 1);
+        assertThat(overview.get("gaps").size()).isEqualTo(seconds == 1 ? 2 : 0);
+        assertThat(overview.get("gaps").toString())
+            .isEqualTo(
+                seconds == 1
+                    ? "[[[59.321,18.071],[59.322,18.072]],[[59.322,18.072],[59.323,18.073]]]"
+                    : "[]");
+      }
+    }
+  }
+
+  @Test
+  void deletingTrackRetainsOriginalAndOtherRecordings() throws IOException, InterruptedException {
+    byte[] original =
+        gpx(
+            "<trk><name>Remove me</name><trkseg><trkpt lat='59.32'"
+                + " lon='18.07'><time>2023-01-01T10:00:00Z</time></trkpt></trkseg></trk>");
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(upload(client, base(app), original).statusCode()).isEqualTo(201);
+      assertThat(
+              new String(
+                  get(client, base(app) + "/api/tracks/years").body(), StandardCharsets.UTF_8))
+          .isEqualTo("[2023]");
       assertThat(
               upload(
                       client,
@@ -917,6 +1030,10 @@ class TrackHttpTests {
           JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks").body());
       assertThat(remaining.size()).isEqualTo(1);
       assertThat(remaining.get(0).get("name").asText()).isEqualTo("Keep me");
+      assertThat(
+              new String(
+                  get(client, base(app) + "/api/tracks/years").body(), StandardCharsets.UTF_8))
+          .isEqualTo("[]");
       assertThat(delete(client, base(app) + "/api/tracks/1", "missing").statusCode())
           .isEqualTo(404);
     }

@@ -24,3 +24,6 @@ __pycache__/
 
 # Local browser review captures.
 .impeccable/review/
+
+# Python benchmark runner cache.
+__pycache__/

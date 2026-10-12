@@ -642,3 +642,69 @@ test('batch completion restores All time after the last new track has arrived', 
   );
   expect(await screen.findByRole('heading', { name: 'Imported walk' })).toBeVisible();
 });
+
+test('compact overview geometry keeps full point counts and fetches detail only on selection', async () => {
+  const requests: string[] = [];
+  const overview = {
+    id: 1,
+    name: 'Dense recording',
+    colour: '#ad466a',
+    visible: true,
+    startTime: '2025-06-19T10:00:00Z',
+    pointCount: 10000,
+    unknownDateCount: 0,
+    geometry: [
+      [
+        [59.32, 18.07],
+        [59.33, 18.08],
+      ],
+    ],
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string) => {
+      requests.push(url);
+      if (url === '/api/map-config')
+        return Promise.resolve(
+          Response.json({
+            url: '/tiles/{z}/{x}/{y}.png',
+            attribution: 'Test tiles',
+            attributionUrl: 'https://example.org',
+          }),
+        );
+      if (url === '/api/tracks/years') return Promise.resolve(Response.json([2025]));
+      if (url === '/api/tracks/1')
+        return Promise.resolve(
+          Response.json({
+            ...overview,
+            segmentCount: 1,
+            originalIds: [1],
+            points: Array.from({ length: 10000 }, () => ({
+              segment: 0,
+              latitude: 59.32,
+              longitude: 18.07,
+              time: '2025-06-19T10:00:00Z',
+              localTime: '2025-06-19T12:00:00+02:00',
+              timezone: 'Europe/Stockholm',
+              elevation: null,
+            })),
+          }),
+        );
+      return Promise.resolve(Response.json([overview]));
+    }),
+  );
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByRole('button', {
+    name: /Dense recording.*10,000 recorded points/,
+  });
+  expect(requests).not.toContain('/api/tracks/1');
+  await user.selectOptions(screen.getByLabelText('Year'), '2025');
+  const row = await screen.findByRole('button', {
+    name: /Dense recording.*10,000 matching points/,
+  });
+  expect(requests).not.toContain('/api/tracks/1');
+  await user.click(row);
+  expect(await screen.findByText(/Complete recording · 10,000 points/)).toBeVisible();
+  expect(requests.filter((url) => url === '/api/tracks/1')).toHaveLength(1);
+});

@@ -12,6 +12,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import se.geobook.tracker.tracks.domain.ContentIdentity;
 import se.geobook.tracker.tracks.domain.DateRange;
 import se.geobook.tracker.tracks.domain.OriginalExport;
+import se.geobook.tracker.tracks.domain.OverviewRun;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointCountry;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
@@ -51,25 +52,30 @@ public class TrackService {
   }
 
   Track.Imported save(OriginalExport.Source source, Recording recording) {
+    List<PointLocalTime.Attribution> local =
+        recording.points().stream()
+            .map(
+                point ->
+                    PointLocalTime.resolve(
+                        point.latitude().doubleValue(),
+                        point.longitude().doubleValue(),
+                        point.time()))
+            .toList();
+    List<String> countries =
+        recording.points().stream()
+            .map(
+                point ->
+                    PointCountry.resolve(
+                        point.latitude().doubleValue(), point.longitude().doubleValue()))
+            .toList();
     Track.Prepared prepared =
         new Track.Prepared(
             recording,
             ContentIdentity.recording(recording),
             TrackColours.Bounds.enclosing(recording.points()),
-            recording.points().stream()
-                .map(
-                    point ->
-                        PointLocalTime.resolve(
-                            point.latitude().doubleValue(),
-                            point.longitude().doubleValue(),
-                            point.time()))
-                .toList(),
-            recording.points().stream()
-                .map(
-                    point ->
-                        PointCountry.resolve(
-                            point.latitude().doubleValue(), point.longitude().doubleValue()))
-                .toList());
+            local,
+            countries,
+            OverviewRun.prepare(recording.points(), local, countries));
     return write(
         () -> {
           if (!repository.sourceExists(source)) {
@@ -98,30 +104,14 @@ public class TrackService {
     if (country != null) {
       PointCountry.country(country);
     }
-    PlaybackSettings settings = playbackSettings();
-    // shortcut: overview geometry is unsimplified; optimize it with the benchmark in #31.
-    return repository.tracks().stream()
+    return repository.overview(range, country, playbackSettings()).stream()
         .filter(
-            track ->
-                track
+            overview ->
+                overview
+                    .track()
                     .name()
                     .toLowerCase(Locale.ROOT)
                     .contains(search.strip().toLowerCase(Locale.ROOT)))
-        .map(
-            track -> {
-              List<Track.Point> points = repository.points(track.id(), range, country);
-              return new Track.Overview(
-                  track,
-                  repository.startTime(track.id()),
-                  points.size(),
-                  (int)
-                      points.stream()
-                          .filter(point -> point.attribution().localDate() == null)
-                          .count(),
-                  TrackGeometry.lines(points, settings.gapSeconds()),
-                  TrackGeometry.gaps(points, settings));
-            })
-        .filter(track -> track.pointCount() > 0)
         .sorted(
             Comparator.comparing(
                     Track.Overview::startTime, Comparator.nullsLast(Comparator.reverseOrder()))
@@ -132,7 +122,7 @@ public class TrackService {
   public Track.Detail detail(long id) {
     PlaybackSettings settings = playbackSettings();
     Track track = find(id);
-    List<Track.Point> points = repository.points(id, new DateRange(null, null), null);
+    List<Track.Point> points = repository.points(id);
     return new Track.Detail(
         track,
         repository.segmentCount(id),

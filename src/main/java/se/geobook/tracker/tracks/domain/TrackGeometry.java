@@ -49,7 +49,7 @@ public final class TrackGeometry {
     return gaps;
   }
 
-  private static boolean isGap(Recording.Point previous, Recording.Point point, int gapSeconds) {
+  public static boolean isGap(Recording.Point previous, Recording.Point point, int gapSeconds) {
     return previous.segment() != point.segment()
         || previous.time() != null
             && point.time() != null
