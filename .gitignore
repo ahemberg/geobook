@@ -6,3 +6,10 @@
 *.log
 .idea/
 *.iml
+
+# Local Impeccable state and unselected design sketches.
+.impeccable/config.local.json
+.impeccable/hook.cache.json
+.impeccable/questions/
+.impeccable/mocks/decision/*
+!.impeccable/mocks/decision/pick.html
