@@ -35,11 +35,11 @@ Playwright. Their logs retain startup, first-import and memory observations.
 Both checks must pass for this change. Use the linked PR's checks as the evidence
 for the exact commit being released; a configured workflow alone is not a pass.
 
-## Outstanding owner-run Raspberry Pi release gate
+## Raspberry Pi gate at the time of issue #32
 
-No reference Raspberry Pi is reachable from this implementation environment.
-Actual Pi startup, resource use and storage behavior remain unvalidated. Passing
-native ARM64 CI does not close this gate. Before the final release, the owner must:
+Issue #32 had no reachable reference Pi. The subsequent native Pi checks and
+remaining limits are recorded in [MVP acceptance](mvp-acceptance.md). The original
+release checklist is retained here for future releases:
 
 1. Use the Pi 5 with 8 GB RAM, a 64-bit OS and the intended local SSD. Record OS,
    kernel, Docker version, exact image digest, Java version and available memory.
@@ -58,4 +58,4 @@ native ARM64 CI does not close this gate. Before the final release, the owner mu
    workload, client, network conditions, overview/filter times and peak resources.
 
 Use synthetic/shareable fixtures in public evidence. Do not attach private exports
-or coordinates. The final release remains gated on these actual Pi observations.
+or coordinates. A future release needs its own actual Pi observations.

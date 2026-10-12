@@ -157,6 +157,16 @@ Python 3 and Docker Compose are required.
 python3 scripts/container-smoke.py "geobook:$version"
 ```
 
+For an update check, start with the previous compatible image and replace it with
+the candidate. Both images must already be built on the host:
+
+```bash
+python3 scripts/container-smoke.py geobook:PREVIOUS --replacement-image "geobook:$version"
+```
+
+The checks retain original bytes, names, colours, visibility, confirmed/excluded
+country days and gap settings across restart, replacement and stopped-app restore.
+
 To also run the desktop and touch-mobile Playwright journeys against that container,
 install Chromium with `npx playwright install --with-deps chromium` from
 `src/main/frontend`, then append `--browser` to the smoke command. Tiles are stubbed;
@@ -168,6 +178,7 @@ CI runs Maven/frontend quality checks, then the same container and browser check
 on native `ubuntu-24.04` x86-64 and `ubuntu-24.04-arm` ARM64 runners. An ARM runner
 pass validates driver and resource compatibility, but is not a Raspberry Pi measurement.
 
-See [deployment validation](deployment-validation.md) for observed results and the
-outstanding owner-run Pi release gate. The separate 500-track/five-million-point
-performance benchmark belongs to issue #31.
+See [MVP acceptance](mvp-acceptance.md) for the final measured release checks and
+remaining limits, and [deployment validation](deployment-validation.md) for the
+earlier issue #32 observations. The separate 500-track/five-million-point workload
+is documented in [the benchmark guide](../benchmarks/README.md).
