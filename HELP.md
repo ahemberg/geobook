@@ -15,7 +15,8 @@ Java versions outside 27 fail immediately with instructions to set `JAVA_HOME`.
 test Java sources. SpotBugs includes Find Security Bugs and checks all bug categories.
 PMD enables the same eight categories as Tergo, without its application-specific exceptions.
 HTTP journey tests allow multiple assertions to verify related response and persistence behavior.
-The SpotBugs filter excludes only the informational endpoint inventory for TrackController.
+The SpotBugs filter excludes only the informational endpoint inventories for
+TrackController and FrontendController.
 
 `ArchitectureTests` runs ArchUnit layer checks and Spring Modulith verification during
 the Maven test phase. Violations fail `test`, `package`, and `verify`, including CI.
@@ -52,6 +53,9 @@ Google Java Format is pinned to 1.36.1 because 1.37 fails through Spotless 3.10.
 JDK 25 and JDK 27.
 
 ## Running Geobook
+
+For persistent ARM64/x86-64 containers, see [Compose deployment](docs/deployment.md).
+It covers versioned builds, local SSD mounts, manual updates and stopped-app copy/restore.
 
 Build with `./mvnw verify`, then run:
 
@@ -152,7 +156,8 @@ gh api --method POST repos/OWNER/REPO/rulesets --input .github/required-checks.j
 ```
 
 The first command enables native secret scanning and push protection. The second requires
-`Backend checks`, `Frontend checks`, `Secret scan`, and `Dependency review` on the default branch,
+`Backend checks`, `Frontend checks`, `Container checks (amd64)`,
+`Container checks (arm64)`, `Secret scan`, and `Dependency review` on the default branch,
 with the branch up to date before merging. It accepts checks only from GitHub Actions and grants
 no bypasses. The ruleset can also be imported through Settings > Rules > Rulesets.
 Create it once; subsequent changes should update the existing ruleset rather than create duplicates.

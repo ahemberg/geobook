@@ -3,9 +3,10 @@ import { expect, test } from '@playwright/test';
 test('saved choices are shared with another browser and hidden tracks stay selectable', async ({
   page,
   browser,
+  baseURL,
 }, testInfo) => {
   const second = await browser.newContext({
-    baseURL: 'http://127.0.0.1:18080',
+    baseURL: baseURL ?? '',
     viewport: { width: 1280, height: 800 },
     isMobile: false,
     hasTouch: false,
