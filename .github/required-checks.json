@@ -17,6 +17,8 @@
         "required_status_checks": [
           { "context": "Backend checks", "integration_id": 15368 },
           { "context": "Frontend checks", "integration_id": 15368 },
+          { "context": "Container checks (amd64)", "integration_id": 15368 },
+          { "context": "Container checks (arm64)", "integration_id": 15368 },
           { "context": "Secret scan", "integration_id": 15368 },
           { "context": "Dependency review", "integration_id": 15368 }
         ]

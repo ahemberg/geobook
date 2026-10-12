@@ -51,3 +51,59 @@ jobs:
             target/spotbugsXml.xml
             src/main/frontend/test-results/
           if-no-files-found: ignore
+
+      - name: Share the verified application with container checks
+        uses: actions/upload-artifact@v7
+        with:
+          name: packaged-application
+          path: target/tracker-0.0.1-SNAPSHOT.jar
+          retention-days: 3
+
+  container:
+    name: Container checks (${{ matrix.arch }})
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Download the verified application
+        uses: actions/download-artifact@v8
+        with:
+          name: packaged-application
+          path: target
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: src/main/frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: src/main/frontend/package-lock.json
+
+      - name: Install browser tests
+        working-directory: src/main/frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Build the native application image
+        run: docker build --tag geobook:test .
+
+      - name: Test Compose persistence and bundled browser journeys
+        run: python3 scripts/container-smoke.py geobook:test --browser
+
+      - name: Upload browser reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: container-reports-${{ matrix.arch }}
+          path: src/main/frontend/test-results/
+          if-no-files-found: ignore
