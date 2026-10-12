@@ -33,7 +33,12 @@ import tools.jackson.databind.JsonNode;
 
 // Path variables match the public id contract.
 // Keep the track endpoints and their shared request-error handling together.
-@SuppressWarnings({"PMD.ShortVariable", "PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({
+  "PMD.ShortVariable",
+  "PMD.TooManyMethods",
+  "PMD.CouplingBetweenObjects",
+  "PMD.ExcessiveImports"
+})
 @RestController
 class TrackController {
   private final TrackService collection;
