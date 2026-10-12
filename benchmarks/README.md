@@ -32,7 +32,7 @@ Generation refuses to overwrite existing GPX files. Import streams progress, fai
 failed or incomplete recording import, and probes complete collection reads every five
 seconds. Its final JSON line reports elapsed time, first progress, outcomes and read timings.
 Repeating an import exercises duplicate handling; use a fresh database to time initial import.
-The workload occupies roughly 1.3 GiB of database storage plus 490 MB of generated GPX files.
+The workload occupies roughly 1.7 GiB of database storage plus 490 MB of generated GPX files.
 Leave room for the SQLite WAL and migration writes.
 
 While importing and browsing, sample resources in another Pi terminal. Record the server PID
@@ -97,27 +97,27 @@ A Pi thread sample also showed import time in polygon intersection lookup, at ro
 seconds per 10,000-point track after initialization.
 
 With stored simplified geometry and the existing timezone library's polygon index enabled,
-the full 500-track workload produced 34,500 overview vertices and a 955,393-byte response after integrating the archive and playback features.
-All five browser runs on commit `7da767d` met both targets. The first run used a freshly
+the full 500-track workload produced 34,500 overview vertices and a 955,393-byte response after integrating archive, playback and country visits.
+All five browser runs on commit `b1ba5aa` met both targets. The first run used a freshly
 started JVM; subsequent runs reused that JVM. OS caches were not flushed. Raw samples are in [pi5-browser.json](results/pi5-browser.json).
 
 | Operation | Minimum | Median | Maximum | Target |
 | --- | ---: | ---: | ---: | ---: |
-| Opening overview | 1.444 s | 1.529 s | 1.857 s | < 5 s |
-| One-day filter | 0.201 s | 0.218 s | 0.366 s | < 2 s |
-| Return to All time | 0.547 s | 0.566 s | 0.961 s | < 2 s |
+| Opening overview | 1.388 s | 1.525 s | 1.898 s | < 5 s |
+| One-day filter | 0.214 s | 0.219 s | 0.220 s | < 2 s |
+| Return to All time | 0.546 s | 0.580 s | 0.613 s | < 2 s |
 
-A fresh import on the same commit took 179.810 seconds, with first progress after 1.376
-seconds, 500 imported tracks, 50 completed files and no failures. All 35 concurrent
-collection reads succeeded; the slowest took 0.340 seconds. Parsing, attribution and
+A fresh import on the same commit took 212.293 seconds, with first progress after 1.037
+seconds, 500 imported tracks, 50 completed files and no failures. All 42 concurrent
+collection reads succeeded; the slowest took 0.382 seconds. Parsing, attribution and
 simplification occur before the writer lock; one track and its overview commit together.
 Reads use SQLite WAL while writes remain serialized.
 
-Sampled server high-water RSS was 1,505,296 KiB, about 1.44 GiB. Samples reported no server
-swap and no thermal throttling, with temperatures between 44.4 and 50.5 degrees Celsius.
-The database was about 1.3 GiB, including retained original BLOBs, with a 12 MB WAL at the
+Sampled server high-water RSS was 2,108,576 KiB, about 2.01 GiB. Samples reported no server
+swap and no thermal throttling, with temperatures between 45.0 and 51.0 degrees Celsius.
+The database was about 1.7 GiB, including retained original BLOBs, with a 12 MB WAL at the
 end of import. The server was stopped and restarted for the browser series. After those
-runs it used 305,248 KiB RSS, about 298 MiB, without loading the import-only timezone index.
+runs it used 358,624 KiB RSS, about 350 MiB, without loading the import-only timezone index.
 Background services remained running, but these measurements do not cover sustained
 storage contention. [pi5-import.json](results/pi5-import.json) contains import and read
 timings plus the resource samples.
