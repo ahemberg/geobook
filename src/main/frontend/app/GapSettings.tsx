@@ -45,41 +45,43 @@ export default function GapSettings({
   return (
     <details className="gap-settings">
       <summary>Recording gaps</summary>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save();
-        }}
-      >
-        <label>
-          Gap threshold in seconds
-          <input
-            type="number"
-            required
-            min={1}
-            max={2147483647}
-            step={1}
-            value={seconds}
-            disabled={saving}
-            onChange={(event) => setSeconds(event.target.value)}
-          />
-        </label>
-        <label className="gap-connections">
-          <input
-            type="checkbox"
-            checked={connections}
-            disabled={saving}
-            onChange={(event) => setConnections(event.target.checked)}
-          />
-          Show gray dashed gap connections
-        </label>
-        <button disabled={saving}>{saving ? 'Saving…' : 'Save gap settings'}</button>
-      </form>
-      <p className="hint">
-        Connections mark missing recording, not recorded travel or evidence of a country visit.
-        Source segments always stay separate.
-      </p>
-      {message && <p role="status">{message}</p>}
+      <div className="gap-settings-panel">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+        >
+          <label>
+            Gap threshold in seconds
+            <input
+              type="number"
+              required
+              min={1}
+              max={2147483647}
+              step={1}
+              value={seconds}
+              disabled={saving}
+              onChange={(event) => setSeconds(event.target.value)}
+            />
+          </label>
+          <label className="gap-connections">
+            <input
+              type="checkbox"
+              checked={connections}
+              disabled={saving}
+              onChange={(event) => setConnections(event.target.checked)}
+            />
+            Show gray dashed gap connections
+          </label>
+          <button disabled={saving}>{saving ? 'Saving…' : 'Save gap settings'}</button>
+        </form>
+        <p className="hint">
+          Connections mark missing recording, not recorded travel or evidence of a country visit.
+          Source segments always stay separate.
+        </p>
+        {message && <p role="status">{message}</p>}
+      </div>
     </details>
   );
 }

@@ -58,9 +58,6 @@ export default function ElevationPlot({
   const cursor = ((data.times[index] ?? 0) / (data.duration || 1)) * 1000;
   return (
     <div className="elevation">
-      <div className="plot-heading">
-        <strong>Recorded elevation</strong>
-      </div>
       <div className="elevation-chart">
         <div className="elevation-scale" aria-label="Elevation in metres">
           <span>{plot.maximum} m</span>
@@ -122,9 +119,6 @@ export default function ElevationPlot({
         <span>Elapsed time</span>
         <span>{durationLabel(data.duration)}</span>
       </div>
-      <p className="hint">
-        Shaded intervals are missing recording. Missing elevation breaks the plot.
-      </p>
     </div>
   );
 }

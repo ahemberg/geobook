@@ -22,12 +22,12 @@ colors:
 typography:
   brand:
     fontFamily: "Source Sans 3, sans-serif"
-    fontSize: "28px"
+    fontSize: "24px"
     fontWeight: 700
     letterSpacing: "-0.02em"
   title:
     fontFamily: "Source Sans 3, sans-serif"
-    fontSize: "22px"
+    fontSize: "18px"
     fontWeight: 600
   empty-title:
     fontFamily: "Source Sans 3, sans-serif"
@@ -84,13 +84,13 @@ components:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
     rounded: "{rounded.row}"
-    padding: "14px 0"
+    padding: "6px 0"
   track-row-selected:
     backgroundColor: "{colors.selection}"
   track-detail:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
-    padding: "22px 24px"
+    padding: "12px 16px"
 ---
 
 # Design System: Geobook
@@ -105,7 +105,8 @@ This system records the rendered upload, date-filter, track-library controls, po
 
 **Key Characteristics:**
 
-- Map beside the library on desktop, above it on mobile.
+- Independently scrolling library beside the map on desktop; a collapsible library on mobile.
+- Selected recording plot docked below the map within the viewport.
 - Saved track colours connect library swatches and map geometry.
 - Flat panels, visible dividers and labelled controls.
 
@@ -131,13 +132,15 @@ Notices have separate informational, success, error and warning fills. Error and
 
 Source Sans 3 is bundled locally in weights 400, 600 and 700, with a sans-serif fallback. Numbers use tabular figures. Body text inherits the browser's base size; paragraphs use the body line height and stop at 70ch.
 
-The brand is the largest text. Library and recording headings use `title`; first-use copy uses `empty-title`; Recorded travel uses `scope-title`. Track names and control emphasis use weight 600. Supporting text uses `label`. Map attribution uses 12px. On mobile the brand drops to 25px and the scope heading to 16px.
+The brand uses the brand role; library and recording headings use `title`; first-use copy uses `empty-title`; Recorded travel uses `scope-title`. Track names use 15px text at weight 600 and a 1.25 line height. Supporting text uses `label`; chart axes and map attribution use 12px. On mobile the brand is 25px, the recording heading is 16px and the scope heading is 14px. Point readings contract to 12px on mobile.
 
 ## Layout
 
-The app fills at least the dynamic viewport height. Desktop has a 76px header and a scope strip at least 70px high. A 300px library sits beside a flexible map column. The map has a 460px minimum height, with the selected recording below it. Panels grow with content; long names wrap.
+The app occupies exactly the dynamic viewport height. Desktop has a 56px header and a scope strip at least 56px high. A 304px library sits beside a flexible map column. The track list scrolls independently below its heading and search field. The map takes the remaining vertical space above the selected recording's docked plot. Recording details scroll internally and occupy at most 55% of the map workspace. Upload feedback is bounded to 25dvh and scrolls internally.
 
-At widths up to 700px, the header has a 64px minimum height and the scope strip has a 64px minimum height, wrapping as needed. Date controls start collapsed behind a Date filters button; the current scope stays visible. The map moves above the library and its minimum height becomes 48dvh. The selected recording stays beneath the map. The library starts collapsed behind a labelled toggle; the first-use upload prompt remains visible. Map, Countries and Original exports navigation remain visible; the header wraps when needed. Common horizontal padding contracts to 16px.
+Between 701px and 1100px, the library contracts to 260px and playback controls stack beneath the chart. Wider layouts place playback controls and the current point reading beside the chart. The plot is 100px tall on desktop.
+
+At widths up to 700px, the header wraps navigation below the wordmark and upload button, preserving every destination. The scope wraps its heading above the date and gap controls. A 44px library heading and toggle stay above the map. Opening the library covers the map workspace; the covered map and playback are hidden from keyboard and assistive-technology navigation. Selecting a track closes the library and focuses its toggle. Reopening retains the list's scroll position. An empty library opens automatically. The selected plot stays below the map, with an 80px chart and controls underneath. Its panel occupies at most 60% of the remaining workspace and scrolls internally when expanded.
 
 Countries places confirmed summaries beside country-day review on desktop and stacks them on mobile. Date controls and the current scope stay above both views.
 
@@ -145,7 +148,7 @@ The archive replaces the map workspace with a full-width list padded by 24px. Fi
 
 ## Elevation & Depth
 
-The workspace uses flat white panels and single-pixel dividers. Only the floating fit control and tile-failure notice use the application's soft shadow, `0 2px 8px #20312d24`. Removal dialogs use a translucent dark blue backdrop to separate the confirmation from the page. Leaflet supplies its own map-control frame. The app declares no custom transitions or animations.
+The workspace uses flat white panels and single-pixel dividers. The floating fit control and tile-failure notice use the soft shadow `0 2px 8px #20312d24`. Date and gap-setting popovers use `0 8px 32px #20312d30` to separate them from the map. Removal dialogs use a translucent dark blue backdrop to separate the confirmation from the page. Leaflet supplies its own map-control frame. The app declares no custom transitions or animations.
 
 ## Shapes
 
@@ -159,7 +162,9 @@ Ordinary buttons have a white fill and a single-pixel border. Primary buttons us
 
 ### Header and scope
 
-The header contains the Geobook wordmark, Map, Countries and Original exports buttons and Upload GPX aligned to the right. Navigation uses white text, a filled hover state and `aria-current` for the selected page. The scope strip appears in Map and Countries and contains Recorded travel, the applied date range or All time, the selected country with an All countries action when scoped, and the matching track count. Below it, labelled native date fields apply an inclusive range using local time at each point. A year selector applies a full calendar year; All time clears the range and includes points with unknown dates. Form controls use white fills, outlined borders and the shared focus treatment. The upload button opens a hidden native file input.
+The header contains the Geobook wordmark, Map, Countries and Original exports buttons and Upload GPX aligned to the right. Navigation uses white text, a filled hover state and `aria-current` for the selected page. The scope strip appears in Map and Countries and contains Recorded travel, a date button showing the applied range or All time, a Recording gaps disclosure, the selected country with an All countries action when scoped, and the matching track count.
+
+The date button opens a bounded, scrollable panel with labelled native date fields, a year selector, All time, Apply dates and Close dates. Applying or closing returns focus to the date button; Escape also closes it. Dates are inclusive and use local time at each point. All time includes points with unknown dates. Recording gaps opens a matching panel for the saved gap threshold and optional dashed map connections. Form controls use white fills, outlined borders and the shared focus treatment. The upload button opens a hidden native file input.
 
 ### Country visits
 
@@ -171,7 +176,7 @@ The skip link targets the visible view. Countries provides a focusable main land
 
 ### Track rows
 
-Rows contain an independent visibility checkbox, a selection button and a labelled Edit button. The selection button contains the saved-colour swatch, wrapping track name, recorded date and recorded or matching point count. Untimed rows show Date unknown and the track ID. Rows offer to open the complete recording and identify points with unknown dates. Selection uses the pale blue fill and `aria-pressed`. The swatch stays the same size when names wrap.
+Rows contain an independent visibility checkbox, a selection button and a labelled Edit button. Rows have a 56px minimum height; the selection button uses compact vertical padding. Its saved-colour swatch accompanies the name, which is limited to two lines, with the full name retained in the button's accessible text and title. A separate recorded date is omitted when an ISO date or a Swedish or English day-month-year date already appears in the saved name. Other names keep the UTC start-date label; untimed rows show Date unknown. Point counts and the repeated opening instruction are absent. Selection uses the pale blue fill and `aria-pressed`. The swatch stays the same size when names wrap.
 
 Search filters the library by name. Edit expands an inline form with name and native colour inputs, Save changes and Cancel. Visibility saves independently of an editing draft. A failed save keeps the previous saved choice and shows its error beneath the row. Closing the editor restores focus to Edit, or to search if a renamed track no longer matches.
 
@@ -187,7 +192,9 @@ Cancel receives initial focus. Cancel or Escape returns focus to the triggering 
 
 ### Recording details
 
-A white panel beneath the map contains a heading, complete point and segment counts, gap guidance and original-export downloads. It explains that the recording includes points outside the date and country filters and that hidden tracks stay off the map. Previous point, Next point and a numbered input inspect each point's local time, timezone, coordinates and recorded elevation, with explicit unknown values. Close track floats right on desktop and precedes the heading on mobile. Playback adds play and pause, four speed choices and an elapsed-time slider. The elevation plot uses the saved track colour, labelled axes and a selected-point marker; pointer and touch dragging select recorded points. Missing elevation breaks the plot, and recording gaps show shaded intervals with their duration. Playback moves a blue marker with a white border while the map camera stays under manual control. A collapsible gap-settings form beneath the date filter saves the gap threshold and optional dashed map connections.
+A compact white panel docks beneath the map. Its header holds the selected recording's name and Close track. The elevation plot, play/pause, four speed choices, elapsed-time reading and current point's local time and recorded elevation remain visible together. The chart itself scrubs elapsed time, replacing the separate slider. It accepts pointer and touch dragging, Left/Right to select adjacent points and Home/End to select the first or last point. Missing elevation breaks the plot; recording gaps appear as shaded intervals. Playback announces skipped gaps and moves a blue marker with a white border while leaving the map camera under manual control.
+
+Point details discloses Previous point, Next point, a numbered input, coordinates and timezone. Recordings without valid timing retain those inspection controls and an explicit playback-unavailable message. Missing local time and elevation have explicit unknown states, with recorded UTC shown when available. Recording details discloses complete point and segment counts, filter and gap guidance, timezone limitations and original-export downloads. Both disclosures retain 44px interaction targets.
 
 ### Map and notices
 
@@ -201,7 +208,8 @@ Upload and loading feedback use full-width notice strips. Tile failure uses a wa
 
 - Do preserve the saved track colour across the library and map.
 - Do keep keyboard focus, map attribution and labelled touch controls visible.
-- Do let track names wrap and keep supporting counts readable.
+- Do keep compact track names readable and the full saved name accessible.
+- Do keep the map visible while the track list or recording details scroll.
 - Do use synthetic recordings in public examples.
 
 ### Don't:
