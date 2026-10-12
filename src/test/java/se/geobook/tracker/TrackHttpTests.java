@@ -1040,10 +1040,11 @@ class TrackHttpTests {
   }
 
   @Test
-  void originalRemovalPreservesSharedRecordingAndItsControls()
+  void originalRemovalPreservesSharedRecordingControlsAndVisitReview()
       throws IOException, InterruptedException {
     String shared =
-        "<trk><name>Shared</name><trkseg><trkpt lat='59.32' lon='18.07'/></trkseg></trk>";
+        "<trk><name>Shared</name><trkseg><trkpt lat='59.32' lon='18.07'>"
+            + "<time>2025-06-19T10:00:00Z</time></trkpt></trkseg></trk>";
     byte[] individual = gpx(shared);
     byte[] collection =
         gpx(
@@ -1059,6 +1060,15 @@ class TrackHttpTests {
                       client,
                       base(app) + "/api/tracks/1",
                       "{\"name\":\"Saved name\",\"colour\":\"#123abc\",\"visible\":false}")
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(
+              patch(
+                      client,
+                      base(app) + "/api/visits/review",
+                      """
+                      {"state":"confirmed","visits":[{"country":"SWE","date":"2025-06-19"}]}
+                      """)
                   .statusCode())
           .isEqualTo(200);
       JsonNode archive =
@@ -1083,6 +1093,19 @@ class TrackHttpTests {
       assertThat(saved.get("visible").asBoolean()).isFalse();
       assertThat(saved.get("originalIds").toString()).isEqualTo("[1]");
       assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(individual);
+      JsonMapper mapper = JsonMapper.builder().build();
+      JsonNode visits =
+          mapper.readTree(get(client, base(app) + "/api/visits").body()).get("candidates");
+      assertThat(visits.size()).isEqualTo(1);
+      assertThat(visits.get(0).get("state").asText()).isEqualTo("confirmed");
+      assertThat(visits.get(0).get("tracks").get(0).get("trackId").asLong()).isEqualTo(1);
+      assertThat(
+              mapper
+                  .readTree(get(client, base(app) + "/api/countries").body())
+                  .get(0)
+                  .get("recordedDays")
+                  .asInt())
+          .isEqualTo(1);
       JsonNode last = preview(client, base(app), 1);
       assertThat(last.get("tracks").get(0).get("retained").asBoolean()).isFalse();
       assertThat(
@@ -1090,6 +1113,14 @@ class TrackHttpTests {
                   .statusCode())
           .isEqualTo(200);
       assertThat(get(client, base(app) + "/api/tracks/1").statusCode()).isEqualTo(404);
+      assertThat(mapper.readTree(get(client, base(app) + "/api/countries").body()).isEmpty())
+          .isTrue();
+      assertThat(
+              mapper
+                  .readTree(get(client, base(app) + "/api/visits").body())
+                  .get("candidates")
+                  .isEmpty())
+          .isTrue();
       assertThat(
               new String(get(client, base(app) + "/api/originals").body(), StandardCharsets.UTF_8))
           .isEqualTo("[]");
