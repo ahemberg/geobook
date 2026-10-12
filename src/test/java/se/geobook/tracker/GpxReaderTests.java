@@ -15,6 +15,7 @@ class GpxReaderTests {
         "<trkpt lat='NaN' lon='0'/>",
         "<trkpt lon='0'/>",
         "<trkpt lat='0' lon='0'><ele>NaN</ele></trkpt>",
+        "<trkpt lat='0' lon='0'><ele>100e2147483647</ele></trkpt>",
         "<trkpt lat='0' lon='0'><ele>1<extra>2</extra></ele></trkpt>",
         "<trkpt lat='0' lon='0'><time>2025-01-01T12:<extra>30</extra>:00Z</time></trkpt>",
         "<trkpt lat='0' lon='0'><time>yesterday</time></trkpt>",
