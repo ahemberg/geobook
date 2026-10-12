@@ -22,48 +22,58 @@
   "results": [
     {
       "run": 1,
-      "overviewMs": 2076.614417,
-      "filterMs": 273.50334699999985,
-      "allTimeMs": 1138.6826059999999,
-      "overviewBytes": 909393,
+      "overviewMs": 2471.511338,
+      "filterMs": 250.34662500000013,
+      "allTimeMs": 1153.7293519999998,
+      "overviewBytes": 950393,
       "withinTargets": true,
       "overviewVertices": 34500
     },
     {
       "run": 2,
-      "overviewMs": 1865.5607210000007,
-      "filterMs": 314.65432599999986,
-      "allTimeMs": 1280.324098000001,
-      "overviewBytes": 909393,
+      "overviewMs": 1558.534493,
+      "filterMs": 265.1568390000002,
+      "allTimeMs": 1234.990519,
+      "overviewBytes": 950393,
       "withinTargets": true,
       "overviewVertices": 34500
     },
     {
       "run": 3,
-      "overviewMs": 1905.343850000001,
-      "filterMs": 316.28232300000127,
-      "allTimeMs": 1446.7300349999987,
-      "overviewBytes": 909393,
+      "overviewMs": 1715.4605800000008,
+      "filterMs": 253.66107700000066,
+      "allTimeMs": 1099.1531829999985,
+      "overviewBytes": 950393,
       "withinTargets": true,
       "overviewVertices": 34500
     },
     {
       "run": 4,
-      "overviewMs": 1729.697091,
-      "filterMs": 279.2854189999998,
-      "allTimeMs": 950.4475600000005,
-      "overviewBytes": 909393,
+      "overviewMs": 1561.5248379999994,
+      "filterMs": 264.44936100000086,
+      "allTimeMs": 1119.7397629999996,
+      "overviewBytes": 950393,
       "withinTargets": true,
       "overviewVertices": 34500
     },
     {
       "run": 5,
-      "overviewMs": 1473.5056550000008,
-      "filterMs": 253.4656619999987,
-      "allTimeMs": 1015.9012170000024,
-      "overviewBytes": 909393,
+      "overviewMs": 1998.1676280000029,
+      "filterMs": 350.4085460000024,
+      "allTimeMs": 1660.2092639999973,
+      "overviewBytes": 950393,
       "withinTargets": true,
       "overviewVertices": 34500
     }
-  ]
+  ],
+  "server": {
+    "commit": "85e1ea0f17006d41f2412d26c2e0c06033fb7431",
+    "freshJvmFirstRun": true,
+    "osCachesFlushed": false,
+    "java": "Temurin 27+35",
+    "heap": "-Xmx2g",
+    "device": "Raspberry Pi 5, 8 GB RAM, Samsung PSSD T7 USB SSD",
+    "network": "Wi-Fi LAN",
+    "postRunRssKiB": 446384
+  }
 }
