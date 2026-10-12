@@ -34,3 +34,20 @@ test('a failed settings save preserves the draft and supports retry', async () =
   await user.click(screen.getByRole('button', { name: 'Save gap settings' }));
   expect(await screen.findByText('Gap settings saved.')).toBeVisible();
 });
+
+test('refreshed server settings update clean fields and preserve unsaved edits', async () => {
+  const saved = () => {};
+  const { rerender } = render(
+    <GapSettings settings={{ gapSeconds: 300, showGapConnections: false }} saved={saved} />,
+  );
+  const user = userEvent.setup();
+  await user.click(screen.getByText('Recording gaps'));
+  rerender(<GapSettings settings={{ gapSeconds: 60, showGapConnections: true }} saved={saved} />);
+  expect(screen.getByLabelText('Gap threshold in seconds')).toHaveValue(60);
+  expect(screen.getByLabelText('Show gray dashed gap connections')).toBeChecked();
+  await user.clear(screen.getByLabelText('Gap threshold in seconds'));
+  await user.type(screen.getByLabelText('Gap threshold in seconds'), '90');
+  rerender(<GapSettings settings={{ gapSeconds: 120, showGapConnections: false }} saved={saved} />);
+  expect(screen.getByLabelText('Gap threshold in seconds')).toHaveValue(90);
+  expect(screen.getByLabelText('Show gray dashed gap connections')).not.toBeChecked();
+});

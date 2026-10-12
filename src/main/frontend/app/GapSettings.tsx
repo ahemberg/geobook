@@ -9,10 +9,20 @@ export default function GapSettings({
   settings: PlaybackSettings;
   saved: (settings: PlaybackSettings) => void;
 }) {
+  const [previous, setPrevious] = useState(settings);
   const [seconds, setSeconds] = useState(String(settings.gapSeconds));
   const [connections, setConnections] = useState(settings.showGapConnections);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  // Refresh only fields the user has not edited.
+  if (
+    settings.gapSeconds !== previous.gapSeconds ||
+    settings.showGapConnections !== previous.showGapConnections
+  ) {
+    setPrevious(settings);
+    if (seconds === String(previous.gapSeconds)) setSeconds(String(settings.gapSeconds));
+    if (connections === previous.showGapConnections) setConnections(settings.showGapConnections);
+  }
   async function save() {
     setSaving(true);
     setMessage('');

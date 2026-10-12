@@ -3,6 +3,7 @@ package se.geobook.tracker.tracks.controller;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
@@ -12,6 +13,10 @@ import se.geobook.tracker.tracks.service.TrackImporter;
 @SuppressWarnings("PMD.ShortVariable")
 final class TrackResponses {
   private TrackResponses() {}
+
+  // The setting names are the public JSON contract.
+  @SuppressWarnings("PMD.LongVariable")
+  record Settings(int gapSeconds, boolean showGapConnections) {}
 
   record Imported(long trackId, long originalId, boolean duplicate) {}
 
@@ -61,6 +66,10 @@ final class TrackResponses {
       Long originalId,
       List<String> warnings,
       String message) {}
+
+  static Settings from(PlaybackSettings settings) {
+    return new Settings(settings.gapSeconds(), settings.showGapConnections());
+  }
 
   static Imported from(Track.Imported imported) {
     return new Imported(imported.trackId(), imported.originalId(), imported.duplicate());

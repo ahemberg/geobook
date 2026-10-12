@@ -123,12 +123,12 @@ class TrackController {
   }
 
   @GetMapping("/api/playback-settings")
-  PlaybackSettings playbackSettings() {
-    return collection.playbackSettings();
+  TrackResponses.Settings playbackSettings() {
+    return TrackResponses.from(collection.playbackSettings());
   }
 
   @PatchMapping("/api/playback-settings")
-  PlaybackSettings savePlaybackSettings(@RequestBody JsonNode input) {
+  TrackResponses.Settings savePlaybackSettings(@RequestBody JsonNode input) {
     JsonNode seconds = input.get("gapSeconds");
     JsonNode connections = input.get("showGapConnections");
     if (!input.isObject()
@@ -141,8 +141,9 @@ class TrackController {
       throw new IllegalArgumentException(
           "Supply gapSeconds as a whole number and showGapConnections as true or false.");
     }
-    return collection.savePlaybackSettings(
-        new PlaybackSettings(seconds.asInt(), connections.asBoolean()));
+    return TrackResponses.from(
+        collection.savePlaybackSettings(
+            new PlaybackSettings(seconds.asInt(), connections.asBoolean())));
   }
 
   @GetMapping("/api/map-config")
