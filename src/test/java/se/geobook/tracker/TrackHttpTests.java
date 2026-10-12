@@ -600,6 +600,243 @@ class TrackHttpTests {
     }
   }
 
+  @Test
+  void deletingTrackRetainsOriginalAndOtherRecordings() throws IOException, InterruptedException {
+    byte[] original =
+        gpx("<trk><name>Remove me</name><trkseg><trkpt lat='59.32' lon='18.07'/></trkseg></trk>");
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(upload(client, base(app), original).statusCode()).isEqualTo(201);
+      assertThat(
+              upload(
+                      client,
+                      base(app),
+                      gpx(
+                          "<trk><name>Keep me</name><trkseg><trkpt lat='59.33'"
+                              + " lon='18.07'/></trkseg></trk>"))
+                  .statusCode())
+          .isEqualTo(201);
+      assertThat(
+              delete(client, base(app) + "/api/tracks/1", trackRevision(client, base(app), 1))
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(get(client, base(app) + "/api/tracks/1").statusCode()).isEqualTo(404);
+      assertThat(get(client, base(app) + "/api/tracks/2").statusCode()).isEqualTo(200);
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(original);
+      JsonNode remaining =
+          JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks").body());
+      assertThat(remaining.size()).isEqualTo(1);
+      assertThat(remaining.get(0).get("name").asText()).isEqualTo("Keep me");
+      assertThat(delete(client, base(app) + "/api/tracks/1", "missing").statusCode())
+          .isEqualTo(404);
+    }
+  }
+
+  @Test
+  void originalRemovalPreservesSharedRecordingAndItsControls()
+      throws IOException, InterruptedException {
+    String shared =
+        "<trk><name>Shared</name><trkseg><trkpt lat='59.32' lon='18.07'/></trkseg></trk>";
+    byte[] individual = gpx(shared);
+    byte[] collection =
+        gpx(
+            shared
+                + "<trk><name>Collection only</name><trkseg><trkpt lat='59.33'"
+                + " lon='18.07'/></trkseg></trk>");
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(upload(client, base(app), individual).statusCode()).isEqualTo(201);
+      assertThat(upload(client, base(app), collection, "/api/imports").statusCode()).isEqualTo(200);
+      assertThat(
+              patch(
+                      client,
+                      base(app) + "/api/tracks/1",
+                      "{\"name\":\"Saved name\",\"colour\":\"#123abc\",\"visible\":false}")
+                  .statusCode())
+          .isEqualTo(200);
+      JsonNode archive =
+          JsonMapper.builder().build().readTree(get(client, base(app) + "/api/originals").body());
+      assertThat(archive.size()).isEqualTo(2);
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(individual);
+      assertThat(get(client, base(app) + "/api/originals/2").body()).isEqualTo(collection);
+      JsonNode preview = preview(client, base(app), 2);
+      assertThat(preview.get("tracks").get(0).get("name").asText()).isEqualTo("Saved name");
+      assertThat(preview.get("tracks").get(0).get("retained").asBoolean()).isTrue();
+      assertThat(preview.get("tracks").get(1).get("retained").asBoolean()).isFalse();
+      assertThat(
+              delete(client, base(app) + "/api/originals/2", preview.get("revision").asText())
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(get(client, base(app) + "/api/originals/2").statusCode()).isEqualTo(404);
+      assertThat(get(client, base(app) + "/api/tracks/2").statusCode()).isEqualTo(404);
+      JsonNode saved =
+          JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(saved.get("name").asText()).isEqualTo("Saved name");
+      assertThat(saved.get("colour").asText()).isEqualTo("#123abc");
+      assertThat(saved.get("visible").asBoolean()).isFalse();
+      assertThat(saved.get("originalIds").toString()).isEqualTo("[1]");
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(individual);
+      JsonNode last = preview(client, base(app), 1);
+      assertThat(last.get("tracks").get(0).get("retained").asBoolean()).isFalse();
+      assertThat(
+              delete(client, base(app) + "/api/originals/1", last.get("revision").asText())
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(get(client, base(app) + "/api/tracks/1").statusCode()).isEqualTo(404);
+      assertThat(
+              new String(get(client, base(app) + "/api/originals").body(), StandardCharsets.UTF_8))
+          .isEqualTo("[]");
+    }
+  }
+
+  @Test
+  void staleOrMissingPreviewCannotRemoveChangedSourcesOrReusedIds()
+      throws IOException, InterruptedException {
+    String recording =
+        "<trk><name>First recording</name><trkseg><trkpt lat='59.32' lon='18.07'/></trkseg></trk>";
+    byte[] original = gpx(recording);
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(upload(client, base(app), original).statusCode()).isEqualTo(201);
+      String first = preview(client, base(app), 1).get("revision").asText();
+      assertThat(delete(client, base(app) + "/api/originals/1", null).statusCode()).isEqualTo(400);
+      assertThat(delete(client, base(app) + "/api/originals/1", "*").statusCode()).isEqualTo(412);
+      assertThat(
+              patch(client, base(app) + "/api/tracks/1", "{\"name\":\"Changed on another device\"}")
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(delete(client, base(app) + "/api/originals/1", first).statusCode()).isEqualTo(412);
+      String renamed = preview(client, base(app), 1).get("revision").asText();
+      byte[] overlapping =
+          gpx(
+              recording
+                  + "<trk><name>Other</name><trkseg><trkpt lat='59.33'"
+                  + " lon='18.07'/></trkseg></trk>");
+      assertThat(upload(client, base(app), overlapping, "/api/imports").statusCode())
+          .isEqualTo(200);
+      assertThat(delete(client, base(app) + "/api/originals/1", renamed).statusCode())
+          .isEqualTo(412);
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(original);
+      assertThat(get(client, base(app) + "/api/originals/2").body()).isEqualTo(overlapping);
+      assertThat(get(client, base(app) + "/api/tracks/2").statusCode()).isEqualTo(200);
+      String shared = preview(client, base(app), 1).get("revision").asText();
+      String second = preview(client, base(app), 2).get("revision").asText();
+      assertThat(delete(client, base(app) + "/api/originals/2", second).statusCode())
+          .isEqualTo(200);
+      assertThat(delete(client, base(app) + "/api/originals/1", shared).statusCode())
+          .isEqualTo(412);
+      String last = preview(client, base(app), 1).get("revision").asText();
+      assertThat(delete(client, base(app) + "/api/originals/1", last).statusCode()).isEqualTo(200);
+      byte[] unrelated =
+          gpx(
+              "<trk><name>Unrelated recording</name><trkseg><trkpt lat='60'"
+                  + " lon='18'/></trkseg></trk>");
+      JsonNode uploaded =
+          JsonMapper.builder().build().readTree(upload(client, base(app), unrelated).body());
+      assertThat(uploaded.get("originalId").asLong()).isEqualTo(1);
+      assertThat(delete(client, base(app) + "/api/originals/1", last).statusCode()).isEqualTo(412);
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(unrelated);
+      assertThat(get(client, base(app) + "/api/tracks/1").statusCode()).isEqualTo(200);
+    }
+  }
+
+  @Test
+  void archivedFileRemainsDownloadableAfterTrackDeletionAndRestart()
+      throws IOException, InterruptedException {
+    byte[] original =
+        gpx(
+            "<trk><name>Archived</name><trkseg><trkpt lat='59.32'"
+                + " lon='18.07'><time>2025-06-18T10:00:00Z</time></trkpt></trkseg></trk>");
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      try (ConfigurableApplicationContext app = start()) {
+        assertThat(upload(client, base(app), original).statusCode()).isEqualTo(201);
+        assertThat(
+                delete(client, base(app) + "/api/tracks/1", trackRevision(client, base(app), 1))
+                    .statusCode())
+            .isEqualTo(200);
+      }
+      try (ConfigurableApplicationContext app = start()) {
+        assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(original);
+        assertThat(
+                new String(
+                    get(client, base(app) + "/api/tracks/years").body(), StandardCharsets.UTF_8))
+            .isEqualTo("[]");
+        JsonNode archive =
+            JsonMapper.builder().build().readTree(get(client, base(app) + "/api/originals").body());
+        assertThat(archive.size()).isEqualTo(1);
+        assertThat(archive.get(0).get("tracks").isEmpty()).isTrue();
+        JsonNode preview = preview(client, base(app), 1);
+        assertThat(preview.get("tracks").isEmpty()).isTrue();
+        assertThat(
+                delete(client, base(app) + "/api/originals/1", preview.get("revision").asText())
+                    .statusCode())
+            .isEqualTo(200);
+        assertThat(get(client, base(app) + "/api/originals/1").statusCode()).isEqualTo(404);
+        assertThat(
+                delete(client, base(app) + "/api/originals/1", preview.get("revision").asText())
+                    .statusCode())
+            .isEqualTo(404);
+      }
+    }
+  }
+
+  @Test
+  void staleTrackConfirmationCannotDeleteReusedTrackId() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(
+              upload(
+                      client,
+                      base(app),
+                      gpx(
+                          "<trk><name>First</name><trkseg><trkpt lat='59.32'"
+                              + " lon='18.07'/></trkseg></trk>"))
+                  .statusCode())
+          .isEqualTo(201);
+      String revision = trackRevision(client, base(app), 1);
+      assertThat(delete(client, base(app) + "/api/tracks/1", revision).statusCode()).isEqualTo(200);
+      assertThat(
+              upload(
+                      client,
+                      base(app),
+                      gpx(
+                          "<trk><name>Unrelated</name><trkseg><trkpt lat='60'"
+                              + " lon='18'/></trkseg></trk>"))
+                  .statusCode())
+          .isEqualTo(201);
+      assertThat(delete(client, base(app) + "/api/tracks/1", revision).statusCode()).isEqualTo(412);
+      assertThat(get(client, base(app) + "/api/tracks/1").statusCode()).isEqualTo(200);
+    }
+  }
+
+  private static String trackRevision(HttpClient client, String base, long trackId)
+      throws IOException, InterruptedException {
+    JsonNode overview =
+        JsonMapper.builder().build().readTree(get(client, base + "/api/tracks").body());
+    for (JsonNode track : overview) {
+      if (track.get("id").asLong() == trackId) {
+        return track.get("revision").asText();
+      }
+    }
+    throw new IllegalArgumentException("Expected track in the library.");
+  }
+
+  private static JsonNode preview(HttpClient client, String base, long originalId)
+      throws IOException, InterruptedException {
+    HttpResponse<byte[]> response = get(client, base + "/api/originals/" + originalId + "/removal");
+    assertThat(response.statusCode()).isEqualTo(200);
+    return JsonMapper.builder().build().readTree(response.body());
+  }
+
+  private static HttpResponse<byte[]> delete(HttpClient client, String url, String revision)
+      throws IOException, InterruptedException {
+    HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url)).DELETE();
+    if (revision != null) {
+      request.header("If-Match", revision);
+    }
+    return client.send(request.build(), HttpResponse.BodyHandlers.ofByteArray());
+  }
+
   private static byte[] gpx(String tracks) {
     return ("<gpx xmlns='http://www.topografix.com/GPX/1/1'>" + tracks + "</gpx>")
         .getBytes(StandardCharsets.UTF_8);
