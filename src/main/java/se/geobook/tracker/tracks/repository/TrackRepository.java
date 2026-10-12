@@ -128,13 +128,14 @@ public class TrackRepository {
 
   public List<Track> tracks() {
     return jdbc.query(
-        "SELECT id, name, colour, visible FROM track ORDER BY id DESC", (row, index) -> track(row));
+        "SELECT id, name, colour, visible, content_hash FROM track ORDER BY id DESC",
+        (row, index) -> track(row));
   }
 
   public Optional<Track> find(long id) {
     return jdbc
         .query(
-            "SELECT id, name, colour, visible FROM track WHERE id = ?",
+            "SELECT id, name, colour, visible, content_hash FROM track WHERE id = ?",
             (row, index) -> track(row),
             id)
         .stream()
@@ -146,7 +147,8 @@ public class TrackRepository {
         row.getLong("id"),
         row.getString("name"),
         row.getString(COLOUR_COLUMN),
-        row.getBoolean("visible"));
+        row.getBoolean("visible"),
+        row.getString("content_hash"));
   }
 
   public int segmentCount(long id) {
@@ -230,9 +232,7 @@ public class TrackRepository {
     return jdbc.query(
         "SELECT t.* FROM track t JOIN track_original s ON s.track_id = t.id WHERE s.original_id = ?"
             + " ORDER BY t.id",
-        (row, index) ->
-            new OriginalExport.SourceTrack(
-                track(row), row.getString("content_hash"), originalIds(row.getLong("id"))),
+        (row, index) -> new OriginalExport.SourceTrack(track(row), originalIds(row.getLong("id"))),
         originalId);
   }
 

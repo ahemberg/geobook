@@ -122,6 +122,8 @@ export default function OriginalArchive({
               method: 'DELETE',
               headers: { 'If-Match': preview.revision },
             });
+          }}
+          onRemoved={() => {
             setOriginals((items) => items.filter((item) => item.id !== preview.id));
             setPreview(null);
             onRemoved();

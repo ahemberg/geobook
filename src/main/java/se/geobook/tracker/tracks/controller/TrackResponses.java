@@ -16,13 +16,14 @@ final class TrackResponses {
 
   record Imported(long trackId, long originalId, boolean duplicate) {}
 
-  record Summary(long id, String name, String colour, boolean visible) {}
+  record Summary(long id, String name, String colour, boolean visible, String revision) {}
 
   record Overview(
       long id,
       String name,
       String colour,
       boolean visible,
+      String revision,
       Instant startTime,
       int pointCount,
       int unknownDateCount,
@@ -77,7 +78,7 @@ final class TrackResponses {
   }
 
   static Summary from(Track track) {
-    return new Summary(track.id(), track.name(), track.colour(), track.visible());
+    return new Summary(track.id(), track.name(), track.colour(), track.visible(), track.revision());
   }
 
   static Overview from(Track.Overview overview) {
@@ -87,6 +88,7 @@ final class TrackResponses {
         track.name(),
         track.colour(),
         track.visible(),
+        track.revision(),
         overview.startTime(),
         overview.pointCount(),
         overview.unknownDateCount(),

@@ -6,12 +6,14 @@ export default function RemovalDialog({
   children,
   action,
   remove,
+  onRemoved,
   cancel,
 }: {
   title: string;
   children: ReactNode;
   action: string;
   remove: () => Promise<void>;
+  onRemoved: () => void;
   cancel: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -25,11 +27,17 @@ export default function RemovalDialog({
     cancelButton.current?.focus();
     return () => element?.close();
   }, []);
+  function dismiss() {
+    dialog.current?.close();
+    cancel();
+  }
   async function confirm() {
     setBusy(true);
     setError('');
     try {
       await remove();
+      dialog.current?.close();
+      onRemoved();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Removal failed. Close and try again.');
       setBusy(false);
@@ -42,7 +50,7 @@ export default function RemovalDialog({
       aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault();
-        if (!busy) cancel();
+        if (!busy) dismiss();
       }}
     >
       <h2 id={titleId}>{title}</h2>
@@ -54,7 +62,7 @@ export default function RemovalDialog({
       )}
       {busy && <p role="status">Removing…</p>}
       <div className="editor-actions">
-        <button ref={cancelButton} disabled={busy} onClick={cancel}>
+        <button ref={cancelButton} disabled={busy} onClick={dismiss}>
           Cancel
         </button>
         <button

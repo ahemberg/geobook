@@ -54,9 +54,7 @@ test('download, cancel and confirm track and whole-file removal with shared sour
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).not.toBeVisible();
-  await expect(
-    page.getByRole('button', { name: `Edit ${deletedName}`, exact: true }),
-  ).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Delete track', exact: true })).toBeFocused();
   await page.getByRole('button', { name: 'Delete track', exact: true }).click();
   await dialog.getByRole('button', { name: 'Delete track', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Complete recording' })).not.toBeVisible();

@@ -13,7 +13,7 @@ public record OriginalExport(
 
   public record Source(long id, String identity) {}
 
-  public record SourceTrack(Track track, String identity, List<Long> originalIds) {
+  public record SourceTrack(Track track, List<Long> originalIds) {
     public SourceTrack {
       originalIds = List.copyOf(originalIds);
     }
@@ -23,17 +23,7 @@ public record OriginalExport(
     }
 
     private String revision() {
-      return track.id()
-          + ":"
-          + identity
-          + ":"
-          + ContentIdentity.original(track.name().getBytes(StandardCharsets.UTF_8))
-          + ":"
-          + track.colour()
-          + ":"
-          + track.visible()
-          + ":"
-          + originalIds;
+      return track.revision() + ":" + originalIds;
     }
   }
 

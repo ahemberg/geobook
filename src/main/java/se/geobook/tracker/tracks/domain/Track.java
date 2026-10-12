@@ -1,12 +1,27 @@
 package se.geobook.tracker.tracks.domain;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 
 // IDs use the same name throughout storage and the public track representation.
 @SuppressWarnings("PMD.ShortVariable")
-public record Track(long id, String name, String colour, boolean visible) {
+public record Track(long id, String name, String colour, boolean visible, String identity) {
+  public String revision() {
+    String state =
+        id
+            + ":"
+            + identity
+            + ":"
+            + ContentIdentity.original(name.getBytes(StandardCharsets.UTF_8))
+            + ":"
+            + colour
+            + ":"
+            + visible;
+    return "\"" + ContentIdentity.original(state.getBytes(StandardCharsets.UTF_8)) + "\"";
+  }
+
   public record Imported(long trackId, long originalId, boolean duplicate) {}
 
   public record Overview(

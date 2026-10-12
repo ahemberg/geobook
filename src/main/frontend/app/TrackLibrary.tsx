@@ -260,9 +260,12 @@ function TrackDeletion({
             deleteButton.current?.focus();
           }}
           remove={async () => {
-            await request(`/api/tracks/${track.id}`, { method: 'DELETE' });
-            onRemoved();
+            await request(`/api/tracks/${track.id}`, {
+              method: 'DELETE',
+              headers: { 'If-Match': track.revision },
+            });
           }}
+          onRemoved={onRemoved}
         >
           <p>
             This track will leave your map and library. Original exports will be kept in the

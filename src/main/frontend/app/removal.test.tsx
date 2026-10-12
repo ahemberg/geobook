@@ -8,6 +8,7 @@ afterEach(() => vi.unstubAllGlobals());
 const track = {
   id: 1,
   name: 'Waterfront',
+  revision: '"waterfront"',
   colour: '#123abc',
   visible: true,
   startTime: null,
@@ -51,7 +52,7 @@ test('library deletion can be cancelled and only removes the track after confirm
   );
   expect(fetcher).toHaveBeenCalledWith(
     '/api/tracks/1',
-    expect.objectContaining({ method: 'DELETE' }),
+    expect.objectContaining({ method: 'DELETE', headers: { 'If-Match': '"waterfront"' } }),
   );
   expect(await screen.findByText('Your travels start here')).toBeVisible();
 });

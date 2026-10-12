@@ -110,8 +110,9 @@ class TrackController {
   }
 
   @DeleteMapping("/api/tracks/{id}")
-  Map<String, Boolean> deleteTrack(@PathVariable long id) {
-    collection.deleteTrack(id);
+  Map<String, Boolean> deleteTrack(
+      @PathVariable long id, @RequestHeader("If-Match") String revision) {
+    collection.deleteTrack(id, revision);
     return Map.of("removed", true);
   }
 

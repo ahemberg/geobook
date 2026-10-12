@@ -163,10 +163,12 @@ public class TrackService {
         });
   }
 
-  public void deleteTrack(long id) {
+  public void deleteTrack(long id, String revision) {
     write(
         () -> {
-          find(id);
+          if (!find(id).revision().equals(revision)) {
+            throw new RemovalChangedException();
+          }
           repository.deleteTrack(id);
           return true;
         });

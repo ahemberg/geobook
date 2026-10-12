@@ -616,7 +616,10 @@ class TrackHttpTests {
                               + " lon='18.07'/></trkseg></trk>"))
                   .statusCode())
           .isEqualTo(201);
-      assertThat(delete(client, base(app) + "/api/tracks/1", null).statusCode()).isEqualTo(200);
+      assertThat(
+              delete(client, base(app) + "/api/tracks/1", trackRevision(client, base(app), 1))
+                  .statusCode())
+          .isEqualTo(200);
       assertThat(get(client, base(app) + "/api/tracks/1").statusCode()).isEqualTo(404);
       assertThat(get(client, base(app) + "/api/tracks/2").statusCode()).isEqualTo(200);
       assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(original);
@@ -624,7 +627,8 @@ class TrackHttpTests {
           JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks").body());
       assertThat(remaining.size()).isEqualTo(1);
       assertThat(remaining.get(0).get("name").asText()).isEqualTo("Keep me");
-      assertThat(delete(client, base(app) + "/api/tracks/1", null).statusCode()).isEqualTo(404);
+      assertThat(delete(client, base(app) + "/api/tracks/1", "missing").statusCode())
+          .isEqualTo(404);
     }
   }
 
@@ -746,7 +750,10 @@ class TrackHttpTests {
     try (HttpClient client = HttpClient.newHttpClient()) {
       try (ConfigurableApplicationContext app = start()) {
         assertThat(upload(client, base(app), original).statusCode()).isEqualTo(201);
-        assertThat(delete(client, base(app) + "/api/tracks/1", null).statusCode()).isEqualTo(200);
+        assertThat(
+                delete(client, base(app) + "/api/tracks/1", trackRevision(client, base(app), 1))
+                    .statusCode())
+            .isEqualTo(200);
       }
       try (ConfigurableApplicationContext app = start()) {
         assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(original);
@@ -771,6 +778,47 @@ class TrackHttpTests {
             .isEqualTo(404);
       }
     }
+  }
+
+  @Test
+  void staleTrackConfirmationCannotDeleteReusedTrackId() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(
+              upload(
+                      client,
+                      base(app),
+                      gpx(
+                          "<trk><name>First</name><trkseg><trkpt lat='59.32'"
+                              + " lon='18.07'/></trkseg></trk>"))
+                  .statusCode())
+          .isEqualTo(201);
+      String revision = trackRevision(client, base(app), 1);
+      assertThat(delete(client, base(app) + "/api/tracks/1", revision).statusCode()).isEqualTo(200);
+      assertThat(
+              upload(
+                      client,
+                      base(app),
+                      gpx(
+                          "<trk><name>Unrelated</name><trkseg><trkpt lat='60'"
+                              + " lon='18'/></trkseg></trk>"))
+                  .statusCode())
+          .isEqualTo(201);
+      assertThat(delete(client, base(app) + "/api/tracks/1", revision).statusCode()).isEqualTo(412);
+      assertThat(get(client, base(app) + "/api/tracks/1").statusCode()).isEqualTo(200);
+    }
+  }
+
+  private static String trackRevision(HttpClient client, String base, long trackId)
+      throws IOException, InterruptedException {
+    JsonNode overview =
+        JsonMapper.builder().build().readTree(get(client, base + "/api/tracks").body());
+    for (JsonNode track : overview) {
+      if (track.get("id").asLong() == trackId) {
+        return track.get("revision").asText();
+      }
+    }
+    throw new IllegalArgumentException("Expected track in the library.");
   }
 
   private static JsonNode preview(HttpClient client, String base, long originalId)
