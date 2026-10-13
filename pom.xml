@@ -15,7 +15,11 @@
 	<description/>
 	<url/>
 	<licenses>
-		<license/>
+		<license>
+			<name>MIT License</name>
+			<url>https://opensource.org/license/mit</url>
+			<distribution>repo</distribution>
+		</license>
 	</licenses>
 	<developers>
 		<developer/>
@@ -96,6 +100,11 @@
 
 	<build>
 		<resources>
+			<resource>
+				<directory>${project.basedir}</directory>
+				<includes><include>LICENSE</include></includes>
+				<targetPath>META-INF</targetPath>
+			</resource>
 			<resource>
 				<directory>src/main/resources</directory>
 			</resource>

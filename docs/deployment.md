@@ -10,18 +10,17 @@ Do not expose its port to the public internet. Back up before changing releases.
 
 ## First start
 
-Install Docker Engine with the Compose plugin. Build from a reviewed release tag or
-commit, using JDK 27 and the repository's Maven wrapper:
+Install Docker Engine with the Compose plugin. Choose a published version from
+[GitHub Releases](https://github.com/ahemberg/geobook/releases). Wait for its
+"Publish container image" workflow to succeed before installing it:
 
 ```bash
-./mvnw verify
-version=$(git rev-parse --short=12 HEAD)
-docker build --tag "geobook:$version" .
 cp .env.example .env
 sudo install -d -m 0750 -o 10001 -g 10001 /mnt/ssd/geobook
 ```
 
-Edit `.env`. Set `GEOBOOK_IMAGE` to the exact `geobook:<commit>` tag just built,
+Edit `.env`. Set `GEOBOOK_IMAGE` to `ghcr.io/ahemberg/geobook:VERSION`, replacing
+`VERSION` with the release version without its leading `v`,
 `GEOBOOK_DATA_DIRECTORY` to the absolute SSD directory, and `GEOBOOK_BIND_ADDRESS`
 to the host's LAN or VPN address if other devices need access. Keep the directory
 owned by the configured `GEOBOOK_UID` and `GEOBOOK_GID`, both 10001 by default.
@@ -30,6 +29,7 @@ The host mount must be available before starting Docker after a reboot.
 
 ```bash
 docker compose config
+docker compose pull
 docker compose up -d
 docker compose logs -f geobook
 ```
@@ -47,6 +47,10 @@ The Java runtime handles container signals directly; Compose allows 60 seconds f
 If a migration is running, let it finish before stopping or replacing the container.
 
 ## Map provider and distribution notices
+
+Geobook uses the [MIT license](../LICENSE). Images include it at `/app/LICENSE`,
+and the application JAR includes it under `META-INF`. Bundled dependencies retain
+their own licenses and notices.
 
 `.env.example` lists `GEOBOOK_TILES_URL`, `GEOBOOK_TILES_ATTRIBUTION` and
 `GEOBOOK_TILES_ATTRIBUTIONURL`. These configure `/api/map-config`; the browser
@@ -69,23 +73,14 @@ Vite proxy is not part of the deployment.
 
 ## Explicit manual updates
 
-Build and test the chosen release before stopping the running application. Select
-an actual reviewed release tag or full commit ID, not a moving branch or `latest`:
+Choose a published version and read its release notes before stopping the running
+application. Keep the previous image and record its exact tag or digest with a
+stopped-app backup as below. Set `GEOBOOK_IMAGE` in `.env` to the new explicit
+version or manifest digest, keeping the data path unchanged. Pull the image, then
+replace the container:
 
 ```bash
-git fetch origin --tags
-release=REPLACE_WITH_REVIEWED_TAG_OR_COMMIT
-git switch --detach "$release"
-./mvnw verify
-version=$(git rev-parse --short=12 HEAD)
-docker build --tag "geobook:$version" .
-```
-
-Keep the previous image and record its exact tag with a stopped-app backup as below.
-Set `GEOBOOK_IMAGE` in `.env` to the new explicit tag, keeping the data path unchanged.
-Then replace the container:
-
-```bash
+docker compose pull
 docker compose up -d --force-recreate
 docker compose logs -f geobook
 ```
@@ -96,20 +91,70 @@ run an older image against a database migrated by a newer release unless that
 release explicitly supports it. Rollback means restoring the stopped-app backup
 and running its matching image.
 
-For registry distribution, build one manifest with both architectures from the
-same verified JAR. Replace the registry path with your own repository:
+Use an exact version or manifest digest for installations. The moving `latest`
+tag is available for convenience, but does not record which release you chose.
+Publishing an image never updates a running installation.
+
+## Publish a release
+
+Create a tag such as `v0.1.0` or `v0.2.0-rc.1` on a commit already in `main`'s
+history. Either push the tag with Git, or create it while publishing a GitHub
+Release. The workflow listens for tag creation, so a Release using an existing
+tag does not start another build. Push tags individually; GitHub does not emit
+the creation event when more than three tags are created at once.
+
+Tags must use `vMAJOR.MINOR.PATCH`, optionally followed by a SemVer prerelease
+suffix. Build metadata with `+` is not supported because it is not valid in image
+tags. A tag such as `v0.2.0-rc.1` produces
+`ghcr.io/ahemberg/geobook:0.2.0-rc.1`. Use the version suffix to identify prereleases;
+the GitHub Release's prerelease checkbox does not change the image policy.
+
+The workflow checks the version and its membership in `main`, runs the application,
+security, and native AMD64/ARM64 container/browser checks, then publishes both
+architectures from the verified application JAR. Ordinary branch pushes and PRs
+run checks without publishing. The publishing job authenticates with GitHub's
+built-in token and has `packages: write`; no registry password secret is needed.
+
+Version tags are fixed after publication. Rerunning a workflow preserves an
+existing image from the same commit and can finish an interrupted `latest` update.
+A version associated with another commit is rejected. Publish a new version for
+changed code or an updated base image. The workflow serializes publishing jobs
+and updates `latest` to the highest published stable version, comparing version
+numbers numerically. Prereleases never change `latest`.
+
+### First publication: make the package public
+
+GitHub creates a new GHCR package as private even when its source repository is
+public. After the first upload, the workflow's anonymous-access check fails until
+you change the package visibility:
+
+1. Open the [Geobook package](https://github.com/users/ahemberg/packages/container/package/geobook).
+2. Open **Package settings**, then **Change visibility** under **Danger Zone**.
+3. Select **Public** and confirm the change.
+4. Rerun the failed publishing job. It preserves the existing image and checks
+   anonymous access again.
+
+This is a one-time package setting. See GitHub's
+[package visibility instructions](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility#configuring-visibility-of-packages-for-your-personal-account).
+The successful workflow summary records the image version and manifest digest.
+Maintainers with registry write access can still replace tags outside this workflow;
+the fixed-version policy is enforced by the publishing workflow, not a GHCR lock.
+
+## Build from source
+
+For a local image, check out a reviewed commit and build with JDK 27 and the Maven
+wrapper:
 
 ```bash
-docker buildx create --name geobook-release --driver docker-container --use
-image="YOUR_REGISTRY/geobook:$version"
-docker buildx build --platform linux/amd64,linux/arm64 --tag "$image" --push .
+./mvnw verify
+version=$(git rev-parse --short=12 HEAD)
+docker build --tag "geobook:$version" .
 ```
 
-The Dockerfile only copies the platform-independent JAR onto the matching Java
-runtime, so cross-platform packaging needs no emulated build steps. Log in to your
-registry before pushing. On the target host, set `GEOBOOK_IMAGE` to that explicit
-tag or manifest digest, run `docker compose pull`, then the replacement command.
-Publishing images is a manual release step, not a side effect of PR checks.
+Set `GEOBOOK_IMAGE=geobook:<commit>` to use that local image, and omit
+`docker compose pull`. The Dockerfile copies the platform-independent JAR and
+project license onto the matching Java runtime, so cross-platform packaging needs
+no emulated build steps.
 
 ## Stopped-app copy and restore
 
