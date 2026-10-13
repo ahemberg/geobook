@@ -65,7 +65,9 @@ class Ghcr:
     def request(self, path, data=None):
         headers = {"Authorization": f"Bearer {self.token}",
                    "Accept": "application/vnd.oci.image.index.v1+json, "
-                             "application/vnd.docker.distribution.manifest.list.v2+json"}
+                             "application/vnd.docker.distribution.manifest.list.v2+json, "
+                             "application/vnd.oci.image.manifest.v1+json, "
+                             "application/vnd.docker.distribution.manifest.v2+json"}
         if data is not None:
             headers["Content-Type"] = json.loads(data)["mediaType"]
         request = urllib.request.Request(f"https://ghcr.io/v2/{PACKAGE}/{path}",

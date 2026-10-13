@@ -108,6 +108,9 @@ class PublishingTest(unittest.TestCase):
             return io.BytesIO(b"")
         if tag not in self.images:
             raise HTTPError(request.full_url, 404, "Not found", {}, None)
+        media_type = json.loads(self.images[tag])["mediaType"]
+        if media_type not in request.get_header("Accept", ""):
+            raise HTTPError(request.full_url, 404, "Unsupported manifest type", {}, None)
         return io.BytesIO(self.images[tag])
 
     def docker(self, args, **kwargs):
@@ -152,6 +155,14 @@ class PublishingTest(unittest.TestCase):
 
     def test_cannot_reuse_version_for_another_commit(self):
         original = manifest("1.0.0", revision="old")
+        self.images["1.0.0"] = original
+        with self.assertRaisesRegex(ValueError, "different provenance"):
+            release.publish("1.0.0", "abc123")
+        self.assertEqual(self.images, {"1.0.0": original})
+        self.assertEqual(self.built, [])
+
+    def test_preserves_an_existing_image_without_release_annotations(self):
+        original = b'{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json"}'
         self.images["1.0.0"] = original
         with self.assertRaisesRegex(ValueError, "different provenance"):
             release.publish("1.0.0", "abc123")
