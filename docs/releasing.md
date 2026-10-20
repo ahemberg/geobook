@@ -1,0 +1,73 @@
+# Release Geobook images
+
+Pushing a version tag publishes a public image at `ghcr.io/ahemberg/geobook`.
+The `Release image` workflow builds AMD64 and ARM64 from one verified JAR.
+Installations never update themselves. Deployers still pick a version and replace
+the container by hand, as described in [deployment](deployment.md#explicit-manual-updates).
+
+## Cut a release
+
+Pick a commit that is already on `main`. Tag it with `v` and a semantic version,
+such as `v0.1.0` for a stable release or `v0.2.0-rc.1` for a prerelease:
+
+```bash
+git fetch origin
+git tag -a v0.1.0 -m "Geobook 0.1.0" origin/main
+git push origin v0.1.0
+```
+
+Creating the tag on the GitHub Release page works the same way. Target `main` or
+a commit in its history, then publish the release. Draft releases create no tag,
+so nothing runs until you publish.
+
+The workflow then:
+
+1. Rejects tags that are not `vMAJOR.MINOR.PATCH` with an optional prerelease
+   suffix. Build metadata (`+build`) is rejected because image tags cannot contain `+`.
+2. Rejects commits that are not in `main`'s history.
+3. Runs the backend, frontend, browser and security checks, then the native
+   AMD64 and ARM64 container and browser checks. These are the PR workflows.
+4. Builds the image for both architectures from the JAR those checks verified and
+   pushes it as `ghcr.io/ahemberg/geobook:0.1.0`, without the `v`.
+5. For stable versions, points `latest` at the highest stable version in the registry.
+
+Any failed step stops publication.
+
+## Versions are immutable
+
+Each published image records its commit in the `org.opencontainers.image.revision`
+annotation. Before pushing, the workflow reads that annotation for the version:
+
+- Version not published yet: build and push it.
+- Already published from the same commit: skip the build and continue to `latest`.
+  Use "Re-run failed jobs" after a registry outage or a failed `latest` update.
+- Published from a different commit, or without a recorded commit: fail. Tag the
+  new commit with a new version. Moving a tag never replaces a published image.
+
+Registry errors other than "not found" fail the run, so an outage cannot look
+like an unpublished version.
+
+## Which version is latest
+
+`latest` follows the highest stable version that finished publishing, compared
+numerically (`0.10.0` is newer than `0.9.0`). Prereleases never move it. Releasing
+`v0.1.1` after `v0.2.0` leaves `latest` on `0.2.0`. Updates to `latest` run one at
+a time, and each one recomputes the highest version from the registry.
+
+Deployments should still name an exact version or digest in `GEOBOOK_IMAGE`.
+
+## One-time registry setup
+
+GitHub creates the package as private on the first publication. After the first
+release finishes, open the package from the repository's Packages sidebar, choose
+Package settings, and change visibility to Public. Check that the package is linked
+to `ahemberg/geobook` and that the repository has write access under
+"Manage Actions access". Publishing needs no other secrets; it uses the workflow's
+`GITHUB_TOKEN`.
+
+## Licences
+
+Geobook is MIT licensed. The licence is in `LICENSE` at the repository root and at
+`/app/LICENSE` in the image. Third-party notices ship unchanged. See
+[map provider and distribution notices](deployment.md#map-provider-and-distribution-notices)
+for where to find them.

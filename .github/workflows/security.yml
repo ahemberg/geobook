@@ -3,13 +3,15 @@ name: Security checks
 on:
   pull_request:
   push:
+    branches: ['**']
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: security-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

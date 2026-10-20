@@ -3,13 +3,15 @@ name: Backend checks
 on:
   pull_request:
   push:
+    branches: ['**']
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: backend-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -27,6 +29,9 @@ jobs:
           java-version: '27'
           distribution: 'temurin'
           cache: 'maven'
+
+      - name: Test release tooling
+        run: python3 -m unittest discover -s scripts
 
       - name: Run all checks, tests, and builds
         run: ./mvnw -B verify
