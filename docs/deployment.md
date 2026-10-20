@@ -24,8 +24,9 @@ cp .env.example .env
 sudo install -d -m 0750 -o 10001 -g 10001 /mnt/ssd/geobook
 ```
 
-Edit `.env`. Set `GEOBOOK_IMAGE` to the exact published version or the `geobook:<commit>` tag just built,
-`GEOBOOK_DATA_DIRECTORY` to the absolute SSD directory, and `GEOBOOK_BIND_ADDRESS`
+Edit `.env`. Set `GEOBOOK_IMAGE` to the exact published version or the
+`geobook:<commit>` tag just built, `GEOBOOK_DATA_DIRECTORY` to the absolute SSD
+directory, and `GEOBOOK_BIND_ADDRESS`
 to the host's LAN or VPN address if other devices need access. Keep the directory
 owned by the configured `GEOBOOK_UID` and `GEOBOOK_GID`, both 10001 by default.
 Compose refuses a missing directory, so a mistyped mount cannot quietly create a new collection.

@@ -23,10 +23,12 @@ so nothing runs until you publish.
 The workflow then:
 
 1. Rejects tags that are not `vMAJOR.MINOR.PATCH` with an optional prerelease
-   suffix. Build metadata (`+build`) is rejected because image tags cannot contain `+`.
+   suffix. It also rejects build metadata (`+build`), because image tags cannot contain `+`.
 2. Rejects commits that are not in `main`'s history.
-3. Runs the backend, frontend, browser and security checks, then the native
-   AMD64 and ARM64 container and browser checks. These are the PR workflows.
+3. Runs the backend, frontend and browser checks and the history secret scan,
+   then the native AMD64 and ARM64 container and browser checks. These are the
+   PR workflows. Dependency review only runs on pull requests, so it has already
+   passed for every change merged into `main`.
 4. Builds the image for both architectures from the JAR those checks verified and
    pushes it as `ghcr.io/ahemberg/geobook:0.1.0`, without the `v`.
 5. For stable versions, points `latest` at the highest stable version in the registry.
@@ -41,6 +43,8 @@ annotation. Before pushing, the workflow reads that annotation for the version:
 - Version not published yet: build and push it.
 - Already published from the same commit: skip the build and continue to `latest`.
   Use "Re-run failed jobs" after a registry outage or a failed `latest` update.
+  The verified JAR is kept for three days. After that, re-run all jobs, which
+  repeats the checks before publishing.
 - Published from a different commit, or without a recorded commit: fail. Tag the
   new commit with a new version. Moving a tag never replaces a published image.
 
@@ -52,7 +56,9 @@ like an unpublished version.
 `latest` follows the highest stable version that finished publishing, compared
 numerically (`0.10.0` is newer than `0.9.0`). Prereleases never move it. Releasing
 `v0.1.1` after `v0.2.0` leaves `latest` on `0.2.0`. Updates to `latest` run one at
-a time, and each one recomputes the highest version from the registry.
+a time, and each one recomputes the highest version from the registry. If several
+stable releases overlap, GitHub may cancel a waiting update. The run that replaced
+it sets the same result, so a cancelled `latest` job needs no action.
 
 Deployments should still name an exact version or digest in `GEOBOOK_IMAGE`.
 

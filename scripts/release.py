@@ -18,7 +18,7 @@ IDENTIFIER = rf"(?:{NUMBER}|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
 STABLE = re.compile(rf"{NUMBER}\.{NUMBER}\.{NUMBER}")
 VERSION = re.compile(rf"v({STABLE.pattern}(?:-{IDENTIFIER}(?:\.{IDENTIFIER})*)?)")
 REVISION = "org.opencontainers.image.revision"
-INDEX_TYPES = ", ".join([
+MANIFEST_TYPES = ", ".join([
     "application/vnd.oci.image.index.v1+json",
     "application/vnd.docker.distribution.manifest.list.v2+json",
     "application/vnd.oci.image.manifest.v1+json",
@@ -89,14 +89,15 @@ class Registry:
 
     def get(self, path, accept="application/json"):
         if self.token is None:
-            self.token = self.pull_token()
+            self.token = self.bearer_token()
         url = urllib.parse.urljoin(f"https://{self.host}", path)
         status, headers, body = self.fetch(url, {"Authorization": f"Bearer {self.token}", "Accept": accept})
         if status not in (200, 404):
             raise RegistryError(f"{url} returned HTTP {status}")
         return status, headers, body
 
-    def pull_token(self):
+    def bearer_token(self):
+        # GHCR denies pull-only tokens for packages that do not exist yet.
         query = urllib.parse.urlencode({"scope": f"repository:{self.repository}:pull,push", "service": self.host})
         credentials = base64.b64encode(f"{self.username}:{self.password}".encode()).decode()
         url = f"https://{self.host}/token?{query}"
@@ -106,7 +107,7 @@ class Registry:
         return json.loads(body)["token"]
 
     def revision(self, tag):
-        status, _, body = self.get(f"/v2/{self.repository}/manifests/{tag}", INDEX_TYPES)
+        status, _, body = self.get(f"/v2/{self.repository}/manifests/{tag}", MANIFEST_TYPES)
         if status == 404:
             return None
         return json.loads(body).get("annotations", {}).get(REVISION, "")
