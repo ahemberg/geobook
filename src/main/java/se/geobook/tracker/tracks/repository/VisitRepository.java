@@ -19,12 +19,13 @@ public class VisitRepository {
   }
 
   public List<Visit.Candidate> candidates(DateRange range) {
+    // Runs retain exact country/date boundaries; simplified drawing points are not visit evidence.
     Map<Visit.Key, List<Visit.Evidence>> evidence = new LinkedHashMap<>();
     Map<Visit.Key, String> states = new LinkedHashMap<>();
     jdbc.query(
         """
         SELECT DISTINCT p.country_code, p.local_date, t.id, t.name, COALESCE(r.state, 'pending') AS state
-        FROM track_point p JOIN track t ON t.id = p.track_id
+        FROM overview_run p JOIN track t ON t.id = p.track_id
         LEFT JOIN visit_review r ON r.country_code = p.country_code AND r.local_date = p.local_date
         WHERE p.country_code IS NOT NULL AND p.local_date IS NOT NULL
           AND (? IS NULL OR p.local_date BETWEEN ? AND ?)
@@ -66,7 +67,7 @@ public class VisitRepository {
         """
         SELECT p.country_code, min(p.local_date) AS first_visit, max(p.local_date) AS latest_visit,
           count(DISTINCT p.local_date) AS recorded_days
-        FROM track_point p JOIN track t ON t.id = p.track_id
+        FROM overview_run p JOIN track t ON t.id = p.track_id
         JOIN visit_review r ON r.country_code = p.country_code AND r.local_date = p.local_date
         WHERE r.state = 'confirmed' AND (? IS NULL OR p.local_date BETWEEN ? AND ?)
         GROUP BY p.country_code ORDER BY p.country_code
@@ -84,16 +85,18 @@ public class VisitRepository {
 
   public void review(Visit.Review review) {
     for (Visit.Key key : review.visits()) {
-      Integer count =
+      Boolean present =
           jdbc.queryForObject(
               """
-              SELECT count(*) FROM track_point p JOIN track t ON t.id = p.track_id
-              WHERE p.country_code = ? AND p.local_date = ?
+              SELECT EXISTS(
+                SELECT 1 FROM overview_run p JOIN track t ON t.id = p.track_id
+                WHERE p.country_code = ? AND p.local_date = ?
+              )
               """,
-              Integer.class,
+              Boolean.class,
               key.country(),
               key.date());
-      if (count == null || count == 0) {
+      if (!Boolean.TRUE.equals(present)) {
         throw new IllegalArgumentException(
             "A selected country day no longer has recorded evidence. Reload visits and retry.");
       }

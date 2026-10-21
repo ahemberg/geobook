@@ -74,6 +74,7 @@ try {
       !requests.some((path) => /^\/api\/tracks\/\d+$/.test(path)),
       "Overview fetched complete recordings",
     );
+    await page.getByRole("button", { name: /^Date filters:/ }).click();
     await page.getByLabel("From", { exact: true }).fill(workload.from);
     await page.getByLabel("To", { exact: true }).fill(workload.to);
     const filterStarted = performance.now();
@@ -83,9 +84,12 @@ try {
     const row = page.getByRole("button", {
       name: new RegExp(`^${workload.filteredName} `),
     });
+    const library = page.getByRole("button", { name: "Show library" });
+    if (await library.isVisible()) await library.click();
     await expect(row).toContainText(
       `${workload.filteredPoints.toLocaleString("en-US")} matching points`,
     );
+    await page.getByRole("button", { name: /^Date filters:/ }).click();
     const allStarted = performance.now();
     await page.getByRole("button", { name: "All time", exact: true }).click();
     await painted(workload.tracks);
