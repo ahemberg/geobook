@@ -36,7 +36,8 @@ test('saved choices are shared with another browser and hidden tracks stay selec
         <trkpt lat="59.321" lon="18.071"><time>2026-06-18T10:02:00Z</time></trkpt>
         </trkseg></trk></gpx>`),
     });
-    await expect(page.getByRole('heading', { name })).toBeVisible();
+    // The first import initializes the bundled geographic indexes.
+    await expect(page.getByRole('heading', { name })).toBeVisible({ timeout: 30000 });
     if (testInfo.project.name === 'mobile')
       await page.getByRole('button', { name: 'Show library' }).click();
     await other.goto('/');
