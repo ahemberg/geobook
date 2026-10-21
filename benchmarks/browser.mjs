@@ -74,8 +74,16 @@ try {
       !requests.some((path) => /^\/api\/tracks\/\d+$/.test(path)),
       "Overview fetched complete recordings",
     );
+    await page.getByRole("button", { name: /^Date filters:/ }).click();
     await page.getByLabel("From", { exact: true }).fill(workload.from);
     await page.getByLabel("To", { exact: true }).fill(workload.to);
+    const filteredResponse = page.waitForResponse((response) => {
+      const address = new URL(response.url());
+      return (
+        address.pathname === "/api/tracks" &&
+        address.searchParams.get("from") === workload.from
+      );
+    });
     const filterStarted = performance.now();
     await page.getByRole("button", { name: "Apply dates" }).click();
     await painted(workload.filteredTracks);
@@ -83,9 +91,15 @@ try {
     const row = page.getByRole("button", {
       name: new RegExp(`^${workload.filteredName} `),
     });
-    await expect(row).toContainText(
-      `${workload.filteredPoints.toLocaleString("en-US")} matching points`,
+    const library = page.getByRole("button", { name: "Show library" });
+    if (await library.isVisible()) await library.click();
+    await expect(row).toBeVisible();
+    const filtered = await (await filteredResponse).json();
+    assert.equal(
+      filtered.reduce((count, track) => count + track.pointCount, 0),
+      workload.filteredPoints,
     );
+    await page.getByRole("button", { name: /^Date filters:/ }).click();
     const allStarted = performance.now();
     await page.getByRole("button", { name: "All time", exact: true }).click();
     await painted(workload.tracks);
@@ -118,7 +132,7 @@ try {
       await expect(
         page.getByRole("region", { name: "Complete recording" }),
       ).toContainText(
-        `Complete recording · ${workload.pointsPerTrack.toLocaleString("en-US")} points`,
+        `${workload.pointsPerTrack.toLocaleString("en-US")} points`,
       );
     }
     results.push(result);

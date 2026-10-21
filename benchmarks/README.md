@@ -81,6 +81,30 @@ For a small generator check, run `python3 -m unittest discover -s benchmarks`. M
 integration tests, Vitest and the ordinary desktop/mobile Playwright suite cover correctness
 without importing this large workload.
 
+## Country review
+
+The country benchmark changes review decisions. Use the isolated synthetic database only.
+For issue #45, use `-Xmx1g` to match the reference country workload. After import, measure
+HTTP confirmation separately, restart the JVM, then run the map and country browser series:
+
+```sh
+python3 benchmarks/countries-http.py http://PI_LAN_IP:18081 5 > countries-http.jsonl
+# Restart the isolated benchmark server before the browser series.
+node benchmarks/browser.mjs http://PI_LAN_IP:18081 /path/to/manifest.json 5 > map-browser.jsonl
+node benchmarks/countries-browser.mjs http://PI_LAN_IP:18081 /path/to/manifest.json 5 > countries-browser.jsonl
+```
+
+The country script verifies the default Swedish synthetic days, starts each sample with all
+days confirmed, measures opening Countries and displaying the loaded review rows, then excludes
+all 500 days through the UI. Save timing includes the changed summary, emptied confirmed list
+and two painted frames. It checks all excluded rows, restores confirmation and measures country
+exploration. Each sample uses a fresh context. The script restores confirmed decisions on exit
+from each sample and fails if any load reaches 5 seconds or save reaches 2 seconds. The HTTP
+script separately measures confirmation and subsequent reads without browser rendering.
+
+[Country budgets, query profiling and measurements](countries-45.md) describe the environment,
+cache conditions and limits. Continue resource monitoring through both import and browser tests.
+
 ## Results, 2026-10-12
 
 The server was a Raspberry Pi 5 Model B with 8 GB RAM and a Samsung PSSD T7 USB SSD,

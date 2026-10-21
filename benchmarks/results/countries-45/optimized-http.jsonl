@@ -1,0 +1,15 @@
+{"sample": 1, "operation": "confirm500", "seconds": 0.2924553968477994}
+{"sample": 1, "operation": "/api/visits", "seconds": 0.023318662075325847}
+{"sample": 1, "operation": "/api/countries", "seconds": 0.010340317152440548}
+{"sample": 2, "operation": "confirm500", "seconds": 0.05051131988875568}
+{"sample": 2, "operation": "/api/visits", "seconds": 0.018396124942228198}
+{"sample": 2, "operation": "/api/countries", "seconds": 0.008082049200311303}
+{"sample": 3, "operation": "confirm500", "seconds": 0.046560582937672734}
+{"sample": 3, "operation": "/api/visits", "seconds": 0.01706869387999177}
+{"sample": 3, "operation": "/api/countries", "seconds": 0.004760944051668048}
+{"sample": 4, "operation": "confirm500", "seconds": 0.042567974887788296}
+{"sample": 4, "operation": "/api/visits", "seconds": 0.01601222692988813}
+{"sample": 4, "operation": "/api/countries", "seconds": 0.005363500909879804}
+{"sample": 5, "operation": "confirm500", "seconds": 0.042282733134925365}
+{"sample": 5, "operation": "/api/visits", "seconds": 0.015558058861643076}
+{"sample": 5, "operation": "/api/countries", "seconds": 0.007548918016254902}
