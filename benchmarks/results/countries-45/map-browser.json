@@ -1,0 +1,70 @@
+{
+  "url": "http://192.168.68.70:18085",
+  "workload": {
+    "tracks": 500,
+    "pointsPerTrack": 10000,
+    "points": 5000000,
+    "from": "2024-01-01",
+    "to": "2024-01-01",
+    "filteredTracks": 1,
+    "filteredPoints": 10000,
+    "filteredName": "Benchmark 0000"
+  },
+  "client": {
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz",
+    "memoryBytes": 16626147328,
+    "chromium": "156.0.8078.4",
+    "viewport": "1440x900",
+    "conditions": "Headless Chromium, fresh context per run, external tiles stubbed, no CPU/network throttling"
+  },
+  "results": [
+    {
+      "run": 1,
+      "overviewMs": 1067.851848,
+      "filterMs": 202.65166799999997,
+      "allTimeMs": 927.7201049999999,
+      "overviewBytes": 955393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    },
+    {
+      "run": 2,
+      "overviewMs": 1022.2856899999997,
+      "filterMs": 184.86584700000003,
+      "allTimeMs": 544.0224319999998,
+      "overviewBytes": 955393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    },
+    {
+      "run": 3,
+      "overviewMs": 649.9122440000001,
+      "filterMs": 185.6099919999997,
+      "allTimeMs": 527.6081389999999,
+      "overviewBytes": 955393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    },
+    {
+      "run": 4,
+      "overviewMs": 625.8870829999996,
+      "filterMs": 189.61408400000073,
+      "allTimeMs": 578.6111380000002,
+      "overviewBytes": 955393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    },
+    {
+      "run": 5,
+      "overviewMs": 622.1923420000003,
+      "filterMs": 188.12403799999993,
+      "allTimeMs": 561.5706109999992,
+      "overviewBytes": 955393,
+      "withinTargets": true,
+      "overviewVertices": 34500
+    }
+  ],
+  "applicationCommit": "89afe916dd525fe924324e48d4b27920d3802a27"
+}

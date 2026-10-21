@@ -1,0 +1,29 @@
+{
+  "countries": [
+    {
+      "country": "SWE",
+      "name": "Sweden",
+      "firstVisit": "2024-01-01",
+      "latestVisit": "2025-05-14",
+      "recordedDays": 500,
+      "bounds": [
+        [
+          55.342678,
+          11.108165
+        ],
+        [
+          69.036356,
+          24.163414
+        ]
+      ]
+    }
+  ],
+  "pid": 2208741,
+  "processStatus": {
+    "VmHWM": "449808 kB",
+    "VmRSS": "449808 kB",
+    "VmSwap": "0 kB"
+  },
+  "databaseBytes": 1728098304,
+  "walBytes": 164832
+}

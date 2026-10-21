@@ -1,0 +1,192 @@
+{
+  "heap": "-Xmx1g",
+  "jarSha256": "ba47229bc8badb647014b84b8fc5b72264bd51f60292a6d1675a18521484f95c",
+  "freshStartupSeconds": 9.246222725138068,
+  "restartReadySeconds": 5.9913470721803606,
+  "import": {
+    "importSeconds": 221.45471072383225,
+    "firstProgressSeconds": 1.2875625109300017,
+    "outcomes": {
+      "progress": 50,
+      "imported": 500,
+      "complete": 50
+    },
+    "collectionReads": [
+      {
+        "seconds": 0.0863883348647505,
+        "tracks": 0
+      },
+      {
+        "seconds": 0.009072817862033844,
+        "tracks": 0
+      },
+      {
+        "seconds": 0.1747175029013306,
+        "tracks": 7
+      },
+      {
+        "seconds": 0.03118904703296721,
+        "tracks": 17
+      },
+      {
+        "seconds": 0.03900487604551017,
+        "tracks": 29
+      },
+      {
+        "seconds": 0.049398625968024135,
+        "tracks": 40
+      },
+      {
+        "seconds": 0.047886301996186376,
+        "tracks": 48
+      },
+      {
+        "seconds": 0.05073475884273648,
+        "tracks": 59
+      },
+      {
+        "seconds": 0.24316266900859773,
+        "tracks": 70
+      },
+      {
+        "seconds": 0.06145750707946718,
+        "tracks": 82
+      },
+      {
+        "seconds": 0.14128355402499437,
+        "tracks": 95
+      },
+      {
+        "seconds": 0.12586281797848642,
+        "tracks": 108
+      },
+      {
+        "seconds": 0.28718517208471894,
+        "tracks": 120
+      },
+      {
+        "seconds": 0.11259351600892842,
+        "tracks": 132
+      },
+      {
+        "seconds": 0.10955168609507382,
+        "tracks": 144
+      },
+      {
+        "seconds": 0.24874223419465125,
+        "tracks": 156
+      },
+      {
+        "seconds": 0.10281217307783663,
+        "tracks": 168
+      },
+      {
+        "seconds": 0.0934927980415523,
+        "tracks": 180
+      },
+      {
+        "seconds": 0.10531984618864954,
+        "tracks": 191
+      },
+      {
+        "seconds": 0.15970131009817123,
+        "tracks": 203
+      },
+      {
+        "seconds": 0.14339298103004694,
+        "tracks": 216
+      },
+      {
+        "seconds": 0.22907171910628676,
+        "tracks": 229
+      },
+      {
+        "seconds": 0.13299726694822311,
+        "tracks": 240
+      },
+      {
+        "seconds": 0.1126922550611198,
+        "tracks": 253
+      },
+      {
+        "seconds": 0.25495414598844945,
+        "tracks": 266
+      },
+      {
+        "seconds": 0.13740801881067455,
+        "tracks": 279
+      },
+      {
+        "seconds": 0.23604404204525054,
+        "tracks": 290
+      },
+      {
+        "seconds": 0.41476955101825297,
+        "tracks": 304
+      },
+      {
+        "seconds": 0.16478780610486865,
+        "tracks": 317
+      },
+      {
+        "seconds": 0.1358369099907577,
+        "tracks": 329
+      },
+      {
+        "seconds": 0.3288724320009351,
+        "tracks": 340
+      },
+      {
+        "seconds": 0.16211974993348122,
+        "tracks": 352
+      },
+      {
+        "seconds": 0.1709929120261222,
+        "tracks": 365
+      },
+      {
+        "seconds": 0.16676306002773345,
+        "tracks": 376
+      },
+      {
+        "seconds": 0.17700631986372173,
+        "tracks": 387
+      },
+      {
+        "seconds": 0.38807967212051153,
+        "tracks": 400
+      },
+      {
+        "seconds": 0.18633433198556304,
+        "tracks": 411
+      },
+      {
+        "seconds": 0.429732081014663,
+        "tracks": 424
+      },
+      {
+        "seconds": 0.24437186308205128,
+        "tracks": 437
+      },
+      {
+        "seconds": 0.4576674150303006,
+        "tracks": 450
+      },
+      {
+        "seconds": 0.24455431895330548,
+        "tracks": 463
+      },
+      {
+        "seconds": 0.2057047060225159,
+        "tracks": 477
+      },
+      {
+        "seconds": 0.49567642714828253,
+        "tracks": 490
+      }
+    ],
+    "readFailures": []
+  },
+  "originalMatchesAfterRestart": true,
+  "applicationCommit": "89afe916dd525fe924324e48d4b27920d3802a27"
+}

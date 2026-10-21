@@ -1,0 +1,67 @@
+{
+  "url": "http://192.168.68.70:18085",
+  "workload": {
+    "tracks": 500,
+    "pointsPerTrack": 10000,
+    "points": 5000000,
+    "from": "2024-06-01",
+    "to": "2024-06-01",
+    "filteredTracks": 1,
+    "filteredPoints": 10000,
+    "filteredName": "Benchmark 0152"
+  },
+  "client": {
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz",
+    "memoryBytes": 16626147328,
+    "chromium": "156.0.8078.4",
+    "viewport": "1440x900",
+    "conditions": "Fresh contexts, external tiles stubbed, no CPU/network throttling"
+  },
+  "results": [
+    {
+      "run": 1,
+      "countryLoadMs": 13151.373493,
+      "reviewRowsMs": 153.13947199999893,
+      "save500Ms": 12935.120057999997,
+      "exploreCountryMs": 999.0726900000009,
+      "withinTargets": false
+    },
+    {
+      "run": 2,
+      "countryLoadMs": 10317.257151999991,
+      "reviewRowsMs": 166.69433299999218,
+      "save500Ms": 10347.810806000009,
+      "exploreCountryMs": 1071.7342229999922,
+      "withinTargets": false
+    },
+    {
+      "run": 3,
+      "countryLoadMs": 9121.456149000005,
+      "reviewRowsMs": 254.94289100001333,
+      "save500Ms": 10103.107682000002,
+      "exploreCountryMs": 845.7955279999878,
+      "withinTargets": false
+    },
+    {
+      "run": 4,
+      "countryLoadMs": 9594.500507999997,
+      "reviewRowsMs": 543.7432069999923,
+      "save500Ms": 12107.077791000018,
+      "exploreCountryMs": 1178.6654320000089,
+      "withinTargets": false
+    },
+    {
+      "run": 5,
+      "countryLoadMs": 12994.674912999995,
+      "reviewRowsMs": 250.2237019999884,
+      "save500Ms": 15789.424847999995,
+      "exploreCountryMs": 2100.094240000006,
+      "withinTargets": false
+    }
+  ],
+  "applicationCommit": "0f3854d63b9c653a3137928e3a76d1fcec09b36f",
+  "database": "SQLite backup of the earlier isolated 500-track synthetic benchmark, not a fresh baseline import",
+  "jarSha256": "ea2f40097626a8583b802ae78736c34ef40f7c240270cccabab7badbb44248c6"
+}

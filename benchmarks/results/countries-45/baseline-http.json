@@ -1,0 +1,22 @@
+[
+  {
+    "operation": "/api/visits",
+    "seconds": 25.656062382040545
+  },
+  {
+    "operation": "/api/countries",
+    "seconds": 1.8232125618960708
+  },
+  {
+    "operation": "confirm500",
+    "seconds": 1.9681207030080259
+  },
+  {
+    "operation": "/api/visits confirmed",
+    "seconds": 15.876786421053112
+  },
+  {
+    "operation": "/api/countries confirmed",
+    "seconds": 5.285263675963506
+  }
+]
