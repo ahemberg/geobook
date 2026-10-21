@@ -107,6 +107,10 @@ def main():
             assert b"Natural Earth" in request("/notices/countries.md")
             assert b"Source Sans 3" in request("/notices/frontend.txt")
             assert b"Eclipse Public License" in request("/notices/backend.txt")
+            licence = subprocess.run(["docker", "run", "--rm", "--entrypoint", "cat", args.image,
+                                      "/app/LICENSE"], check=True, text=True,
+                                     stdout=subprocess.PIPE).stdout
+            assert licence.startswith("MIT License"), licence
             multipart = (b'--fixture\r\nContent-Disposition: form-data; name="file"; '
                          b'filename="synthetic.gpx"\r\nContent-Type: application/gpx+xml\r\n\r\n'
                          + ORIGINAL + b'\r\n--fixture--\r\n')
