@@ -5,7 +5,7 @@ import App from './App';
 
 afterEach(() => vi.unstubAllGlobals());
 
-test('upload shows the saved track and a download of the original export', async () => {
+test('upload above 32 MB uses the configured hint and keeps the original download', async () => {
   let imported = false;
   const track = {
     id: 1,
@@ -50,6 +50,8 @@ test('upload shows the saved track and a download of the original export', async
           ),
         );
       }
+      if (url === '/api/upload-config')
+        return Promise.resolve(Response.json({ maxUploadBytes: 67108864 }));
       if (url === '/api/tracks/years') return Promise.resolve(Response.json([]));
       if (url === '/api/playback-settings')
         return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
@@ -79,10 +81,10 @@ test('upload shows the saved track and a download of the original export', async
   const user = userEvent.setup();
   render(<App />);
   expect(await screen.findByText('Your travels start here')).toBeVisible();
-  await user.upload(
-    screen.getByLabelText('Choose GPX file'),
-    new File(['synthetic'], 'walk.gpx', { type: 'application/gpx+xml' }),
-  );
+  expect(await screen.findByText(/Up to 64 MB per upload, including form data/)).toBeVisible();
+  const file = new File(['synthetic'], 'walk.gpx', { type: 'application/gpx+xml' });
+  Object.defineProperty(file, 'size', { value: 33 * 1024 * 1024 });
+  await user.upload(screen.getByLabelText('Choose GPX file'), file);
   await waitFor(() =>
     expect(screen.getByRole('button', { name: /^Synthetic waterfront.*/ })).toBeVisible(),
   );
@@ -94,13 +96,16 @@ test('upload shows the saved track and a download of the original export', async
   expect(screen.getAllByText('Date unknown')).toHaveLength(2);
 });
 
-test('a rejected upload explains the problem and allows another file', async () => {
+test('an oversized upload explains the server limit and allows another file', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string, options?: RequestInit) => {
       if (options?.method === 'POST')
         return Promise.resolve(
-          Response.json({ message: 'The GPX could not be read.' }, { status: 400 }),
+          Response.json(
+            { message: 'Upload exceeds the configured size limit. Choose a smaller file.' },
+            { status: 413 },
+          ),
         );
       return Promise.resolve(
         Response.json(
@@ -120,7 +125,9 @@ test('a rejected upload explains the problem and allows another file', async () 
   await userEvent
     .setup()
     .upload(screen.getByLabelText('Choose GPX file'), new File(['invalid'], 'invalid.gpx'));
-  expect(await screen.findByRole('alert')).toHaveTextContent('could not be read');
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Upload exceeds the configured size limit. Choose a smaller file.',
+  );
   expect(screen.getByRole('button', { name: 'Upload GPX' })).toBeEnabled();
   expect(screen.queryByRole('link', { name: 'Download original export' })).not.toBeInTheDocument();
 });

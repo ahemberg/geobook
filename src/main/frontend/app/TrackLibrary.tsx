@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
 import RemovalDialog from './RemovalDialog';
 import type { Controls, Overview } from './api';
@@ -107,6 +107,18 @@ function EmptyLibrary({
   uploading: boolean;
   chooseFile: () => void;
 }) {
+  const [uploadLimit, setUploadLimit] = useState<number | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    request<{ maxUploadBytes: number }>('/api/upload-config', { signal: controller.signal })
+      .then(({ maxUploadBytes }) => {
+        if (!controller.signal.aborted) setUploadLimit(maxUploadBytes);
+      })
+      .catch(() => {
+        // The server still enforces the limit if its hint cannot be loaded.
+      });
+    return () => controller.abort();
+  }, []);
   const emptyMessage = filtered
     ? {
         title: 'No recorded points in these dates',
@@ -126,7 +138,10 @@ function EmptyLibrary({
         Choose a GPX file
       </button>
       <p className="hint">
-        Choose files or collection exports. Up to 32 MB per file and 250,000 points per track.
+        Choose files or collection exports.{' '}
+        {uploadLimit !== null &&
+          `Up to ${(uploadLimit / (1024 * 1024)).toLocaleString(undefined, { maximumFractionDigits: 6 })} MB per upload, including form data. `}
+        Up to 250,000 points per track.
       </p>
     </div>
   );

@@ -28,8 +28,6 @@ export function useUpload(onImported: (trackIds: number[]) => void) {
       const label = `File ${index + 1} of ${files.length}: ${file.name}`;
       setProgress(`${label}. Uploading and reading GPX…`);
       try {
-        if (file.size > 32 * 1024 * 1024)
-          throw new Error('Choose a GPX file no larger than 32 MB.');
         await importFile(file, (event) => {
           setProgress(`${label}. ${event.completed} of ${event.total} tracks processed.`);
           if (event.status === 'progress' || event.status === 'complete') return;

@@ -33,6 +33,66 @@ import tools.jackson.databind.json.JsonMapper;
 class TrackHttpTests {
   @TempDir Path directory;
 
+  @Test
+  void defaultUploadLimitAcceptsAnExportLargerThan32Mb() throws IOException, InterruptedException {
+    byte[] original =
+        gpx(
+            "<!--"
+                + " ".repeat(33 * 1024 * 1024)
+                + "-->"
+                + "<trk><name>Large export</name><trkseg>"
+                + "<trkpt lat='59.32' lon='18.07'/></trkseg></trk>");
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(
+              new String(
+                  get(client, base(app) + "/api/upload-config").body(), StandardCharsets.UTF_8))
+          .isEqualTo("{\"maxUploadBytes\":536870912}");
+      HttpResponse<byte[]> response = upload(client, base(app), original, "/api/imports");
+      assertThat(response.statusCode()).isEqualTo(200);
+      assertThat(new String(response.body(), StandardCharsets.UTF_8))
+          .contains("\"status\":\"imported\"");
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(original);
+    }
+  }
+
+  @Test
+  void configuredUploadLimitRejectsFilesAndBatchesWithoutSavingAnything()
+      throws IOException, InterruptedException {
+    byte[] original =
+        gpx(
+            "<!--"
+                + " ".repeat(600 * 1024)
+                + "-->"
+                + "<trk><name>Limited export</name><trkseg>"
+                + "<trkpt lat='59.32' lon='18.07'/></trkseg></trk>");
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start("--GEOBOOK_UPLOAD_LIMIT=1MB")) {
+      assertThat(
+              new String(
+                  get(client, base(app) + "/api/upload-config").body(), StandardCharsets.UTF_8))
+          .isEqualTo("{\"maxUploadBytes\":1048576}");
+      HttpResponse<byte[]> batch =
+          uploadBatch(client, base(app), "/api/imports", java.util.List.of(original, original));
+      assertThat(batch.statusCode()).isEqualTo(413);
+      assertThat(new String(batch.body(), StandardCharsets.UTF_8))
+          .contains("Upload exceeds the configured size limit");
+      byte[] oversized = new byte[3 * 1024 * 1024 + 1];
+      for (String endpoint : java.util.List.of("/api/imports", "/api/tracks")) {
+        HttpResponse<byte[]> response = upload(client, base(app), oversized, endpoint);
+        assertThat(response.statusCode()).isEqualTo(413);
+        assertThat(JsonMapper.builder().build().readTree(response.body()).get("message").asString())
+            .contains("Upload exceeds the configured size limit");
+      }
+      assertThat(new String(get(client, base(app) + "/api/tracks").body(), StandardCharsets.UTF_8))
+          .isEqualTo("[]");
+      assertThat(
+              new String(get(client, base(app) + "/api/originals").body(), StandardCharsets.UTF_8))
+          .isEqualTo("[]");
+      assertThat(upload(client, base(app), original, "/api/imports").statusCode()).isEqualTo(200);
+    }
+  }
+
   // Rejected uploads must leave the public collection unchanged.
   @Test
   void rejectedUploadDoesNotCreateTrackOrOriginal() throws IOException, InterruptedException {
@@ -1288,9 +1348,13 @@ class TrackHttpTests {
         .getBytes(StandardCharsets.UTF_8);
   }
 
-  private ConfigurableApplicationContext start() {
+  private ConfigurableApplicationContext start(String... options) {
+    java.util.List<String> arguments = new java.util.ArrayList<>();
+    arguments.add("--server.port=0");
+    arguments.add("--geobook.data-directory=" + directory);
+    arguments.addAll(java.util.List.of(options));
     return new SpringApplicationBuilder(TrackerApplication.class)
-        .run("--server.port=0", "--geobook.data-directory=" + directory);
+        .run(arguments.toArray(String[]::new));
   }
 
   private static String base(ConfigurableApplicationContext app) {

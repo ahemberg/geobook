@@ -68,9 +68,21 @@ The data directory defaults to `./data`. Startup creates it and applies versione
 migrations. SQLite uses WAL, FULL synchronization, foreign keys and a five-second busy timeout.
 Run one application instance per data directory on a local disk. Keep that directory when restarting.
 
+Set `GEOBOOK_UPLOAD_LIMIT` to change both the per-file and total multipart request limit.
+It defaults to `512MB`, including form data. Spring size units use powers of 1024;
+`KB`, `MB`, `GB` or a plain byte count are accepted. For example:
+
+```bash
+GEOBOOK_UPLOAD_LIMIT=1GB java -jar target/tracker-0.0.1-SNAPSHOT.jar --geobook.data-directory=/path/to/local-data
+```
+
+The empty-library hint reads the running server's limit from `GET /api/upload-config`.
+Keep any reverse proxy's request-size limit at least this large. Oversized requests return
+HTTP 413 with a message and save no tracks or original exports.
+
 Choose several GPX 1.0/1.1 files or a collection export. Each file can contain multiple
-tracks, up to 32 MB per file and 250,000 points per track. The browser sends files one at a
-time, shows per-track progress and retains the batch results until the next upload.
+tracks, with a default upload limit of 512 MB and 250,000 points per track. The browser sends
+files one at a time, shows per-track progress and retains the batch results until the next upload.
 Valid tracks import even when a sibling has invalid measurements. Malformed XML rejects
 that file before any of its tracks are saved. Missing times and elevations produce warnings.
 
@@ -80,7 +92,7 @@ keeps the existing track and its saved controls, and links every distinct origin
 Identical upload bytes reuse the original. Original downloads are byte-for-byte unchanged.
 Upgrades index existing recordings without merging or deleting duplicates created by older releases.
 
-`POST /api/imports` accepts repeated multipart `file` parts, with a 33 MB total request limit,
+`POST /api/imports` accepts repeated multipart `file` parts, with the configured total request limit,
 and streams newline-delimited JSON. Events report `progress`, `imported`, `duplicate`, `failed`
 and `complete`, with completed/total track counts, track/original IDs and warnings. Each file
 ends with `complete` or a file-level `failed` event with total zero. Keep reverse-proxy response

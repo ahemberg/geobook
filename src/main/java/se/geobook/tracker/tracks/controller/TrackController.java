@@ -10,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.unit.DataSize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,7 +21,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 import se.geobook.tracker.tracks.domain.DateRange;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
@@ -230,9 +230,9 @@ class TrackController {
     return ResponseEntity.badRequest().body(Map.of("message", exception.getMessage()));
   }
 
-  @ExceptionHandler(MaxUploadSizeExceededException.class)
-  ResponseEntity<Map<String, String>> tooLarge() {
-    return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
-        .body(Map.of("message", "Choose a GPX file no larger than 32 MB."));
+  @GetMapping("/api/upload-config")
+  Map<String, Long> uploadConfig(
+      @Value("${spring.servlet.multipart.max-request-size}") String limit) {
+    return Map.of("maxUploadBytes", DataSize.parse(limit).toBytes());
   }
 }

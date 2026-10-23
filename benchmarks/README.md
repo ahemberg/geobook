@@ -2,7 +2,7 @@
 
 This workload is separate from the fast correctness suite. It generates 500 synthetic tracks
 with 10,000 points each, then imports all five million points through `/api/imports`. Each
-file contains ten tracks and stays below the existing 32 MB upload limit. No private exports
+file contains ten tracks and stays below the default 512 MB upload limit. No private exports
 are included. The workload size is a benchmark, not a collection limit.
 
 Each recording follows two curved loops near Stockholm. It has two source segments and a
