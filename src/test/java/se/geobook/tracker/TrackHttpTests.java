@@ -299,12 +299,14 @@ class TrackHttpTests {
             .doesNotContain("unresolved", "\"status\":\"failed\"");
         JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body()).get(0);
         assertThat(overview.get("pointCount").asInt()).isEqualTo(5);
-        geometry = overview.get("geometry");
+        JsonNode simplified = overview.get("geometry");
+        assertThat(simplified.toString())
+            .isEqualTo("[[[59.32,18.07],[59.32,18.073]],[[59.32,18.074]],[[59.32,18.174]]]");
+        JsonNode detail = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+        geometry = detail.get("geometry");
         assertThat(geometry.toString())
             .isEqualTo(
                 "[[[59.32,18.07],[59.32,18.071],[59.32,18.073]],[[59.32,18.074]],[[59.32,18.174]]]");
-        JsonNode detail = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
-        assertThat(detail.get("geometry")).isEqualTo(geometry);
         assertThat(detail.get("keptFixCount").asInt()).isEqualTo(5);
         assertThat(detail.get("droppedFixCount").asInt()).isEqualTo(3);
         assertThat(detail.get("segmentCount").asInt()).isEqualTo(3);
@@ -318,7 +320,7 @@ class TrackHttpTests {
                       .statusCode())
               .isEqualTo(200);
           JsonNode changed = mapper.readTree(get(client, base(app) + "/api/tracks").body()).get(0);
-          assertThat(changed.get("geometry")).isEqualTo(geometry);
+          assertThat(changed.get("geometry")).isEqualTo(simplified);
           assertThat(changed.get("gaps").isEmpty()).isTrue();
           JsonNode opened = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
           assertThat(opened.get("geometry")).isEqualTo(geometry);

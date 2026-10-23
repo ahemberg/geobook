@@ -24,14 +24,16 @@ public record OverviewRun(
   public static List<OverviewRun> prepare(
       List<Recording.Point> points,
       List<PointLocalTime.Attribution> local,
-      List<String> countries) {
+      List<String> countries,
+      int gapSeconds,
+      double toleranceMetres) {
     List<OverviewRun> runs = new ArrayList<>();
     int first = 0;
     for (int index = 1; index <= points.size(); index++) {
       boolean end = index == points.size();
-      // Retain every edge that any supported gap threshold can split.
-      // shortcut: sparse samples retain every point; add threshold caches if benchmarks need it.
-      boolean broken = !end && TrackGeometry.isGap(points.get(index - 1), points.get(index), 1);
+      // Retain every edge that the smallest gap threshold the reader can apply would split.
+      boolean broken =
+          !end && TrackGeometry.isGap(points.get(index - 1), points.get(index), gapSeconds);
       if (end
           || broken
           || !Objects.equals(local.get(first).localDate(), local.get(index).localDate())
@@ -44,7 +46,7 @@ public record OverviewRun(
                 countries.get(first),
                 first == 0 || points.get(first - 1).segment() != points.get(first).segment(),
                 first == 0 ? 0 : secondsBefore(points.get(first - 1), points.get(first)),
-                simplify(points.subList(first, index))));
+                simplify(points.subList(first, index), toleranceMetres)));
         first = index;
       }
     }
@@ -60,9 +62,10 @@ public record OverviewRun(
     return Math.max(0, elapsed.getSeconds() + (elapsed.getNano() == 0 ? 0 : 1));
   }
 
-  private static List<Recording.Point> simplify(List<Recording.Point> points) {
+  private static List<Recording.Point> simplify(
+      List<Recording.Point> points, double toleranceMetres) {
     boolean[] keep = extrema(points);
-    // Douglas-Peucker between retained extrema, with a conservative ten-metre tolerance.
+    // Douglas-Peucker between retained extrema.
     Deque<int[]> pending = new ArrayDeque<>();
     int anchor = 0;
     for (int index = 1; index < points.size(); index++) {
@@ -73,7 +76,7 @@ public record OverviewRun(
     }
     while (!pending.isEmpty()) {
       int[] span = pending.pop();
-      double maximum = 100;
+      double maximum = toleranceMetres * toleranceMetres;
       int furthest = -1;
       for (int index = span[0] + 1; index < span[1]; index++) {
         double distance =
