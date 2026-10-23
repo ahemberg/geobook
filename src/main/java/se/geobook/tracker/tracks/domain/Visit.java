@@ -17,7 +17,7 @@ public final class Visit {
     }
   }
 
-  public record Evidence(long trackId, String name) {}
+  public record Evidence(long trackId, String name, String kind) {}
 
   public record Candidate(Key key, String state, List<Evidence> tracks) {
     public Candidate {

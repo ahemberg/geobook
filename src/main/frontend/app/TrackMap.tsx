@@ -1,30 +1,49 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import L from 'leaflet';
-import type { Country, MapConfig, MapTrack } from './api';
+import type { Country, HistoryDisplay, MapConfig, MapTrack, PlaceVisit } from './api';
+import { visitTimes } from './HistoryDay';
 import { mapGeometry } from './mapGeometry';
 
+const noStops: PlaceVisit[] = [];
+
 export default function TrackMap({
-  tracks,
-  history,
+  tracks: items,
+  historyDisplay,
   selectedId,
   importedIds,
   config,
   position,
+  openedDay,
   country: scope,
 }: {
   tracks: MapTrack[];
-  history: MapTrack[];
+  historyDisplay: HistoryDisplay | null;
   country: Country | null;
   selectedId: number | null;
   importedIds: number[];
   config: MapConfig;
   position: L.LatLngTuple | null;
+  openedDay?: { stops: PlaceVisit[]; focus: L.LatLngTuple | null };
 }) {
+  const tracks = useMemo(
+    () =>
+      items.map((track) =>
+        track.kind === 'history'
+          ? {
+              ...track,
+              visible:
+                track.visible &&
+                !!historyDisplay?.showHistory &&
+                !historyDisplay.hiddenYears.includes(Number(track.historyDate?.slice(0, 4))),
+            }
+          : track,
+      ),
+    [items, historyDisplay],
+  );
   const country = selectedId === null ? scope : null;
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const [tileFailed, setTileFailed] = useState(false);
-  const fitted = useRef('');
   const tilesRef = useRef<L.TileLayer | null>(null);
 
   const { url, attribution, attributionUrl } = config;
@@ -32,6 +51,7 @@ export default function TrackMap({
     if (!container.current) return;
     const map = L.map(container.current, { preferCanvas: false }).setView([25, 10], 2);
     mapRef.current = map;
+    map.createPane('history').style.zIndex = '350';
     const credit = document.createElement('a');
     credit.textContent = attribution;
     credit.href = /^https?:\/\//.test(attributionUrl)
@@ -47,42 +67,13 @@ export default function TrackMap({
     resize?.observe(container.current);
     return () => {
       resize?.disconnect();
-      // Layer effects clean up after this one; stop late animation events reaching their handlers.
-      map.off();
       map.remove();
       mapRef.current = null;
       tilesRef.current = null;
     };
   }, [url, attribution, attributionUrl]);
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const longitude = centreLongitude(country);
-
-    const fitKey = JSON.stringify([
-      selectedId,
-      importedIds,
-      country?.country,
-      tracks.map((track) => [track.id, track.geometry]),
-      history.map((day) => day.id),
-    ]);
-    const bounds = country
-      ? L.latLngBounds(country.bounds)
-      : trackBounds(fittedTracks(tracks, history, selectedId, importedIds));
-    if (fitKey !== fitted.current && bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16, animate: false });
-      fitted.current = fitKey;
-    }
-    return repeatWorlds(map, trackBounds(tracks, longitude), (layer, offset) => {
-      for (const track of tracks.filter((track) => track.visible)) {
-        const origin = longitude ?? track.geometry[0]?.[0]?.[1] ?? 0;
-        drawTrack(track, selectedId, layer, origin + offset);
-        drawGaps(track, layer, origin + offset);
-      }
-    });
-  }, [tracks, history, selectedId, importedIds, config, country]);
-  useHistoryLayer(mapRef, history, country, config);
+  useTrackLayers(mapRef, { tracks, selectedId, importedIds, config, country }, openedDay);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -108,15 +99,18 @@ export default function TrackMap({
 
   function fitAll() {
     mapRef.current?.invalidateSize();
-    const longitude = centreLongitude(country);
-    const bounds = trackBounds(tracks, longitude);
+    const longitude = country ? (country.bounds[0][1] + country.bounds[1][1]) / 2 : undefined;
+    const bounds = trackBounds(
+      tracks.filter((item) => item.kind !== 'history'),
+      longitude,
+    );
     if (bounds.isValid()) mapRef.current?.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
   }
 
   return (
     <section className="map-panel" aria-label="Recorded travel map">
       <div ref={container} className="map" aria-label="Interactive map" />
-      {tracks.length > 0 && (
+      {tracks.some((item) => item.kind !== 'history') && (
         <button className="fit-map" onClick={fitAll}>
           Fit all tracks
         </button>
@@ -136,44 +130,6 @@ export default function TrackMap({
       )}
     </section>
   );
-}
-
-function centreLongitude(country: Country | null) {
-  return country ? (country.bounds[0][1] + country.bounds[1][1]) / 2 : undefined;
-}
-
-function useHistoryLayer(
-  mapRef: RefObject<L.Map | null>,
-  history: MapTrack[],
-  country: Country | null,
-  config: MapConfig,
-) {
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const renderer = historyRenderer(map);
-    const longitude = centreLongitude(country);
-    const visible = history.filter((day) => day.visible);
-    return repeatWorlds(map, trackBounds(visible, longitude), (layer, offset) => {
-      for (const day of visible) {
-        const origin = longitude ?? day.geometry[0]?.[0]?.[1] ?? 0;
-        drawHistory(day, renderer, layer, origin + offset);
-      }
-    });
-  }, [mapRef, history, country, config]);
-}
-
-const historyRenderers = new WeakMap<L.Map, L.Canvas>();
-
-// History sits under the track overlay pane and shares one canvas per map for thousands of days.
-function historyRenderer(map: L.Map) {
-  let renderer = historyRenderers.get(map);
-  if (!renderer) {
-    map.createPane('history').style.zIndex = '350';
-    renderer = L.canvas({ pane: 'history' });
-    historyRenderers.set(map, renderer);
-  }
-  return renderer;
 }
 
 function repeatWorlds(
@@ -213,27 +169,15 @@ function drawTrack(
   selectedId: number | null,
   layer: L.FeatureGroup,
   longitude?: number,
+  historyRenderer?: L.Renderer,
 ) {
+  const history = track.kind === 'history';
+  const style = trackStyle(track, selectedId, historyRenderer);
   for (const line of mapGeometry(track.geometry, longitude)) {
     if (line.length === 1 && line[0]) {
-      L.circleMarker(line[0], { radius: 4, color: track.colour, fillOpacity: 1 }).addTo(layer);
+      L.circleMarker(line[0], { radius: history ? 2 : 4, fillOpacity: 1, ...style }).addTo(layer);
     } else {
-      L.polyline(line, {
-        color: track.colour,
-        weight: track.id === selectedId ? 5 : 3,
-        opacity: selectedId === null || track.id === selectedId ? 1 : 0.5,
-      }).addTo(layer);
-    }
-  }
-}
-
-function drawHistory(day: MapTrack, renderer: L.Canvas, layer: L.FeatureGroup, longitude: number) {
-  const style = { pane: 'history', renderer, color: day.colour, interactive: false };
-  for (const line of mapGeometry(day.geometry, longitude)) {
-    if (line.length === 1 && line[0]) {
-      L.circleMarker(line[0], { ...style, radius: 2, weight: 0, fillOpacity: 0.4 }).addTo(layer);
-    } else {
-      L.polyline(line, { ...style, weight: 2, opacity: 0.4 }).addTo(layer);
+      L.polyline(line, style).addTo(layer);
     }
   }
 }
@@ -250,6 +194,145 @@ function drawGaps(track: MapTrack, layer: L.FeatureGroup, longitude = track.geom
       .addTo(layer);
   }
 }
+function trackStyle(
+  track: MapTrack,
+  selectedId: number | null,
+  historyRenderer?: L.Renderer,
+): L.PathOptions {
+  const opened = track.id === selectedId;
+  if (track.kind !== 'history')
+    return {
+      color: track.colour,
+      weight: opened ? 5 : 3,
+      opacity: selectedId === null || opened ? 1 : 0.5,
+    };
+  // An opened day draws at full strength above the background history pane.
+  if (opened) return { color: track.colour, weight: 4, opacity: 1, fillOpacity: 1 };
+  return {
+    pane: 'history',
+    renderer: historyRenderer,
+    color: track.colour,
+    weight: 2,
+    opacity: 0.4,
+    fillOpacity: 0.4,
+    interactive: false,
+  };
+}
+
+// Stops appear only for an opened history day that is drawn on the map.
+function openedStops(
+  tracks: MapTrack[],
+  selectedId: number | null,
+  visits: PlaceVisit[] = noStops,
+) {
+  return tracks.some(
+    (track) => track.id === selectedId && track.kind === 'history' && track.visible,
+  )
+    ? visits
+    : noStops;
+}
+
+// Draws tracks and the opened day's stops, fits the map once per change and pans to a chosen
+// place visit.
+function useTrackLayers(
+  mapRef: RefObject<L.Map | null>,
+  {
+    tracks,
+    selectedId,
+    importedIds,
+    config,
+    country,
+  }: {
+    tracks: MapTrack[];
+    selectedId: number | null;
+    importedIds: number[];
+    config: MapConfig;
+    country: Country | null;
+  },
+  openedDay: { stops: PlaceVisit[]; focus: L.LatLngTuple | null } | undefined,
+) {
+  const fitted = useRef('');
+  const visits = openedDay?.stops;
+  const focus = openedDay?.focus;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const stops = openedStops(tracks, selectedId, visits);
+    const longitude = country ? (country.bounds[0][1] + country.bounds[1][1]) / 2 : undefined;
+
+    const fitKey = JSON.stringify([
+      selectedId,
+      importedIds,
+      country?.country,
+      tracks.map((track) => [track.id, track.geometry]),
+      stops,
+    ]);
+    const bounds = country
+      ? L.latLngBounds(country.bounds)
+      : fittedBounds(tracks, selectedId, importedIds, stops);
+    if (fitKey !== fitted.current && bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16, animate: false });
+      fitted.current = fitKey;
+    }
+    const historyRenderer = L.canvas({ pane: 'history' });
+    const drawn = withStops(trackBounds(tracks, longitude), stops);
+    const removeWorlds = repeatWorlds(map, drawn, (layer, offset) => {
+      drawTracks(tracks, selectedId, layer, { longitude, offset, historyRenderer });
+      drawStops(stops, layer, offset);
+    });
+    return () => {
+      removeWorlds();
+      historyRenderer.remove();
+    };
+  }, [mapRef, tracks, selectedId, importedIds, config, country, visits]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map && focus) map.setView(focus, Math.max(map.getZoom(), 15));
+  }, [mapRef, focus]);
+}
+
+function drawTracks(
+  tracks: MapTrack[],
+  selectedId: number | null,
+  layer: L.FeatureGroup,
+  world: { longitude: number | undefined; offset: number; historyRenderer: L.Renderer },
+) {
+  for (const track of tracks.filter((track) => track.visible)) {
+    const origin = (world.longitude ?? track.geometry[0]?.[0]?.[1] ?? 0) + world.offset;
+    drawTrack(track, selectedId, layer, origin, world.historyRenderer);
+    if (track.kind !== 'history') drawGaps(track, layer, origin);
+  }
+}
+
+function drawStops(stops: PlaceVisit[], layer: L.FeatureGroup, offset: number) {
+  for (const stop of stops) {
+    L.circleMarker([stop.latitude, stop.longitude + offset], {
+      className: 'history-stop',
+      radius: 7,
+      color: '#193f72',
+      weight: 2,
+      fillColor: '#fff',
+      fillOpacity: 1,
+    })
+      .bindTooltip(`${stop.name} · ${visitTimes(stop)}`, { direction: 'top' })
+      .addTo(layer);
+  }
+}
+
+function fittedBounds(
+  tracks: MapTrack[],
+  selectedId: number | null,
+  importedIds: number[],
+  stops: PlaceVisit[],
+) {
+  return withStops(trackBounds(fittedTracks(tracks, selectedId, importedIds)), stops);
+}
+
+function withStops(bounds: L.LatLngBounds, stops: PlaceVisit[]) {
+  for (const stop of stops) bounds.extend([stop.latitude, stop.longitude]);
+  return bounds;
+}
+
 function trackBounds(tracks: MapTrack[], longitude?: number) {
   const bounds = L.latLngBounds([]);
   for (const track of tracks) {
@@ -261,13 +344,9 @@ function trackBounds(tracks: MapTrack[], longitude?: number) {
   return bounds;
 }
 
-function fittedTracks(
-  tracks: MapTrack[],
-  history: MapTrack[],
-  selectedId: number | null,
-  importedIds: number[],
-) {
-  if (importedIds.length)
-    return [...tracks, ...history].filter((track) => importedIds.includes(track.id));
-  return selectedId === null ? tracks : tracks.filter((track) => track.id === selectedId);
+function fittedTracks(tracks: MapTrack[], selectedId: number | null, importedIds: number[]) {
+  if (importedIds.length) return tracks.filter((track) => importedIds.includes(track.id));
+  return selectedId === null
+    ? tracks.filter((item) => item.kind !== 'history')
+    : tracks.filter((track) => track.id === selectedId);
 }

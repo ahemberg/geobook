@@ -11,6 +11,7 @@ import se.geobook.tracker.tracks.domain.Track;
 @Service
 public class TrackImporter {
   private static final String FAILED = "failed";
+  private static final String HISTORY = "history";
   private final TrackService collection;
 
   TrackImporter(TrackService collection) {
@@ -31,12 +32,22 @@ public class TrackImporter {
       Long originalId,
       List<String> warnings,
       String message,
-      Track.Kind kind) {
-    public ImportEvent {
-      warnings = List.copyOf(warnings);
+      String kind,
+      HistorySummary summary) {
+    public ImportEvent(
+        String status,
+        int completed,
+        int total,
+        String name,
+        Long trackId,
+        Long originalId,
+        List<String> warnings,
+        String message,
+        String kind) {
+      this(status, completed, total, name, trackId, originalId, warnings, message, kind, null);
     }
 
-    ImportEvent(
+    public ImportEvent(
         String status,
         int completed,
         int total,
@@ -45,9 +56,15 @@ public class TrackImporter {
         Long originalId,
         List<String> warnings,
         String message) {
-      this(status, completed, total, name, trackId, originalId, warnings, message, null);
+      this(status, completed, total, name, trackId, originalId, warnings, message, "recording");
+    }
+
+    public ImportEvent {
+      warnings = List.copyOf(warnings);
     }
   }
+
+  public record HistorySummary(int created, int updated, int unchanged) {}
 
   @FunctionalInterface
   public interface Progress {
@@ -56,7 +73,7 @@ public class TrackImporter {
 
   public void importFile(String filename, byte[] bytes, Progress progress)
       throws java.io.IOException {
-    if (TakeoutReader.recognises(bytes)) {
+    if (TakeoutReader.isArchive(bytes)) {
       importHistory(filename, bytes, progress);
       return;
     }
@@ -80,65 +97,117 @@ public class TrackImporter {
             "complete", tracks.size(), tracks.size(), filename, null, originalId, List.of(), null));
   }
 
+  // Every day sends its own immutable progress result.
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
   private void importHistory(String filename, byte[] bytes, Progress progress)
       throws java.io.IOException {
     List<HistoryDay> days;
+    List<String> warnings;
     try {
-      days = HistoryDay.build(TakeoutReader.fixes(bytes));
+      TakeoutReader.History history = TakeoutReader.read(bytes);
+      days = HistoryDay.split(history.fixes(), history.placeVisits());
+      int unresolved =
+          history.fixes().size()
+              - days.stream().mapToInt(day -> day.keptFixCount() + day.droppedFixCount()).sum()
+              + history.placeVisits().size()
+              - days.stream().mapToInt(day -> day.placeVisits().size()).sum();
+      warnings =
+          unresolved == 0
+              ? List.of()
+              : List.of(
+                  unresolved
+                      + " fixes or place visits have unresolved local dates and remain only in the"
+                      + " original export.");
     } catch (IllegalArgumentException exception) {
       progress.send(
-          new ImportEvent(FAILED, 0, 0, filename, null, null, List.of(), exception.getMessage()));
+          new ImportEvent(
+              FAILED, 0, 0, filename, null, null, List.of(), exception.getMessage(), HISTORY));
+      return;
+    }
+    days =
+        days.stream()
+            .filter(day -> day.keptFixCount() > 0 || !day.placeVisits().isEmpty())
+            .toList();
+    if (days.isEmpty()) {
+      progress.send(
+          new ImportEvent(
+              FAILED,
+              0,
+              0,
+              filename,
+              null,
+              null,
+              List.of(),
+              "The archive contains no usable Google location history after cleaning and local date"
+                  + " resolution.",
+              HISTORY));
       return;
     }
     OriginalExport.Source source = collection.retainOriginal(filename, bytes);
-    long originalId = source.id();
     progress.send(
-        new ImportEvent("progress", 0, days.size(), filename, null, originalId, List.of(), null));
+        new ImportEvent(
+            "progress", 0, days.size(), filename, null, source.id(), warnings, null, HISTORY));
+    int created = 0;
+    int updated = 0;
+    int unchanged = 0;
     for (int index = 0; index < days.size(); index++) {
-      progress.send(importDay(days.get(index), index + 1, days.size(), source));
+      HistoryDay day = days.get(index);
+      try {
+        Track.Imported imported = collection.saveHistoryDay(source, day);
+        switch (imported.status()) {
+          case "imported" -> created++;
+          case "updated" -> updated++;
+          default -> unchanged++;
+        }
+        progress.send(
+            new ImportEvent(
+                imported.status(),
+                index + 1,
+                days.size(),
+                day.date(),
+                imported.trackId(),
+                source.id(),
+                warnings,
+                null,
+                HISTORY));
+      } catch (IllegalArgumentException exception) {
+        progress.send(
+            new ImportEvent(
+                FAILED,
+                index + 1,
+                days.size(),
+                day.date(),
+                null,
+                source.id(),
+                warnings,
+                exception.getMessage(),
+                HISTORY));
+      } catch (org.springframework.dao.DataAccessException exception) {
+        progress.send(
+            new ImportEvent(
+                FAILED,
+                index + 1,
+                days.size(),
+                day.date(),
+                null,
+                source.id(),
+                warnings,
+                "The history day could not be saved. Check server storage and retry.",
+                HISTORY));
+      }
     }
     progress.send(
         new ImportEvent(
-            "complete", days.size(), days.size(), filename, null, originalId, List.of(), null));
-  }
-
-  private ImportEvent importDay(
-      HistoryDay day, int completed, int total, OriginalExport.Source source) {
-    long originalId = source.id();
-    try {
-      Track.Imported imported = collection.saveHistory(source, day);
-      return new ImportEvent(
-          imported.duplicate() ? "duplicate" : "imported",
-          completed,
-          total,
-          day.date(),
-          imported.trackId(),
-          originalId,
-          List.of(),
-          null,
-          Track.Kind.HISTORY);
-    } catch (IllegalArgumentException exception) {
-      return new ImportEvent(
-          FAILED,
-          completed,
-          total,
-          day.date(),
-          null,
-          originalId,
-          List.of(),
-          exception.getMessage());
-    } catch (org.springframework.dao.DataAccessException exception) {
-      return new ImportEvent(
-          FAILED,
-          completed,
-          total,
-          day.date(),
-          null,
-          originalId,
-          List.of(),
-          "The history day could not be saved. Check server storage and retry; saved days will be"
-              + " recognized as duplicates.");
-    }
+            "complete",
+            days.size(),
+            days.size(),
+            filename,
+            null,
+            source.id(),
+            warnings,
+            null,
+            HISTORY,
+            new HistorySummary(created, updated, unchanged)));
   }
 
   private ImportEvent importTrack(
@@ -162,8 +231,7 @@ public class TrackImporter {
           imported.trackId(),
           originalId,
           warnings,
-          null,
-          Track.Kind.RECORDING);
+          null);
     } catch (IllegalArgumentException exception) {
       return new ImportEvent(
           FAILED,

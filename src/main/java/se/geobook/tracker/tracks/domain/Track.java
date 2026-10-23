@@ -14,20 +14,14 @@ public record Track(
     String colour,
     boolean visible,
     String identity,
-    Kind kind,
+    String kind,
     String historyDate) {
-  /** Recordings are tracks; history entries are history days that reuse the track storage. */
-  public enum Kind {
-    RECORDING,
-    HISTORY;
+  public boolean isHistory() {
+    return "history".equals(kind);
+  }
 
-    public static Kind stored(String value) {
-      return valueOf(value.toUpperCase(java.util.Locale.ROOT));
-    }
-
-    public String value() {
-      return name().toLowerCase(java.util.Locale.ROOT);
-    }
+  public PlaybackSettings geometrySettings(PlaybackSettings settings) {
+    return isHistory() ? HistoryDay.GEOMETRY : settings;
   }
 
   public String revision() {
@@ -44,7 +38,15 @@ public record Track(
     return "\"" + ContentIdentity.original(state.getBytes(StandardCharsets.UTF_8)) + "\"";
   }
 
-  public record Imported(long trackId, long originalId, boolean duplicate) {}
+  public record Imported(long trackId, long originalId, String status) {
+    public Imported(long trackId, long originalId, boolean duplicate) {
+      this(trackId, originalId, duplicate ? "duplicate" : "imported");
+    }
+
+    public boolean duplicate() {
+      return "duplicate".equals(status);
+    }
+  }
 
   public record Overview(
       Track track,
@@ -52,8 +54,10 @@ public record Track(
       int pointCount,
       int unknownDateCount,
       List<List<List<BigDecimal>>> geometry,
-      List<List<List<BigDecimal>>> gaps) {
+      List<List<List<BigDecimal>>> gaps,
+      List<String> placeNames) {
     public Overview {
+      placeNames = List.copyOf(placeNames);
       geometry = List.copyOf(TrackGeometry.copy(geometry));
       gaps = List.copyOf(TrackGeometry.copy(gaps));
     }
@@ -62,6 +66,7 @@ public record Track(
   public static final class OverviewBuilder {
     private final Track track;
     private final Instant start;
+    private final List<String> placeNames;
     private final PlaybackSettings settings;
     private final List<List<List<BigDecimal>>> gaps = new ArrayList<>();
     private final List<List<List<BigDecimal>>> geometry = new ArrayList<>();
@@ -70,7 +75,9 @@ public record Track(
     private int count;
     private int unknown;
 
-    public OverviewBuilder(Track track, Instant start, PlaybackSettings settings) {
+    public OverviewBuilder(
+        Track track, Instant start, PlaybackSettings settings, List<String> placeNames) {
+      this.placeNames = List.copyOf(placeNames);
       this.track = track;
       this.start = start;
       this.settings = settings;
@@ -103,7 +110,7 @@ public record Track(
     }
 
     public Overview build() {
-      return new Overview(track, start, count, unknown, geometry, gaps);
+      return new Overview(track, start, count, unknown, geometry, gaps, placeNames);
     }
   }
 
@@ -116,8 +123,11 @@ public record Track(
       List<Point> points,
       List<List<List<BigDecimal>>> geometry,
       List<List<List<BigDecimal>>> gaps,
-      List<Long> originalIds) {
+      List<Long> originalIds,
+      HistoryDay.FixCounts fixCounts,
+      List<PlaceVisit> placeVisits) {
     public Detail {
+      placeVisits = List.copyOf(placeVisits);
       points = List.copyOf(points);
       geometry = List.copyOf(TrackGeometry.copy(geometry));
       gaps = List.copyOf(TrackGeometry.copy(gaps));
@@ -133,16 +143,6 @@ public record Track(
     @Override
     public byte[] bytes() {
       return bytes.clone();
-    }
-
-    public String mediaType() {
-      if (bytes.length >= 2 && bytes[0] == 'P' && bytes[1] == 'K') {
-        return "application/zip";
-      }
-      if (bytes.length >= 2 && bytes[0] == (byte) 0x1f && bytes[1] == (byte) 0x8b) {
-        return "application/gzip";
-      }
-      return "application/gpx+xml";
     }
   }
 

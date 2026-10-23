@@ -48,14 +48,18 @@ test('review confirms selected days, excludes a flyover and explores a country w
     return Promise.resolve(Response.json({ saved: true }));
   }
   const fetch = vi.fn((url: string, options?: RequestInit) => {
-    if (url === '/api/playback-settings')
-      return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
+    const settings: Record<string, unknown> = {
+      '/api/history-display': { showHistory: true, hiddenYears: [] },
+      '/api/playback-settings': { gapSeconds: 300, showGapConnections: false },
+    };
+    if (url in settings) return Promise.resolve(Response.json(settings[url]));
     if (url === '/api/map-config')
       return Promise.resolve(
         Response.json({
           url: '/tiles/{z}/{x}/{y}',
           attribution: 'Map',
           attributionUrl: 'https://example.com',
+          uploadLimitMb: 512,
         }),
       );
     if (url === '/api/tracks/years') return Promise.resolve(Response.json([2025]));
@@ -101,8 +105,32 @@ test('review confirms selected days, excludes a flyover and explores a country w
         pointCount: 1,
         geometry: [[[52.52, 13.405]]],
       },
+      {
+        id: 3,
+        kind: 'history',
+        historyDate: '2025-06-19',
+        name: 'History Stockholm',
+        visible: true,
+        colour: '#738a91',
+        pointCount: 1,
+        geometry: [],
+        gaps: [],
+      },
+      {
+        id: 4,
+        kind: 'history',
+        historyDate: '2025-06-20',
+        name: 'History Berlin',
+        visible: true,
+        colour: '#738a91',
+        pointCount: 1,
+        geometry: [],
+        gaps: [],
+      },
     ];
-    return Promise.resolve(Response.json(url.includes('country=SWE') ? [tracks[0]] : tracks));
+    return Promise.resolve(
+      Response.json(url.includes('country=SWE') ? [tracks[0], tracks[2]] : tracks),
+    );
   });
   vi.stubGlobal('fetch', fetch);
   const user = userEvent.setup();
@@ -134,7 +162,88 @@ test('review confirms selected days, excludes a flyover and explores a country w
   );
   expect(await screen.findByRole('button', { name: /^Stockholm walk.*/ })).toBeVisible();
   expect(screen.queryByRole('button', { name: /^Flyover.*/ })).not.toBeInTheDocument();
+  expect(screen.getByText('History Stockholm')).toBeVisible();
+  expect(screen.queryByText('History Berlin')).not.toBeInTheDocument();
   expect(screen.getByText('2025-01-01 to 2025-12-31')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'All countries' }));
   expect(await screen.findByRole('button', { name: /^Flyover.*/ })).toBeVisible();
+  expect(screen.getByText('History Berlin')).toBeVisible();
+});
+
+test('history days appear as inferred candidate sources next to recordings', async () => {
+  const candidates = [
+    {
+      country: 'DEU',
+      name: 'Germany',
+      date: '2014-06-18',
+      state: 'pending',
+      tracks: [
+        { trackId: 1, name: '18 Jun 2014', kind: 'history' },
+        { trackId: 2, name: 'Berlin walk', kind: 'recording' },
+      ],
+    },
+  ];
+  const fetch = vi.fn((url: string) => {
+    if (url === '/api/playback-settings')
+      return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
+    if (url === '/api/map-config')
+      return Promise.resolve(
+        Response.json({
+          url: '/tiles/{z}/{x}/{y}',
+          attribution: 'Map',
+          attributionUrl: 'https://example.com',
+          uploadLimitMb: 512,
+        }),
+      );
+    if (url === '/api/tracks/years') return Promise.resolve(Response.json([2014]));
+    if (url === '/api/history-display')
+      return Promise.resolve(Response.json({ showHistory: true, hiddenYears: [] }));
+    if (url.startsWith('/api/visits'))
+      return Promise.resolve(Response.json({ candidates, unresolvedPoints: 0 }));
+    if (url.startsWith('/api/countries')) return Promise.resolve(Response.json([]));
+    if (url === '/api/tracks/1')
+      return Promise.resolve(
+        Response.json({
+          id: 1,
+          name: '18 Jun 2014',
+          kind: 'history',
+          historyDate: '2014-06-18',
+          visible: true,
+          colour: '#738a91',
+          segmentCount: 1,
+          originalIds: [5],
+          points: [],
+          geometry: [[[52.52, 13.405]]],
+          gaps: [],
+          keptFixCount: 2,
+          droppedFixCount: 0,
+          placeVisits: [],
+        }),
+      );
+    return Promise.resolve(
+      Response.json([
+        {
+          id: 1,
+          name: '18 Jun 2014',
+          kind: 'history',
+          historyDate: '2014-06-18',
+          visible: true,
+          colour: '#738a91',
+          pointCount: 2,
+          geometry: [[[52.52, 13.405]]],
+        },
+      ]),
+    );
+  });
+  vi.stubGlobal('fetch', fetch);
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(screen.getByRole('button', { name: 'Countries' }));
+  const row = await screen.findByRole('group', { name: 'Germany 2014-06-18' });
+  expect(within(row).getByRole('button', { name: '18 Jun 2014 Google history' })).toBeVisible();
+  expect(within(row).getByRole('button', { name: 'Berlin walk' })).toBeVisible();
+  await user.click(within(row).getByRole('button', { name: '18 Jun 2014 Google history' }));
+  expect(screen.queryByRole('main', { name: 'Country visits' })).not.toBeInTheDocument();
+  expect(await screen.findByRole('region', { name: 'History day' })).toBeVisible();
+  expect(await screen.findByText('2 fixes kept · 0 dropped')).toBeVisible();
 });

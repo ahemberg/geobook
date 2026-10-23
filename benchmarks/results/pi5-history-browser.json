@@ -1,0 +1,119 @@
+{
+  "url": "http://PI_LAN_IP:18176",
+  "workload": {
+    "tracks": 500,
+    "pointsPerTrack": 10000,
+    "points": 5000000,
+    "from": "2024-01-01",
+    "to": "2024-01-01",
+    "filteredTracks": 1,
+    "filteredPoints": 10000,
+    "filteredName": "Benchmark 0000"
+  },
+  "history": {
+    "fixes": 612238,
+    "placeVisits": 3017,
+    "daysWithFixes": 2779,
+    "years": [
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022
+    ],
+    "from": "2013-03-01",
+    "to": "2022-10-31",
+    "archiveBytes": 28362586,
+    "historyDays": 2919
+  },
+  "client": {
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz",
+    "memoryBytes": 16626147328,
+    "chromium": "156.0.8078.4",
+    "viewport": "1440x900",
+    "conditions": "Headless Chromium, fresh context per run, external tiles stubbed, no CPU/network throttling"
+  },
+  "results": [
+    {
+      "run": 1,
+      "overviewMs": 2129.2932060000003,
+      "filterMs": 490.78500699999995,
+      "allTimeMs": 1811.1105719999996,
+      "overviewBytes": 4090456,
+      "historyFilterMs": 322.754629,
+      "withinTargets": true,
+      "overviewVertices": 34500,
+      "historyDays": 2919,
+      "historyVertices": 87432
+    },
+    {
+      "run": 2,
+      "overviewMs": 1912.7167609999997,
+      "filterMs": 480.5113769999989,
+      "allTimeMs": 1895.2231749999992,
+      "overviewBytes": 4090456,
+      "historyFilterMs": 321.6169430000009,
+      "withinTargets": true,
+      "overviewVertices": 34500,
+      "historyDays": 2919,
+      "historyVertices": 87432
+    },
+    {
+      "run": 3,
+      "overviewMs": 1988.46601,
+      "filterMs": 466.78754500000105,
+      "allTimeMs": 1845.3051440000017,
+      "overviewBytes": 4090456,
+      "historyFilterMs": 354.8060680000017,
+      "withinTargets": true,
+      "overviewVertices": 34500,
+      "historyDays": 2919,
+      "historyVertices": 87432
+    },
+    {
+      "run": 4,
+      "overviewMs": 1880.003542999999,
+      "filterMs": 467.4971890000015,
+      "allTimeMs": 1712.2306269999972,
+      "overviewBytes": 4090456,
+      "historyFilterMs": 289.6945169999999,
+      "withinTargets": true,
+      "overviewVertices": 34500,
+      "historyDays": 2919,
+      "historyVertices": 87432
+    },
+    {
+      "run": 5,
+      "overviewMs": 1886.3333869999988,
+      "filterMs": 519.8480359999994,
+      "allTimeMs": 1878.667422999999,
+      "overviewBytes": 4090456,
+      "historyFilterMs": 290.9723060000033,
+      "withinTargets": true,
+      "overviewVertices": 34500,
+      "historyDays": 2919,
+      "historyVertices": 87432
+    }
+  ],
+  "serverCommit": "5ccb8a7",
+  "baseline": {
+    "serverCommit": "cf1eced",
+    "run": 1,
+    "overviewMs": 5216.904890999999,
+    "filterMs": 643.2840399999995,
+    "allTimeMs": 4911.484280000001,
+    "overviewBytes": 13959123,
+    "historyFilterMs": 1654.1751299999987,
+    "withinTargets": false,
+    "overviewVertices": 34500,
+    "historyDays": 2919,
+    "historyVertices": 498561
+  }
+}

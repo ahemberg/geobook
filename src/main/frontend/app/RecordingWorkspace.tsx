@@ -1,24 +1,37 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { LatLngTuple } from 'leaflet';
 import { request } from './api';
-import type { Country, Detail, MapConfig, MapTrack, Overview, PlaybackSettings } from './api';
+import type {
+  Country,
+  Detail,
+  HistoryDisplay,
+  MapConfig,
+  MapTrack,
+  Overview,
+  PlaceVisit,
+  PlaybackSettings,
+} from './api';
+import HistoryDay from './HistoryDay';
 import Playback from './Playback';
 import TrackMap from './TrackMap';
 import { mapGeometry } from './mapGeometry';
 
+const noStops: PlaceVisit[] = [];
+
 export default function RecordingWorkspace({
   tracks,
-  history,
   country,
   config,
   selectedId,
   importedIds,
   reload,
   settings,
+  historyDisplay,
   loadError,
   close,
 }: {
   tracks: Overview[];
-  history: Overview[];
+  historyDisplay: HistoryDisplay | null;
   country: Country | null;
   config: MapConfig | null;
   selectedId: number | null;
@@ -31,31 +44,42 @@ export default function RecordingWorkspace({
   const [pointIndex, setPointIndex] = useState(0);
   const { detail, detailError } = useRecording(selectedId, reload);
   const { mapTracks, marker, displayedDetail } = useMapRecording(tracks, detail, pointIndex);
+  const { history, stops, focus, pan } = useOpenedDay(tracks, selectedId, detail);
   return (
     <div className="map-workspace">
       {config ? (
         <TrackMap
           tracks={mapTracks}
-          history={history}
+          historyDisplay={historyDisplay}
           selectedId={selectedId}
           importedIds={importedIds}
           config={config}
           position={marker}
+          openedDay={{ stops, focus }}
           country={country}
         />
       ) : (
         <div className="map-placeholder">{loadError ? 'Map unavailable' : 'Loading map…'}</div>
       )}
-      {selectedId !== null && (
-        <SelectedRecording
-          key={selectedId}
-          detail={displayedDetail}
-          detailError={detailError}
-          settings={settings}
-          onPosition={setPointIndex}
-          close={close}
-        />
-      )}
+      {selectedId !== null &&
+        (history ? (
+          <HistoryDay
+            key={selectedId}
+            detail={displayedDetail}
+            detailError={detailError}
+            close={close}
+            pan={pan}
+          />
+        ) : (
+          <SelectedRecording
+            key={selectedId}
+            detail={displayedDetail}
+            detailError={detailError}
+            settings={settings}
+            onPosition={setPointIndex}
+            close={close}
+          />
+        ))}
     </div>
   );
 }
@@ -118,6 +142,18 @@ function SelectedRecording({
       )}
     </section>
   );
+}
+
+// Stops and panning belong only to an opened history day.
+function useOpenedDay(tracks: Overview[], selectedId: number | null, detail: Detail | null) {
+  const [focus, setFocus] = useState<{ id: number | null; position: LatLngTuple } | null>(null);
+  const history = (tracks.find((item) => item.id === selectedId) ?? detail)?.kind === 'history';
+  return {
+    history,
+    stops: (history && detail?.placeVisits) || noStops,
+    focus: focus?.id === selectedId ? focus.position : null,
+    pan: (position: LatLngTuple) => setFocus({ id: selectedId, position }),
+  };
 }
 
 function useRecording(selectedId: number | null, reload: number) {

@@ -2,8 +2,11 @@ package se.geobook.tracker.tracks.controller;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 import se.geobook.tracker.tracks.domain.OriginalExport;
+import se.geobook.tracker.tracks.domain.PlaceVisit;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
@@ -11,7 +14,7 @@ import se.geobook.tracker.tracks.domain.Track;
 import se.geobook.tracker.tracks.service.TrackImporter;
 
 // Keep the established JSON field names independent of the domain records.
-@SuppressWarnings("PMD.ShortVariable")
+@SuppressWarnings({"PMD.ShortVariable", "PMD.CouplingBetweenObjects", "PMD.TooManyMethods"})
 final class TrackResponses {
   private TrackResponses() {}
 
@@ -35,7 +38,8 @@ final class TrackResponses {
       int pointCount,
       int unknownDateCount,
       List<List<List<BigDecimal>>> geometry,
-      List<List<List<BigDecimal>>> gaps) {}
+      List<List<List<BigDecimal>>> gaps,
+      List<String> placeNames) {}
 
   record Point(
       int segment,
@@ -55,11 +59,29 @@ final class TrackResponses {
       String name,
       String colour,
       boolean visible,
+      String kind,
+      String historyDate,
       int segmentCount,
       List<Point> points,
       List<List<List<BigDecimal>>> geometry,
       List<List<List<BigDecimal>>> gaps,
-      List<Long> originalIds) {}
+      List<Long> originalIds,
+      Integer keptFixCount,
+      Integer droppedFixCount,
+      List<Visit> placeVisits,
+      String localStartTime,
+      String localEndTime) {}
+
+  record Visit(
+      String name,
+      BigDecimal latitude,
+      BigDecimal longitude,
+      Instant startTime,
+      Instant endTime,
+      String localStartTime,
+      String localEndTime) {}
+
+  private record Moment(Instant time, String local) {}
 
   record ImportEvent(
       String status,
@@ -70,7 +92,10 @@ final class TrackResponses {
       Long originalId,
       List<String> warnings,
       String message,
-      String kind) {}
+      String kind,
+      HistorySummary summary) {}
+
+  record HistorySummary(int created, int updated, int unchanged) {}
 
   record Original(long id, String filename, long byteCount, List<AffectedTrack> tracks) {}
 
@@ -103,13 +128,14 @@ final class TrackResponses {
         track.colour(),
         track.visible(),
         track.revision(),
-        track.kind().value(),
+        track.kind(),
         track.historyDate(),
         overview.startTime(),
         overview.pointCount(),
         overview.unknownDateCount(),
         overview.geometry(),
-        overview.gaps());
+        overview.gaps(),
+        overview.placeNames());
   }
 
   static Point from(Track.Point point) {
@@ -131,16 +157,35 @@ final class TrackResponses {
 
   static Detail from(Track.Detail detail) {
     Track track = detail.track();
+    List<Moment> span = historySpan(detail);
     return new Detail(
         track.id(),
         track.name(),
         track.colour(),
         track.visible(),
+        track.kind(),
+        track.historyDate(),
         detail.segmentCount(),
-        detail.points().stream().map(TrackResponses::from).toList(),
+        track.isHistory() ? List.of() : detail.points().stream().map(TrackResponses::from).toList(),
         detail.geometry(),
         detail.gaps(),
-        detail.originalIds());
+        detail.originalIds(),
+        detail.fixCounts() == null ? null : detail.fixCounts().kept(),
+        detail.fixCounts() == null ? null : detail.fixCounts().dropped(),
+        detail.placeVisits().stream().map(TrackResponses::from).toList(),
+        span.isEmpty() ? null : span.getFirst().local(),
+        span.isEmpty() ? null : span.getLast().local());
+  }
+
+  private static Visit from(PlaceVisit visit) {
+    return new Visit(
+        visit.name(),
+        visit.latitude(),
+        visit.longitude(),
+        visit.startTime(),
+        visit.endTime(),
+        visit.localStartTime(),
+        visit.localEndTime());
   }
 
   static ImportEvent from(TrackImporter.ImportEvent event) {
@@ -153,7 +198,11 @@ final class TrackResponses {
         event.originalId(),
         event.warnings(),
         event.message(),
-        event.kind() == null ? null : event.kind().value());
+        event.kind(),
+        event.summary() == null
+            ? null
+            : new HistorySummary(
+                event.summary().created(), event.summary().updated(), event.summary().unchanged()));
   }
 
   static Removal removal(OriginalExport original) {
@@ -165,6 +214,27 @@ final class TrackResponses {
         .map(
             source ->
                 new AffectedTrack(source.track().id(), source.track().name(), source.retained()))
+        .toList();
+  }
+
+  // A history day's span covers its kept fixes and place visits, in their own local time.
+  private static List<Moment> historySpan(Track.Detail detail) {
+    if (!detail.track().isHistory()) {
+      return List.of();
+    }
+    Stream<Moment> fixes =
+        detail.points().stream()
+            .map(point -> new Moment(point.source().time(), point.attribution().localTime()));
+    Stream<Moment> visits =
+        detail.placeVisits().stream()
+            .flatMap(
+                visit ->
+                    Stream.of(
+                        new Moment(visit.startTime(), visit.localStartTime()),
+                        new Moment(visit.endTime(), visit.localEndTime())));
+    return Stream.concat(fixes, visits)
+        .filter(moment -> moment.time() != null && moment.local() != null)
+        .sorted(Comparator.comparing(Moment::time))
         .toList();
   }
 }

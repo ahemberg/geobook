@@ -24,8 +24,8 @@ public class VisitRepository {
     Map<Visit.Key, String> states = new LinkedHashMap<>();
     jdbc.query(
         """
-        SELECT DISTINCT p.country_code, p.local_date, t.id, t.name, COALESCE(r.state, 'pending') AS state
-        FROM overview_run p JOIN track t ON t.id = p.track_id AND t.kind = 'recording'
+        SELECT DISTINCT p.country_code, p.local_date, t.id, t.name, t.kind, COALESCE(r.state, 'pending') AS state
+        FROM overview_run p JOIN track t ON t.id = p.track_id
         LEFT JOIN visit_review r ON r.country_code = p.country_code AND r.local_date = p.local_date
         WHERE p.country_code IS NOT NULL AND p.local_date IS NOT NULL
           AND (? IS NULL OR p.local_date BETWEEN ? AND ?)
@@ -35,7 +35,9 @@ public class VisitRepository {
           Visit.Key key = new Visit.Key(row.getString("country_code"), row.getString("local_date"));
           evidence
               .computeIfAbsent(key, ignored -> new ArrayList<>())
-              .add(new Visit.Evidence(row.getLong("id"), row.getString("name")));
+              .add(
+                  new Visit.Evidence(
+                      row.getLong("id"), row.getString("name"), row.getString("kind")));
           states.put(key, row.getString("state"));
         },
         range.from(),
@@ -52,7 +54,7 @@ public class VisitRepository {
     return Objects.requireNonNull(
         jdbc.queryForObject(
             """
-            SELECT count(*) FROM track_point p JOIN track t ON t.id = p.track_id AND t.kind = 'recording'
+            SELECT count(*) FROM track_point p JOIN track t ON t.id = p.track_id
             WHERE (p.country_code IS NULL OR p.local_date IS NULL)
               AND (? IS NULL OR p.local_date BETWEEN ? AND ?)
             """,
@@ -67,7 +69,7 @@ public class VisitRepository {
         """
         SELECT p.country_code, min(p.local_date) AS first_visit, max(p.local_date) AS latest_visit,
           count(DISTINCT p.local_date) AS recorded_days
-        FROM overview_run p JOIN track t ON t.id = p.track_id AND t.kind = 'recording'
+        FROM overview_run p JOIN track t ON t.id = p.track_id
         JOIN visit_review r ON r.country_code = p.country_code AND r.local_date = p.local_date
         WHERE r.state = 'confirmed' AND (? IS NULL OR p.local_date BETWEEN ? AND ?)
         GROUP BY p.country_code ORDER BY p.country_code
@@ -89,7 +91,7 @@ public class VisitRepository {
           jdbc.queryForObject(
               """
               SELECT EXISTS(
-                SELECT 1 FROM overview_run p JOIN track t ON t.id = p.track_id AND t.kind = 'recording'
+                SELECT 1 FROM overview_run p JOIN track t ON t.id = p.track_id
                 WHERE p.country_code = ? AND p.local_date = ?
               )
               """,

@@ -69,8 +69,9 @@ migrations. SQLite uses WAL, FULL synchronization, foreign keys and a five-secon
 Run one application instance per data directory on a local disk. Keep that directory when restarting.
 
 Choose several GPX 1.0/1.1 files or a collection export. Each file can contain multiple
-tracks, up to 32 MB per file and 250,000 points per track. The browser sends files one at a
-time, shows per-track progress and retains the batch results until the next upload.
+tracks, with a default upload limit of 512 MB and 250,000 points per track. The browser
+sends files one at a time, shows per-track progress and retains the batch results until
+the next upload.
 Valid tracks import even when a sibling has invalid measurements. Malformed XML rejects
 that file before any of its tracks are saved. Missing times and elevations produce warnings.
 
@@ -80,16 +81,16 @@ keeps the existing track and its saved controls, and links every distinct origin
 Identical upload bytes reuse the original. Original downloads are byte-for-byte unchanged.
 Upgrades index existing recordings without merging or deleting duplicates created by older releases.
 
-A Google Takeout `.zip` or `.tgz` uploads through the same control. Geobook recognises it by
-content: any JSON file whose first key is `locations` is the raw records file, whatever its
-folder is called, and it is read as a stream. Each local date with fixes becomes one history
-day, listed under "Google history" and drawn under the tracks in one muted colour. An archive
-without location records is rejected and nothing is stored. Import events for days carry
-`"kind":"history"`, and `GET /api/tracks` gives every item a `kind` and, for history days, a
-`historyDate`. History days don't create country-visit suggestions yet.
+Set `GEOBOOK_UPLOAD_LIMIT_MB` to a positive whole number to change the upload limit,
+for example `GEOBOOK_UPLOAD_LIMIT_MB=256 java -jar target/tracker-0.0.1-SNAPSHOT.jar`.
+The equivalent Spring property is `geobook.upload-limit-mb`. MB means 1,048,576 bytes.
+The limit applies to each file and the complete multipart request, including its headers.
+The empty library shows the configured limit from `/api/map-config` as `uploadLimitMb`.
+Match the reverse proxy's request limit to this value or higher, and restart after changing it.
+Oversized requests return HTTP 413 with the configured limit and save no tracks or originals.
 
-`POST /api/imports` accepts repeated multipart `file` parts, with a 33 MB total request limit,
-and streams newline-delimited JSON. Events report `progress`, `imported`, `duplicate`, `failed`
+`POST /api/imports` accepts repeated multipart `file` parts within the configured total
+request limit and streams newline-delimited JSON. Events report `progress`, `imported`, `duplicate`, `failed`
 and `complete`, with completed/total track counts, track/original IDs and warnings. Each file
 ends with `complete` or a file-level `failed` event with total zero. Keep reverse-proxy response
 buffering disabled for this endpoint. The single-track `POST /api/tracks` response remains

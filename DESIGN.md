@@ -182,10 +182,6 @@ Search filters the library by name. Edit expands an inline form with name and na
 
 The expanded editor also exposes Delete track. Its confirmation explains that original exports stay in the archive. Successful deletion returns focus to the track library.
 
-### Google history
-
-History days sit in their own section below the track list, separated by a 2px rule. Its heading reads Google history with an Inferred badge in muted blue-grey. Day rows use a pale grey fill, a striped swatch in the day's colour and the name at weight 400, so they read as background next to recorded tracks. Search narrows history rows by name. When the section is present, the whole library content scrolls rather than the track list alone.
-
 ### Original exports and removal
 
 The archive has a prominent heading and flat rows divided by single-pixel rules. Each row shows its filename, byte count, live track count and associated track names, followed by Download GPX and Preview removal. Loading, empty and retry states use explicit text. Opening the archive focuses its heading.
@@ -202,7 +198,7 @@ Point details discloses Previous point, Next point, a numbered input, coordinate
 
 ### Map and notices
 
-Selected map lines are 5px wide; other lines are 3px and dim to 0.5 opacity while a track is selected. Isolated positions use a 4px circle radius. History days draw on one canvas in their own pane under the tracks: 2px lines at 0.4 opacity in the shared muted colour `#5f7186`, with 2px dots for isolated fixes. Fit all tracks ignores history. Fit all tracks floats at the upper right. Keep attribution visible at the bottom.
+Selected map lines are 5px wide; other lines are 3px and dim to 0.5 opacity while a track is selected. Isolated positions use a 4px circle radius. Fit all tracks floats at the upper right. Keep attribution visible at the bottom.
 
 Upload and loading feedback use full-width notice strips. Tile failure uses a warning above the map attribution with a Retry tiles button. Status messages and alerts retain their accessible roles. First use shows a short explanation and a primary file chooser in the library.
 

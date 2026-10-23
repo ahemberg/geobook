@@ -26,6 +26,21 @@ public final class ContentIdentity {
     return HexFormat.of().formatHex(digest.digest());
   }
 
+  public static String history(HistoryDay day) {
+    MessageDigest digest = digest();
+    update(digest, recording(day.recording()));
+    update(digest, Integer.toString(day.keptFixCount()));
+    update(digest, Integer.toString(day.droppedFixCount()));
+    for (PlaceVisit visit : day.placeVisits()) {
+      update(digest, visit.name());
+      update(digest, decimal(visit.latitude()));
+      update(digest, decimal(visit.longitude()));
+      update(digest, visit.startTime().toString());
+      update(digest, visit.endTime().toString());
+    }
+    return HexFormat.of().formatHex(digest.digest());
+  }
+
   private static String decimal(BigDecimal value) {
     return value == null ? "missing" : value.stripTrailingZeros().toString();
   }

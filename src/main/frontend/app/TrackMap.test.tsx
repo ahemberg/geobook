@@ -39,14 +39,15 @@ function renderMap(props: Partial<ComponentProps<typeof TrackMap>> = {}) {
           ],
         },
       ]}
+      historyDisplay={{ showHistory: true, hiddenYears: [] }}
       selectedId={null}
       importedIds={[]}
       config={{
         url: '/tiles/{z}/{x}/{y}.png',
         attribution: 'Map',
         attributionUrl: 'https://example.com',
+        uploadLimitMb: 512,
       }}
-      history={[]}
       position={[0, 0]}
       country={null}
       {...props}
@@ -163,49 +164,96 @@ test('hidden tracks stay absent from repeated worlds', () => {
   expect(container.querySelectorAll('.leaflet-overlay-pane path')).toHaveLength(0);
 });
 
-test('history draws thin lines in its own pane under tracks and Fit all tracks ignores it', async () => {
-  const { map, getByRole } = renderMap({
-    history: [
+test('history draws beneath recordings and Fit all tracks excludes its extent', () => {
+  // jsdom has no canvas context; use Leaflet's SVG renderer to inspect the history pane.
+  vi.spyOn(L, 'canvas').mockImplementation((options) => L.svg(options));
+  const { map, container, getByRole } = renderMap({
+    tracks: [
       {
-        id: 2,
-        colour: '#5f7186',
+        id: 1,
+        kind: 'recording',
+        colour: '#123456',
         visible: true,
         geometry: [
           [
-            [50, 50],
-            [51, 51],
+            [0, 0],
+            [1, 1],
           ],
         ],
         gaps: [],
       },
       {
-        id: 3,
-        colour: '#5f7186',
-        visible: false,
+        id: 2,
+        kind: 'history',
+        colour: '#738a91',
+        visible: true,
         geometry: [
           [
-            [50.5, 50],
-            [50.6, 50.4],
+            [60, 100],
+            [61, 101],
           ],
         ],
         gaps: [],
       },
     ],
+    importedIds: [2],
+    position: null,
   });
-  map.setView([50.5, 50.5], 6, { animate: false });
-  const history: L.PolylineOptions[] = [];
-  map.eachLayer((layer) => {
-    if (layer instanceof L.Polyline && layer.options.pane === 'history')
-      history.push(layer.options);
-  });
-  expect(history).toHaveLength(1);
-  expect(history[0]).toMatchObject({ color: '#5f7186', weight: 2, opacity: 0.4 });
-  // Leaflet stacks the track overlay pane at z-index 400.
-  expect(Number(map.getPane('history')?.style.zIndex)).toBeLessThan(400);
-  const fitted = new Promise((resolve) => map.once('moveend', resolve));
+  map.setView([30, 50], 0, { animate: false });
+  expect(container.querySelector('.leaflet-history-pane')?.getAttribute('style')).toContain('350');
+  const path = container.querySelector('.leaflet-history-pane path');
+  expect(path).toHaveAttribute('stroke', '#738a91');
+  expect(path).toHaveAttribute('stroke-width', '2');
+  expect(path).toHaveAttribute('stroke-opacity', '0.4');
   fireEvent.click(getByRole('button', { name: 'Fit all tracks' }));
-  await fitted;
-  expect(map.getCenter().lng).toBeCloseTo(2.5, 0);
-  // Leaflet 1.9 can leave a queued canvas redraw that fails if the map is removed first.
-  await new Promise((resolve) => requestAnimationFrame(resolve));
+  expect(map.getCenter().lat).toBeCloseTo(0.5, 0);
+  expect(map.getCenter().lng).toBeCloseTo(0.5, 0);
 });
+
+test.each([
+  { display: { showHistory: false, hiddenYears: [] }, visible: true, drawn: false },
+  { display: { showHistory: true, hiddenYears: [2014] }, visible: true, drawn: false },
+  { display: { showHistory: true, hiddenYears: [] }, visible: false, drawn: false },
+  { display: { showHistory: true, hiddenYears: [] }, visible: true, drawn: true },
+])(
+  'history drawing combines saved global, year and day choices: %j',
+  ({ display, visible, drawn }) => {
+    vi.spyOn(L, 'canvas').mockImplementation((options) => L.svg(options));
+    const { container, map } = renderMap({
+      historyDisplay: display,
+      tracks: [
+        {
+          id: 1,
+          kind: 'recording',
+          colour: '#123456',
+          visible: true,
+          geometry: [
+            [
+              [0, 0],
+              [1, 1],
+            ],
+          ],
+          gaps: [],
+        },
+        {
+          id: 2,
+          kind: 'history',
+          historyDate: '2014-06-18',
+          colour: '#738a91',
+          visible,
+          geometry: [
+            [
+              [0, 0],
+              [1, 1],
+            ],
+          ],
+          gaps: [],
+        },
+      ],
+      position: null,
+    });
+    map.setView([0, 0], 2, { animate: false });
+    expect(container.querySelectorAll('.leaflet-history-pane path')).toHaveLength(drawn ? 1 : 0);
+    expect(container.querySelectorAll('.leaflet-overlay-pane path')).toHaveLength(1);
+  },
+);

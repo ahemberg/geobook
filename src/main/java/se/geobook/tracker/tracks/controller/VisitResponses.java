@@ -8,7 +8,7 @@ import tools.jackson.databind.JsonNode;
 final class VisitResponses {
   private VisitResponses() {}
 
-  record Evidence(long trackId, String name) {}
+  record Evidence(long trackId, String name, String kind) {}
 
   record Candidate(String country, String name, String date, String state, List<Evidence> tracks) {}
 
@@ -29,7 +29,7 @@ final class VisitResponses {
         candidate.key().date(),
         candidate.state(),
         candidate.tracks().stream()
-            .map(track -> new Evidence(track.trackId(), track.name()))
+            .map(track -> new Evidence(track.trackId(), track.name(), track.kind()))
             .toList());
   }
 
