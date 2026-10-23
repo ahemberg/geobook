@@ -59,6 +59,7 @@ test('upload shows the saved track and a download of the original export', async
             url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             attribution: '© OpenStreetMap contributors',
             attributionUrl: 'https://www.openstreetmap.org/copyright',
+            uploadLimitMb: 512,
           }),
         );
       if (url === '/api/tracks/1')
@@ -79,10 +80,10 @@ test('upload shows the saved track and a download of the original export', async
   const user = userEvent.setup();
   render(<App />);
   expect(await screen.findByText('Your travels start here')).toBeVisible();
-  await user.upload(
-    screen.getByLabelText('Choose GPX file'),
-    new File(['synthetic'], 'walk.gpx', { type: 'application/gpx+xml' }),
-  );
+  expect(screen.getByText(/Upload limit: 512 MB/)).toBeVisible();
+  const file = new File(['synthetic'], 'walk.gpx', { type: 'application/gpx+xml' });
+  Object.defineProperty(file, 'size', { value: 33 * 1024 * 1024 });
+  await user.upload(screen.getByLabelText('Choose GPX file'), file);
   await waitFor(() =>
     expect(screen.getByRole('button', { name: /^Synthetic waterfront.*/ })).toBeVisible(),
   );
@@ -92,6 +93,34 @@ test('upload shows the saved track and a download of the original export', async
     '/api/originals/1',
   );
   expect(screen.getAllByText('Date unknown')).toHaveLength(2);
+});
+
+test('the upload hint and rejection use the configured limit', async () => {
+  const fetch = vi.fn((url: string) =>
+    Promise.resolve(
+      Response.json(
+        url === '/api/tracks' || url === '/api/tracks/years'
+          ? []
+          : {
+              url: '/tiles/{z}/{x}/{y}.png',
+              attribution: 'Test tiles',
+              attributionUrl: '/copyright',
+              uploadLimitMb: 1,
+            },
+      ),
+    ),
+  );
+  vi.stubGlobal('fetch', fetch);
+  render(<App />);
+  expect(await screen.findByText(/Upload limit: 1 MB/)).toBeVisible();
+  const file = new File(['synthetic'], 'large.gpx');
+  Object.defineProperty(file, 'size', { value: 2 * 1024 * 1024 });
+  await userEvent.setup().upload(screen.getByLabelText('Choose GPX file'), file);
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Upload exceeds the 1 MB limit. Choose a smaller file.',
+  );
+  expect(fetch.mock.calls.some(([url]) => url === '/api/imports')).toBe(false);
+  expect(screen.getByRole('button', { name: 'Upload GPX' })).toBeEnabled();
 });
 
 test('a rejected upload explains the problem and allows another file', async () => {
@@ -110,6 +139,7 @@ test('a rejected upload explains the problem and allows another file', async () 
                 url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 attribution: '© OpenStreetMap contributors',
                 attributionUrl: 'https://www.openstreetmap.org/copyright',
+                uploadLimitMb: 512,
               },
         ),
       );
@@ -166,6 +196,7 @@ test('search and editing use saved responses and explain failures', async () => 
             url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             attribution: '© OpenStreetMap contributors',
             attributionUrl: 'https://www.openstreetmap.org/copyright',
+            uploadLimitMb: 512,
           }),
         );
       return Promise.resolve(Response.json([track]));
@@ -247,6 +278,7 @@ test('a delayed collection load cannot overwrite a saved visibility change', asy
           url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           attribution: '© OpenStreetMap contributors',
           attributionUrl: 'https://www.openstreetmap.org/copyright',
+          uploadLimitMb: 512,
         }),
       );
     }),
@@ -393,6 +425,7 @@ test('local-date filters open a complete recording and uploads reset All time', 
             url: '/tiles/{z}/{x}/{y}.png',
             attribution: 'Test tiles',
             attributionUrl: 'https://example.org',
+            uploadLimitMb: 512,
           }),
         );
       if (url === '/api/tracks/years') return Promise.resolve(Response.json([2025]));
@@ -472,6 +505,7 @@ test('empty date ranges and invalid endpoints have clear recovery', async () => 
                 url: '/tiles/{z}/{x}/{y}.png',
                 attribution: 'Test tiles',
                 attributionUrl: 'https://example.org',
+                uploadLimitMb: 512,
               }
             : [],
         ),
@@ -518,6 +552,7 @@ test('an upload finishing after a filter change still resets All time', async ()
             url: '/tiles/{z}/{x}/{y}.png',
             attribution: 'Test tiles',
             attributionUrl: 'https://example.org',
+            uploadLimitMb: 512,
           }),
         );
       if (url === '/api/tracks/1')
@@ -615,6 +650,7 @@ test('batch completion restores All time after the last new track has arrived', 
             url: '/tiles/{z}/{x}/{y}.png',
             attribution: 'Test tiles',
             attributionUrl: 'https://example.org',
+            uploadLimitMb: 512,
           }),
         );
       if (url === '/api/tracks/1')
@@ -677,6 +713,7 @@ test('compact overview geometry keeps full point counts and fetches detail only 
             url: '/tiles/{z}/{x}/{y}.png',
             attribution: 'Test tiles',
             attributionUrl: 'https://example.org',
+            uploadLimitMb: 512,
           }),
         );
       if (url === '/api/tracks/years') return Promise.resolve(Response.json([2025]));

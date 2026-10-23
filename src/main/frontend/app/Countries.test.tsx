@@ -56,6 +56,7 @@ test('review confirms selected days, excludes a flyover and explores a country w
           url: '/tiles/{z}/{x}/{y}',
           attribution: 'Map',
           attributionUrl: 'https://example.com',
+          uploadLimitMb: 512,
         }),
       );
     if (url === '/api/tracks/years') return Promise.resolve(Response.json([2025]));

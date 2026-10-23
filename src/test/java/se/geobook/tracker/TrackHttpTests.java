@@ -33,6 +33,69 @@ import tools.jackson.databind.json.JsonMapper;
 class TrackHttpTests {
   @TempDir Path directory;
 
+  @Test
+  void defaultUploadLimitAcceptsAnOriginalLargerThan32Mb()
+      throws IOException, InterruptedException {
+    byte[] original = paddedGpx(33 * 1024 * 1024);
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      assertThat(
+              mapper
+                  .readTree(get(client, base(app) + "/api/map-config").body())
+                  .get("uploadLimitMb")
+                  .asInt())
+          .isEqualTo(512);
+      HttpResponse<byte[]> response = upload(client, base(app), original, "/api/imports");
+      assertThat(response.statusCode()).isEqualTo(200);
+      assertThat(new String(response.body(), StandardCharsets.UTF_8))
+          .contains("\"status\":\"imported\"", "\"status\":\"complete\"");
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks").body()).size())
+          .isEqualTo(1);
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(original);
+    }
+  }
+
+  @Test
+  void configuredUploadLimitRejectsFilesAndBatchesWithoutStoringAnything()
+      throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start("--GEOBOOK_UPLOAD_LIMIT_MB=1")) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      assertThat(
+              mapper
+                  .readTree(get(client, base(app) + "/api/map-config").body())
+                  .get("uploadLimitMb")
+                  .asInt())
+          .isEqualTo(1);
+      for (String endpoint : new String[] {"/api/tracks", "/api/imports"}) {
+        HttpResponse<byte[]> response =
+            upload(client, base(app), paddedGpx(4 * 1024 * 1024), endpoint);
+        assertThat(response.statusCode()).isEqualTo(413);
+        assertThat(mapper.readTree(response.body()).get("message").asText())
+            .isEqualTo("Upload exceeds the 1 MB limit. Choose a smaller file.");
+      }
+      byte[] smaller = paddedGpx(600 * 1024);
+      assertThat(
+              uploadBatch(client, base(app), "/api/imports", java.util.List.of(smaller, smaller))
+                  .statusCode())
+          .isEqualTo(413);
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks").body()).isEmpty()).isTrue();
+      assertThat(mapper.readTree(get(client, base(app) + "/api/originals").body()).isEmpty())
+          .isTrue();
+      assertThat(upload(client, base(app), smaller).statusCode()).isEqualTo(201);
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(smaller);
+    }
+  }
+
+  private static byte[] paddedGpx(int paddingBytes) {
+    return gpx(
+        "<!--"
+            + "x".repeat(paddingBytes)
+            + "--><trk><name>Synthetic upload limit</name><trkseg>"
+            + "<trkpt lat='59.32' lon='18.07'/></trkseg></trk>");
+  }
+
   // Rejected uploads must leave the public collection unchanged.
   @Test
   void rejectedUploadDoesNotCreateTrackOrOriginal() throws IOException, InterruptedException {
@@ -1288,9 +1351,14 @@ class TrackHttpTests {
         .getBytes(StandardCharsets.UTF_8);
   }
 
-  private ConfigurableApplicationContext start() {
+  private ConfigurableApplicationContext start(String... settings) {
     return new SpringApplicationBuilder(TrackerApplication.class)
-        .run("--server.port=0", "--geobook.data-directory=" + directory);
+        .run(
+            java.util.stream.Stream.concat(
+                    java.util.stream.Stream.of(
+                        "--server.port=0", "--geobook.data-directory=" + directory),
+                    java.util.Arrays.stream(settings))
+                .toArray(String[]::new));
   }
 
   private static String base(ConfigurableApplicationContext app) {

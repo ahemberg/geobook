@@ -35,7 +35,12 @@ export type Detail = {
   }[];
 };
 
-export type MapConfig = { url: string; attribution: string; attributionUrl: string };
+export type MapConfig = {
+  url: string;
+  attribution: string;
+  attributionUrl: string;
+  uploadLimitMb: number;
+};
 
 export async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, options);
