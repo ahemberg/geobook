@@ -25,6 +25,7 @@ export default function App() {
     tracks,
     years,
     config,
+    uploadLimitMb,
     loading,
     loadError,
     empty,
@@ -65,7 +66,7 @@ export default function App() {
     setImportedIds(trackIds);
     setSelectedId(trackIds.length === 1 ? (trackIds[0] ?? null) : null);
     setReload((value) => value + 1);
-  });
+  }, uploadLimitMb);
   const { uploading } = uploadState;
   function explore(next: Country | null) {
     setCountry(next);
@@ -124,6 +125,7 @@ export default function App() {
               empty={empty}
               uploading={uploading}
               chooseFile={() => fileInput.current?.click()}
+              uploadLimitMb={uploadLimitMb}
             />
             <RecordingWorkspace
               tracks={tracks}
@@ -280,6 +282,7 @@ function useOverview(range: DateRange, reload: number, country: Country | null) 
     onSaved,
     years,
     config,
+    uploadLimitMb: config?.uploadLimitMb,
     loading,
     loadError,
     empty: !loading && !loadError && tracks.length === 0,

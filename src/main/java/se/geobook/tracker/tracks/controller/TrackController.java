@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 import se.geobook.tracker.tracks.domain.DateRange;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
@@ -33,20 +32,24 @@ import tools.jackson.databind.JsonNode;
 
 // Path variables match the public id contract.
 // Keep the track endpoints and their shared request-error handling together.
-@SuppressWarnings({
-  "PMD.ShortVariable",
-  "PMD.TooManyMethods",
-  "PMD.CouplingBetweenObjects",
-  "PMD.ExcessiveImports"
-})
+@SuppressWarnings({"PMD.ShortVariable", "PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 @RestController
-class TrackController {
+final class TrackController {
   private final TrackService collection;
   private final TrackImporter importer;
+  private final int uploadLimitMb;
 
-  TrackController(TrackService collection, TrackImporter importer) {
+  TrackController(
+      TrackService collection,
+      TrackImporter importer,
+      @Value("${geobook.upload-limit-mb}") int uploadLimitMb) {
+    if (uploadLimitMb <= 0) {
+      throw new IllegalArgumentException(
+          "GEOBOOK_UPLOAD_LIMIT_MB must be a positive whole number.");
+    }
     this.collection = collection;
     this.importer = importer;
+    this.uploadLimitMb = uploadLimitMb;
   }
 
   @PostMapping(value = "/api/tracks", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -211,12 +214,16 @@ class TrackController {
   }
 
   @GetMapping("/api/map-config")
-  Map<String, String> mapConfig(
+  Map<String, Object> mapConfig(
       @Value("${geobook.tiles.url:https://tile.openstreetmap.org/{z}/{x}/{y}.png}") String url,
       @Value("${geobook.tiles.attribution:© OpenStreetMap contributors}") String attribution,
       @Value("${geobook.tiles.attribution-url:https://www.openstreetmap.org/copyright}")
           String attributionUrl) {
-    return Map.of("url", url, "attribution", attribution, "attributionUrl", attributionUrl);
+    return Map.of(
+        "url", url,
+        "attribution", attribution,
+        "attributionUrl", attributionUrl,
+        "uploadLimitMb", uploadLimitMb);
   }
 
   @ExceptionHandler(TrackNotFoundException.class)
@@ -228,11 +235,5 @@ class TrackController {
   @ExceptionHandler(IllegalArgumentException.class)
   ResponseEntity<Map<String, String>> invalid(IllegalArgumentException exception) {
     return ResponseEntity.badRequest().body(Map.of("message", exception.getMessage()));
-  }
-
-  @ExceptionHandler(MaxUploadSizeExceededException.class)
-  ResponseEntity<Map<String, String>> tooLarge() {
-    return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
-        .body(Map.of("message", "Choose a GPX file no larger than 32 MB."));
   }
 }

@@ -45,6 +45,7 @@ function renderMap(props: Partial<ComponentProps<typeof TrackMap>> = {}) {
         url: '/tiles/{z}/{x}/{y}.png',
         attribution: 'Map',
         attributionUrl: 'https://example.com',
+        uploadLimitMb: 512,
       }}
       position={[0, 0]}
       country={null}

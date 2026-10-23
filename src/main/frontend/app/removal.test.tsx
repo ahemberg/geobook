@@ -32,6 +32,7 @@ test('library deletion can be cancelled and only removes the track after confirm
           url: '/tiles/{z}/{x}/{y}',
           attribution: 'Test',
           attributionUrl: 'https://example.org',
+          uploadLimitMb: 512,
         }),
       );
     return Promise.resolve(Response.json(url === '/api/tracks' && !removed ? [track] : []));
@@ -91,6 +92,7 @@ test('archive previews removed and retained tracks, cancellation keeps files, an
         url: '/tiles/{z}/{x}/{y}',
         attribution: 'Test',
         attributionUrl: 'https://example.org',
+        uploadLimitMb: 512,
       },
       '/api/tracks': [track],
       '/api/tracks/years': [],

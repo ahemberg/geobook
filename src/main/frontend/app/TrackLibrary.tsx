@@ -15,6 +15,7 @@ export default function TrackLibrary({
   empty,
   uploading,
   chooseFile,
+  uploadLimitMb,
 }: {
   tracks: Overview[];
   filtered: boolean;
@@ -26,6 +27,7 @@ export default function TrackLibrary({
   empty: boolean;
   uploading: boolean;
   chooseFile: () => void;
+  uploadLimitMb: number | undefined;
 }) {
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -64,9 +66,13 @@ export default function TrackLibrary({
             Loading your tracks…
           </p>
         )}
-        {empty && (
-          <EmptyLibrary filtered={filtered} uploading={uploading} chooseFile={chooseFile} />
-        )}
+        <EmptyLibrary
+          empty={empty}
+          filtered={filtered}
+          uploading={uploading}
+          chooseFile={chooseFile}
+          uploadLimitMb={uploadLimitMb}
+        />
         <label className="library-search">
           Search tracks
           <input
@@ -99,14 +105,19 @@ export default function TrackLibrary({
 }
 
 function EmptyLibrary({
+  empty,
   filtered,
   uploading,
   chooseFile,
+  uploadLimitMb,
 }: {
+  empty: boolean;
   filtered: boolean;
   uploading: boolean;
   chooseFile: () => void;
+  uploadLimitMb: number | undefined;
 }) {
+  if (!empty) return null;
   const emptyMessage = filtered
     ? {
         title: 'No recorded points in these dates',
@@ -126,7 +137,9 @@ function EmptyLibrary({
         Choose a GPX file
       </button>
       <p className="hint">
-        Choose files or collection exports. Up to 32 MB per file and 250,000 points per track.
+        Choose files or collection exports.{' '}
+        {uploadLimitMb !== undefined && `Upload limit: ${uploadLimitMb} MB. `}
+        Up to 250,000 points per track.
       </p>
     </div>
   );

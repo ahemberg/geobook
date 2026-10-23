@@ -12,7 +12,7 @@ type ImportEvent = {
 };
 type Result = ImportEvent & { filename: string };
 
-export function useUpload(onImported: (trackIds: number[]) => void) {
+export function useUpload(onImported: (trackIds: number[]) => void, uploadLimitMb?: number) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState('');
   const [results, setResults] = useState<Result[]>([]);
@@ -28,8 +28,8 @@ export function useUpload(onImported: (trackIds: number[]) => void) {
       const label = `File ${index + 1} of ${files.length}: ${file.name}`;
       setProgress(`${label}. Uploading and reading GPX…`);
       try {
-        if (file.size > 32 * 1024 * 1024)
-          throw new Error('Choose a GPX file no larger than 32 MB.');
+        if (uploadLimitMb !== undefined && file.size > uploadLimitMb * 1024 * 1024)
+          throw new Error(`Upload exceeds the ${uploadLimitMb} MB limit. Choose a smaller file.`);
         await importFile(file, (event) => {
           setProgress(`${label}. ${event.completed} of ${event.total} tracks processed.`);
           if (event.status === 'progress' || event.status === 'complete') return;
