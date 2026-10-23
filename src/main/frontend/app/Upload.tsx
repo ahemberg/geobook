@@ -10,7 +10,9 @@ type ImportEvent = {
   originalId: number | null;
   warnings: string[];
   message: string | null;
+  summary?: HistorySummary | null;
 };
+type HistorySummary = { created: number; updated: number; unchanged: number };
 type Result = ImportEvent & { filename: string };
 
 export function useUpload(
@@ -21,10 +23,12 @@ export function useUpload(
   const [progress, setProgress] = useState('');
   const [results, setResults] = useState<Result[]>([]);
   const [finished, setFinished] = useState(false);
+  const [historySummary, setHistorySummary] = useState<HistorySummary | null>(null);
 
   async function upload(files: File[]) {
     if (!files.length) return;
     setResults([]);
+    setHistorySummary(null);
     setFinished(false);
     setUploading(true);
     const imported: number[] = [];
@@ -37,6 +41,7 @@ export function useUpload(
           throw new Error(`Upload exceeds the ${uploadLimitMb} MB limit. Choose a smaller file.`);
         await importFile(file, (event) => {
           setProgress(`${label}. ${event.completed} of ${event.total} items processed.`);
+          setHistorySummary((previous) => addSummary(previous, event));
           if (event.status === 'progress' || event.status === 'complete') return;
           setResults((previous) => [...previous, { ...event, filename: file.name }]);
           if (
@@ -69,7 +74,16 @@ export function useUpload(
     setUploading(false);
     setFinished(true);
   }
-  return { upload, uploading, progress, results, finished };
+  return { upload, uploading, progress, results, finished, historySummary };
+}
+
+function addSummary(previous: HistorySummary | null, event: ImportEvent) {
+  if (event.status !== 'complete' || !event.summary) return previous;
+  return {
+    created: (previous?.created ?? 0) + event.summary.created,
+    updated: (previous?.updated ?? 0) + event.summary.updated,
+    unchanged: (previous?.unchanged ?? 0) + event.summary.unchanged,
+  };
 }
 
 async function importFile(file: File, onEvent: (event: ImportEvent) => void) {
@@ -120,25 +134,22 @@ export function UploadFeedback({
   progress,
   results,
   finished,
+  historySummary,
 }: {
   uploading: boolean;
   progress: string;
   results: Result[];
   finished: boolean;
+  historySummary: HistorySummary | null;
 }) {
   if (!uploading && !finished) return null;
-  const imported = results.filter((result) => result.status === 'imported').length;
-  const history = results.filter((result) => result.kind === 'history');
-  const created = history.filter((result) => result.status === 'imported').length;
-  const updated = history.filter((result) => result.status === 'updated').length;
-  const unchanged = history.filter(
-    (result) => result.status === 'unchanged' || result.status === 'duplicate',
-  ).length;
-  const recordings = imported > created ? ` · ${imported - created} recordings imported` : '';
-  const summary = history.length
-    ? `Google history: ${created} created · ${updated} updated · ${unchanged} unchanged${recordings}`
+  const recordings = results.filter((result) => result.kind !== 'history');
+  const imported = recordings.filter((result) => result.status === 'imported').length;
+  const summary = historySummary
+    ? `Google history: ${historySummary.created} created · ${historySummary.updated} updated · ${historySummary.unchanged} unchanged${imported ? ` · ${imported} recordings imported` : ''}`
     : `${imported} imported`;
-  const duplicates = results.filter((result) => result.status === 'duplicate').length;
+  // The history summary already counts duplicate days as unchanged.
+  const duplicates = recordings.filter((result) => result.status === 'duplicate').length;
   const failures = results.filter((result) => result.status === 'failed').length;
   const warnings = results.filter((result) => result.warnings.length > 0).length;
   const originals = new Map(
