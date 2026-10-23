@@ -80,7 +80,10 @@ final class TrackResponses {
       Long originalId,
       List<String> warnings,
       String message,
-      String kind) {}
+      String kind,
+      HistorySummary summary) {}
+
+  record HistorySummary(int created, int updated, int unchanged) {}
 
   record Original(long id, String filename, long byteCount, List<AffectedTrack> tracks) {}
 
@@ -174,7 +177,11 @@ final class TrackResponses {
         event.originalId(),
         event.warnings(),
         event.message(),
-        event.kind());
+        event.kind(),
+        event.summary() == null
+            ? null
+            : new HistorySummary(
+                event.summary().created(), event.summary().updated(), event.summary().unchanged()));
   }
 
   static Removal removal(OriginalExport original) {

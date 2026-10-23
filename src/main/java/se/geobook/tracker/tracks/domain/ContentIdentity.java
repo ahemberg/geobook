@@ -26,6 +26,14 @@ public final class ContentIdentity {
     return HexFormat.of().formatHex(digest.digest());
   }
 
+  public static String history(HistoryDay day) {
+    MessageDigest digest = digest();
+    update(digest, recording(day.recording()));
+    update(digest, Integer.toString(day.keptFixCount()));
+    update(digest, Integer.toString(day.droppedFixCount()));
+    return HexFormat.of().formatHex(digest.digest());
+  }
+
   private static String decimal(BigDecimal value) {
     return value == null ? "missing" : value.stripTrailingZeros().toString();
   }

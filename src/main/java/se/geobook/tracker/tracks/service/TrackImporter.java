@@ -32,7 +32,21 @@ public class TrackImporter {
       Long originalId,
       List<String> warnings,
       String message,
-      String kind) {
+      String kind,
+      HistorySummary summary) {
+    public ImportEvent(
+        String status,
+        int completed,
+        int total,
+        String name,
+        Long trackId,
+        Long originalId,
+        List<String> warnings,
+        String message,
+        String kind) {
+      this(status, completed, total, name, trackId, originalId, warnings, message, kind, null);
+    }
+
     public ImportEvent(
         String status,
         int completed,
@@ -49,6 +63,8 @@ public class TrackImporter {
       warnings = List.copyOf(warnings);
     }
   }
+
+  public record HistorySummary(int created, int updated, int unchanged) {}
 
   @FunctionalInterface
   public interface Progress {
@@ -131,13 +147,21 @@ public class TrackImporter {
     progress.send(
         new ImportEvent(
             "progress", 0, days.size(), filename, null, source.id(), warnings, null, HISTORY));
+    int created = 0;
+    int updated = 0;
+    int unchanged = 0;
     for (int index = 0; index < days.size(); index++) {
       HistoryDay day = days.get(index);
       try {
         Track.Imported imported = collection.saveHistoryDay(source, day);
+        switch (imported.status()) {
+          case "imported" -> created++;
+          case "updated" -> updated++;
+          default -> unchanged++;
+        }
         progress.send(
             new ImportEvent(
-                imported.duplicate() ? "duplicate" : "imported",
+                imported.status(),
                 index + 1,
                 days.size(),
                 day.date(),
@@ -168,9 +192,10 @@ public class TrackImporter {
             filename,
             null,
             source.id(),
-            List.of(),
+            warnings,
             null,
-            HISTORY));
+            HISTORY,
+            new HistorySummary(created, updated, unchanged)));
   }
 
   private ImportEvent importTrack(

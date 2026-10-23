@@ -142,6 +142,31 @@ public class TrackRepository {
     long trackId =
         Objects.requireNonNull(jdbc.queryForObject("SELECT last_insert_rowid()", Long.class));
     jdbc.update("INSERT INTO track_original VALUES (?, ?)", trackId, originalId);
+    insertContent(trackId, prepared);
+    return trackId;
+  }
+
+  public void replaceHistory(long trackId, Track.Prepared prepared, HistoryDay day) {
+    TrackColours.Bounds bounds = prepared.bounds();
+    jdbc.update(
+        "UPDATE track SET content_hash = ?, south = ?, north = ?, west = ?, east = ?,"
+            + " kept_fix_count = ?, dropped_fix_count = ? WHERE id = ? AND kind = 'history'",
+        prepared.identity(),
+        bounds.south(),
+        bounds.north(),
+        bounds.west(),
+        bounds.east(),
+        day.keptFixCount(),
+        day.droppedFixCount(),
+        trackId);
+    jdbc.update("DELETE FROM overview_run WHERE track_id = ?", trackId);
+    jdbc.update("DELETE FROM track_point WHERE track_id = ?", trackId);
+    jdbc.update("DELETE FROM track_segment WHERE track_id = ?", trackId);
+    insertContent(trackId, prepared);
+  }
+
+  private void insertContent(long trackId, Track.Prepared prepared) {
+    Recording recording = prepared.recording();
     for (int i = 0; i < recording.segmentCount(); i++) {
       jdbc.update("INSERT INTO track_segment VALUES (?, ?)", trackId, i);
     }
@@ -178,7 +203,6 @@ public class TrackRepository {
         });
 
     insertOverview(trackId, prepared);
-    return trackId;
   }
 
   // Each run needs its own batch bindings.
