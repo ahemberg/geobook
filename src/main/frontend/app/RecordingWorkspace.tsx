@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { request } from './api';
-import type { Country, Detail, MapConfig, MapTrack, Overview, PlaybackSettings } from './api';
+import type {
+  Country,
+  Detail,
+  HistoryDisplay,
+  MapConfig,
+  MapTrack,
+  Overview,
+  PlaybackSettings,
+} from './api';
 import Playback from './Playback';
 import TrackMap from './TrackMap';
 import { mapGeometry } from './mapGeometry';
@@ -13,10 +21,12 @@ export default function RecordingWorkspace({
   importedIds,
   reload,
   settings,
+  historyDisplay,
   loadError,
   close,
 }: {
   tracks: Overview[];
+  historyDisplay: HistoryDisplay | null;
   country: Country | null;
   config: MapConfig | null;
   selectedId: number | null;
@@ -37,6 +47,7 @@ export default function RecordingWorkspace({
       {config ? (
         <TrackMap
           tracks={mapTracks}
+          historyDisplay={historyDisplay}
           selectedId={recordingId}
           importedIds={importedIds}
           config={config}

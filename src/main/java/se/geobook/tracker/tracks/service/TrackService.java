@@ -12,6 +12,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import se.geobook.tracker.tracks.domain.ContentIdentity;
 import se.geobook.tracker.tracks.domain.DateRange;
 import se.geobook.tracker.tracks.domain.HistoryDay;
+import se.geobook.tracker.tracks.domain.HistoryDisplay;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.OverviewRun;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
@@ -152,6 +153,19 @@ public class TrackService {
         TrackGeometry.lines(points, settings.gapSeconds()),
         TrackGeometry.gaps(points, settings),
         repository.originalIds(id));
+  }
+
+  public HistoryDisplay historyDisplay() {
+    return repository.historyDisplay();
+  }
+
+  public HistoryDisplay showHistory(boolean show) {
+    return write(() -> repository.showHistory(show));
+  }
+
+  public HistoryDisplay showHistoryYear(int year, boolean show) {
+    HistoryDisplay.validateYear(year);
+    return write(() -> repository.showHistoryYear(year, show));
   }
 
   public PlaybackSettings playbackSettings() {

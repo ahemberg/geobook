@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
-import type { Country, MapConfig, MapTrack } from './api';
+import type { Country, HistoryDisplay, MapConfig, MapTrack } from './api';
 import { mapGeometry } from './mapGeometry';
 
 export default function TrackMap({
-  tracks,
+  tracks: items,
+  historyDisplay,
   selectedId,
   importedIds,
   config,
@@ -12,12 +13,28 @@ export default function TrackMap({
   country: scope,
 }: {
   tracks: MapTrack[];
+  historyDisplay: HistoryDisplay | null;
   country: Country | null;
   selectedId: number | null;
   importedIds: number[];
   config: MapConfig;
   position: L.LatLngTuple | null;
 }) {
+  const tracks = useMemo(
+    () =>
+      items.map((track) =>
+        track.kind === 'history'
+          ? {
+              ...track,
+              visible:
+                track.visible &&
+                !!historyDisplay?.showHistory &&
+                !historyDisplay.hiddenYears.includes(Number(track.historyDate?.slice(0, 4))),
+            }
+          : track,
+      ),
+    [items, historyDisplay],
+  );
   const country = selectedId === null ? scope : null;
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);

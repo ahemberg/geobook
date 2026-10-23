@@ -48,8 +48,11 @@ test('review confirms selected days, excludes a flyover and explores a country w
     return Promise.resolve(Response.json({ saved: true }));
   }
   const fetch = vi.fn((url: string, options?: RequestInit) => {
-    if (url === '/api/playback-settings')
-      return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
+    const settings: Record<string, unknown> = {
+      '/api/history-display': { showHistory: true, hiddenYears: [] },
+      '/api/playback-settings': { gapSeconds: 300, showGapConnections: false },
+    };
+    if (url in settings) return Promise.resolve(Response.json(settings[url]));
     if (url === '/api/map-config')
       return Promise.resolve(
         Response.json({
@@ -102,8 +105,32 @@ test('review confirms selected days, excludes a flyover and explores a country w
         pointCount: 1,
         geometry: [[[52.52, 13.405]]],
       },
+      {
+        id: 3,
+        kind: 'history',
+        historyDate: '2025-06-19',
+        name: 'History Stockholm',
+        visible: true,
+        colour: '#738a91',
+        pointCount: 1,
+        geometry: [],
+        gaps: [],
+      },
+      {
+        id: 4,
+        kind: 'history',
+        historyDate: '2025-06-20',
+        name: 'History Berlin',
+        visible: true,
+        colour: '#738a91',
+        pointCount: 1,
+        geometry: [],
+        gaps: [],
+      },
     ];
-    return Promise.resolve(Response.json(url.includes('country=SWE') ? [tracks[0]] : tracks));
+    return Promise.resolve(
+      Response.json(url.includes('country=SWE') ? [tracks[0], tracks[2]] : tracks),
+    );
   });
   vi.stubGlobal('fetch', fetch);
   const user = userEvent.setup();
@@ -135,7 +162,10 @@ test('review confirms selected days, excludes a flyover and explores a country w
   );
   expect(await screen.findByRole('button', { name: /^Stockholm walk.*/ })).toBeVisible();
   expect(screen.queryByRole('button', { name: /^Flyover.*/ })).not.toBeInTheDocument();
+  expect(screen.getByText('History Stockholm')).toBeVisible();
+  expect(screen.queryByText('History Berlin')).not.toBeInTheDocument();
   expect(screen.getByText('2025-01-01 to 2025-12-31')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'All countries' }));
   expect(await screen.findByRole('button', { name: /^Flyover.*/ })).toBeVisible();
+  expect(screen.getByText('History Berlin')).toBeVisible();
 });

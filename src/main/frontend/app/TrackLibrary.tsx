@@ -1,16 +1,16 @@
 import { useRef, useState } from 'react';
 import { request } from './api';
 import RemovalDialog from './RemovalDialog';
-import type { Controls, Overview } from './api';
+import type { Controls, HistoryDisplay, Overview } from './api';
 import { trackDateLabel } from './trackDateLabel';
 
 export default function TrackLibrary({
   tracks,
+  historyDisplay,
+  actions,
   filtered,
   selectedId,
   select,
-  onSaved,
-  onRemoved,
   loading,
   empty,
   uploading,
@@ -18,17 +18,22 @@ export default function TrackLibrary({
   uploadLimitMb,
 }: {
   tracks: Overview[];
+  historyDisplay: HistoryDisplay | null;
+  actions: {
+    onSaved: (saved: Controls) => void;
+    onRemoved: () => void;
+    onDisplaySaved: (display: HistoryDisplay) => void;
+  };
   filtered: boolean;
   selectedId: number | null;
   select: (id: number) => void;
-  onSaved: (saved: Controls) => void;
-  onRemoved: () => void;
   loading: boolean;
   empty: boolean;
   uploading: boolean;
   chooseFile: () => void;
   uploadLimitMb: number | undefined;
 }) {
+  const { onSaved, onRemoved, onDisplaySaved } = actions;
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [search, setSearch] = useState('');
   const searchInput = useRef<HTMLInputElement>(null);
@@ -44,7 +49,7 @@ export default function TrackLibrary({
       searchInput.current?.focus();
   }
   const matches = tracks.filter((track) =>
-    track.name.toLowerCase().includes(search.trim().toLowerCase()),
+    [track.name, track.historyDate].join(' ').toLowerCase().includes(search.trim().toLowerCase()),
   );
   const history = matches.filter((item) => item.kind === 'history');
   const recordings = matches.filter((item) => item.kind !== 'history');
@@ -101,28 +106,124 @@ export default function TrackLibrary({
             />
           ))}
         </ul>
-        <HistoryLibrary days={history} />
+        <HistoryLibrary
+          days={history}
+          display={historyDisplay}
+          onDisplaySaved={onDisplaySaved}
+          onSaved={saved}
+          onRemoved={onRemoved}
+        />
       </div>
     </aside>
   );
 }
 
-function HistoryLibrary({ days }: { days: Overview[] }) {
+function HistoryLibrary({
+  days,
+  display,
+  onDisplaySaved,
+  onSaved,
+  onRemoved,
+}: {
+  days: Overview[];
+  display: HistoryDisplay | null;
+  onDisplaySaved: (display: HistoryDisplay) => void;
+  onSaved: (saved: Controls) => void;
+  onRemoved: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  async function save(changes: { showHistory: boolean } | { year: number; visible: boolean }) {
+    setSaving(true);
+    setError('');
+    try {
+      onDisplaySaved(
+        await request<HistoryDisplay>('/api/history-display', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(changes),
+        }),
+      );
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : 'History display could not be saved. Try again.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
   if (!days.length) return null;
+  const groups = Map.groupBy(
+    [...days].sort((a, b) => (b.historyDate ?? '').localeCompare(a.historyDate ?? '')),
+    (day) => Number(day.historyDate?.slice(0, 4)),
+  );
+  const years = [...groups.keys()].sort((a, b) => b - a);
   return (
     <section className="history-library" aria-label="Google history">
-      <div className="history-heading">
-        <h3>Google history</h3>
-        <span className="inferred-badge">Inferred</span>
-      </div>
-      <ul className="track-list">
-        {days.map((day) => (
-          <li key={day.id} className="history-row">
-            <span className="swatch" style={{ backgroundColor: day.colour }} />
-            <span>{day.name}</span>
-          </li>
-        ))}
-      </ul>
+      <details open>
+        <summary className="history-heading">
+          <h3>Google history</h3>
+          <span className="inferred-badge">Inferred</span>
+        </summary>
+        <label className="history-gate">
+          <input
+            type="checkbox"
+            role="switch"
+            aria-label="Show Google history on map"
+            checked={display?.showHistory ?? false}
+            disabled={saving || !display}
+            onChange={(event) => void save({ showHistory: event.target.checked })}
+          />
+          Show on map
+        </label>
+        {years.map((year, index) => {
+          const yearDays = groups.get(year) ?? [];
+          return (
+            <div className="history-year" key={year}>
+              <div className="history-year-heading">
+                <label className="track-visibility">
+                  <input
+                    type="checkbox"
+                    aria-label={`Show ${year} history on map`}
+                    checked={display ? !display.hiddenYears.includes(year) : false}
+                    disabled={saving || !display}
+                    onChange={(event) => void save({ year, visible: event.target.checked })}
+                  />
+                </label>
+                <details open={index === 0} aria-label={`${year} history days`}>
+                  <summary>
+                    {year}{' '}
+                    <span>
+                      {yearDays.length} {yearDays.length === 1 ? 'day' : 'days'}
+                    </span>
+                  </summary>
+                  <ul className="track-list">
+                    {yearDays.map((day) => (
+                      <TrackRow
+                        key={day.id}
+                        track={day}
+                        selected={false}
+                        onSaved={onSaved}
+                        onRemoved={onRemoved}
+                      />
+                    ))}
+                  </ul>
+                </details>
+              </div>
+            </div>
+          );
+        })}
+        {saving && (
+          <p className="row-feedback" role="status">
+            Saving history display…
+          </p>
+        )}
+        {error && (
+          <p className="row-feedback error" role="alert">
+            {error}
+          </p>
+        )}
+      </details>
     </section>
   );
 }
@@ -168,6 +269,18 @@ function EmptyLibrary({
   );
 }
 
+function historyDayName(day: Overview) {
+  if (!day.historyDate) return day.name;
+  const date = new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${day.historyDate}T00:00:00Z`));
+  if (day.name.startsWith(`${date} · `)) return day.name.slice(date.length + 3);
+  return [day.historyDate, date].includes(day.name) ? 'Location history' : day.name;
+}
+
 function TrackRow({
   track,
   selected,
@@ -177,12 +290,11 @@ function TrackRow({
 }: {
   track: Overview;
   selected: boolean;
-  select: () => void;
+  select?: () => void;
   onSaved: (saved: Controls) => void;
   onRemoved: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const date = trackDateLabel(track);
   const editButton = useRef<HTMLButtonElement>(null);
   function closeEditor() {
     setEditing(false);
@@ -221,13 +333,7 @@ function TrackRow({
             }}
           />
         </label>
-        <button className="track-row" aria-pressed={selected} onClick={select} title={track.name}>
-          <span className="swatch" style={{ backgroundColor: track.colour }} />
-          <span className="track-label">
-            <strong>{track.name}</strong>
-            {date && <span>{date}</span>}
-          </span>
-        </button>
+        <TrackLabel track={track} selected={selected} select={select} />
         <button
           ref={editButton}
           className="track-edit"
@@ -258,6 +364,38 @@ function TrackRow({
   );
 }
 
+function TrackLabel({
+  track,
+  selected,
+  select,
+}: {
+  track: Overview;
+  selected: boolean;
+  select: (() => void) | undefined;
+}) {
+  const history = track.kind === 'history';
+  const date = history ? track.historyDate : trackDateLabel(track);
+  const name = history ? historyDayName(track) : track.name;
+  const RowLabel = select ? 'button' : 'div';
+  return (
+    <RowLabel
+      className="track-row"
+      aria-pressed={select ? selected : undefined}
+      onClick={select}
+      title={track.name}
+    >
+      <span
+        className={history ? 'swatch history-swatch' : 'swatch'}
+        style={{ backgroundColor: track.colour }}
+      />
+      <span className="track-label">
+        <strong>{name}</strong>
+        {date && <span>{date}</span>}
+      </span>
+    </RowLabel>
+  );
+}
+
 function TrackDeletion({
   track,
   saving,
@@ -277,12 +415,12 @@ function TrackDeletion({
         disabled={saving}
         onClick={() => setDeleting(true)}
       >
-        Delete track
+        {track.kind === 'history' ? 'Delete history day' : 'Delete track'}
       </button>
       {deleting && (
         <RemovalDialog
           title={`Delete ${track.name}?`}
-          action="Delete track"
+          action={track.kind === 'history' ? 'Delete history day' : 'Delete track'}
           cancel={() => {
             setDeleting(false);
             deleteButton.current?.focus();
@@ -296,8 +434,8 @@ function TrackDeletion({
           onRemoved={onRemoved}
         >
           <p>
-            This track will leave your map and library. Original exports will be kept in the
-            archive.
+            This {track.kind === 'history' ? 'history day' : 'track'} will leave your map and
+            library. Original exports will be kept in the archive.
           </p>
         </RemovalDialog>
       )}
@@ -332,7 +470,7 @@ function TrackEditor({
       }}
     >
       <label>
-        Track name
+        {track.kind === 'history' ? 'History day name' : 'Track name'}
         <input
           value={name}
           required
@@ -342,7 +480,7 @@ function TrackEditor({
         />
       </label>
       <label className="colour-control">
-        Track colour
+        {track.kind === 'history' ? 'History day colour' : 'Track colour'}
         <input
           type="color"
           value={colour}

@@ -40,6 +40,7 @@ test('Takeout appears as inferred history below tracks on desktop and mobile', a
 }, info) => {
   await page.route('https://tile.openstreetmap.org/**', (route) => route.fulfill({ status: 204 }));
   const date = info.project.name === 'mobile' ? '2012-06-18' : '2013-06-18';
+  const year = Number(date.slice(0, 4));
   const original = takeout(date);
   await page.request.post('/api/imports', {
     multipart: {
@@ -70,9 +71,20 @@ test('Takeout appears as inferred history below tracks on desktop and mobile', a
   const history = page.getByRole('region', { name: 'Google history' });
   await expect(history.getByRole('heading', { name: 'Google history' })).toBeVisible();
   await expect(history.getByText('Inferred')).toBeVisible();
+  const yearGroup = history.getByRole('group', { name: `${year} history days` });
+  if ((await yearGroup.getAttribute('open')) === null) await yearGroup.locator('summary').click();
   await expect(history.getByText(date, { exact: true })).toBeVisible();
+  const allHistory = history.getByRole('switch', { name: 'Show Google history on map' });
+  const yearGate = history.getByRole('checkbox', { name: `Show ${year} history on map` });
+  const dayGate = history.getByRole('checkbox', { name: `Show ${date} on map` });
+  await dayGate.click();
+  await expect(dayGate).not.toBeChecked();
+  await yearGate.click();
+  await expect(yearGate).not.toBeChecked();
+  await allHistory.click();
+  await expect(allHistory).not.toBeChecked();
   await expect(page.getByRole('region', { name: 'Complete recording' })).toHaveCount(0);
-  await expect(page.locator('.leaflet-history-pane canvas')).toBeAttached();
+
   expect(
     await page
       .locator('.leaflet-history-pane')
@@ -86,6 +98,31 @@ test('Takeout appears as inferred history below tracks on desktop and mobile', a
   await page.getByText('Review import results').click();
   await page.reload();
   await openLibrary(page);
+  const reloadedHistory = page.getByRole('region', { name: 'Google history' });
+  const reloadedGroup = reloadedHistory.getByRole('group', { name: `${year} history days` });
+  if ((await reloadedGroup.getAttribute('open')) === null)
+    await reloadedGroup.locator('summary').click();
+  await expect(reloadedHistory.getByRole('switch')).not.toBeChecked();
+  await expect(
+    reloadedHistory.getByRole('checkbox', { name: `Show ${year} history on map` }),
+  ).not.toBeChecked();
+  await expect(
+    reloadedHistory.getByRole('checkbox', { name: `Show ${date} on map` }),
+  ).not.toBeChecked();
+  await reloadedHistory.getByRole('switch').click();
+  await expect(reloadedHistory.getByRole('switch')).toBeChecked();
+  await reloadedHistory.getByRole('checkbox', { name: `Show ${year} history on map` }).click();
+  await expect(
+    reloadedHistory.getByRole('checkbox', { name: `Show ${year} history on map` }),
+  ).toBeChecked();
+  await expect(
+    reloadedHistory.getByRole('checkbox', { name: `Show ${date} on map` }),
+  ).not.toBeChecked();
+  await reloadedHistory.getByRole('checkbox', { name: `Show ${date} on map` }).click();
+  await expect(
+    reloadedHistory.getByRole('checkbox', { name: `Show ${date} on map` }),
+  ).toBeChecked();
+  await expect(page.locator('.leaflet-history-pane canvas')).toBeAttached();
   await expect(
     page.getByRole('region', { name: 'Google history' }).getByText(date, { exact: true }),
   ).toBeVisible();

@@ -90,5 +90,10 @@ export type RemovalPreview = Pick<OriginalExport, 'id' | 'filename' | 'tracks'> 
   revision: string;
 };
 
-export type MapTrack = Pick<Overview, 'id' | 'kind' | 'colour' | 'visible' | 'geometry' | 'gaps'>;
+export type MapTrack = Pick<
+  Overview,
+  'id' | 'kind' | 'historyDate' | 'colour' | 'visible' | 'geometry' | 'gaps'
+>;
 export type PlaybackSettings = { gapSeconds: number; showGapConnections: boolean };
+
+export type HistoryDisplay = { showHistory: boolean; hiddenYears: number[] };

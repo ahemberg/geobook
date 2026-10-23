@@ -12,6 +12,7 @@ import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import se.geobook.tracker.tracks.domain.DateRange;
+import se.geobook.tracker.tracks.domain.HistoryDisplay;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.OverviewRun;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
@@ -38,6 +39,31 @@ public class TrackRepository {
 
   TrackRepository(JdbcTemplate jdbc) {
     this.jdbc = jdbc;
+  }
+
+  public HistoryDisplay historyDisplay() {
+    boolean show =
+        Boolean.TRUE.equals(
+            jdbc.queryForObject(
+                "SELECT show_history FROM history_display WHERE singleton = 1", Boolean.class));
+    return new HistoryDisplay(
+        show,
+        jdbc.queryForList(
+            "SELECT year FROM history_hidden_year ORDER BY year DESC", Integer.class));
+  }
+
+  public HistoryDisplay showHistory(boolean show) {
+    jdbc.update("UPDATE history_display SET show_history = ? WHERE singleton = 1", show);
+    return historyDisplay();
+  }
+
+  public HistoryDisplay showHistoryYear(int year, boolean show) {
+    if (show) {
+      jdbc.update("DELETE FROM history_hidden_year WHERE year = ?", year);
+    } else {
+      jdbc.update("INSERT OR IGNORE INTO history_hidden_year VALUES (?)", year);
+    }
+    return historyDisplay();
   }
 
   public PlaybackSettings playbackSettings() {

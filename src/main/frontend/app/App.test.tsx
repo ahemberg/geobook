@@ -51,6 +51,8 @@ test('upload shows the saved track and a download of the original export', async
         );
       }
       if (url === '/api/tracks/years') return Promise.resolve(Response.json([]));
+      if (url === '/api/history-display')
+        return Promise.resolve(Response.json({ showHistory: true, hiddenYears: [] }));
       if (url === '/api/playback-settings')
         return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')
@@ -188,6 +190,8 @@ test('search and editing use saved responses and explain failures', async () => 
         track = { ...track, ...(changes as Partial<typeof track>) };
         return Promise.resolve(Response.json(track));
       }
+      if (url === '/api/history-display')
+        return Promise.resolve(Response.json({ showHistory: true, hiddenYears: [] }));
       if (url === '/api/playback-settings')
         return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')
@@ -420,6 +424,8 @@ test('local-date filters open a complete recording and uploads reset All time', 
     'fetch',
     vi.fn((url: string, options?: RequestInit) => {
       if (options?.method === 'POST') return Promise.resolve(importedResponse());
+      if (url === '/api/history-display')
+        return Promise.resolve(Response.json({ showHistory: true, hiddenYears: [] }));
       if (url === '/api/playback-settings')
         return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')
@@ -550,6 +556,8 @@ test('an upload finishing after a filter change still resets All time', async ()
         return new Promise<Response>((resolve) => {
           finishUpload = resolve;
         });
+      if (url === '/api/history-display')
+        return Promise.resolve(Response.json({ showHistory: true, hiddenYears: [] }));
       if (url === '/api/playback-settings')
         return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')
@@ -651,6 +659,8 @@ test('batch completion restores All time after the last new track has arrived', 
             }),
           ),
         );
+      if (url === '/api/history-display')
+        return Promise.resolve(Response.json({ showHistory: true, hiddenYears: [] }));
       if (url === '/api/playback-settings')
         return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')

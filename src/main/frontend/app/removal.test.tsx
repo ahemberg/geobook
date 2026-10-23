@@ -24,6 +24,8 @@ test('library deletion can be cancelled and only removes the track after confirm
       removed = true;
       return Promise.resolve(Response.json({ removed: true }));
     }
+    if (url === '/api/history-display')
+      return Promise.resolve(Response.json({ showHistory: true, hiddenYears: [] }));
     if (url === '/api/playback-settings')
       return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
     if (url === '/api/map-config')
@@ -85,6 +87,7 @@ test('archive previews removed and retained tracks, cancellation keeps files, an
       return Promise.resolve(Response.json({ removed: true }));
     }
     const responses: Record<string, unknown> = {
+      '/api/history-display': { showHistory: true, hiddenYears: [] },
       '/api/playback-settings': { gapSeconds: 300, showGapConnections: false },
       '/api/originals/7/removal': { ...original, revision: stale ? '\"old\"' : '\"new\"' },
       '/api/originals': removed ? [] : [original],
