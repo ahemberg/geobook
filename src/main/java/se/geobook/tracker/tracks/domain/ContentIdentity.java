@@ -31,6 +31,13 @@ public final class ContentIdentity {
     update(digest, recording(day.recording()));
     update(digest, Integer.toString(day.keptFixCount()));
     update(digest, Integer.toString(day.droppedFixCount()));
+    for (PlaceVisit visit : day.placeVisits()) {
+      update(digest, visit.name());
+      update(digest, decimal(visit.latitude()));
+      update(digest, decimal(visit.longitude()));
+      update(digest, visit.startTime().toString());
+      update(digest, visit.endTime().toString());
+    }
     return HexFormat.of().formatHex(digest.digest());
   }
 

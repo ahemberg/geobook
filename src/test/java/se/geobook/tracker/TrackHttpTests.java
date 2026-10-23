@@ -27,6 +27,7 @@ import tools.jackson.databind.json.JsonMapper;
 @SuppressWarnings({
   "PMD.TooManyMethods",
   "PMD.GodClass",
+  "PMD.CyclomaticComplexity",
   "PMD.AvoidDuplicateLiterals",
   "PMD.UnitTestContainsTooManyAsserts"
 })
@@ -370,7 +371,7 @@ class TrackHttpTests {
         }
         assertThat(restored).isNotNull();
         assertThat(restored.get("visible").asBoolean()).isTrue();
-        assertThat(restored.get("name").asText()).isEqualTo("2014-06-18");
+        assertThat(restored.get("name").asText()).isEqualTo("18 Jun 2014");
         assertThat(restored.get("pointCount").asInt()).isEqualTo(2);
       }
     }
@@ -429,6 +430,40 @@ class TrackHttpTests {
       assertThat(mapper.readTree(get(client, base(app) + "/api/originals").body()).isEmpty())
           .isTrue();
     }
+  }
+
+  @Test
+  void changedPlaceVisitsReplaceTheDayWithUnchangedFixes()
+      throws IOException, InterruptedException {
+    String fixes = "{\"locations\":[" + historyFix("2014-06-18T10:00:00Z", 593_200_000, 20) + "]}";
+    byte[] first = takeout(java.util.List.of(semanticVisit("Old cafe"), fixes), true);
+    byte[] newer = takeout(java.util.List.of(semanticVisit("New cafe"), fixes), false);
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      historyEvents(client, base(app), first);
+      JsonNode before = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(historyEvents(client, base(app), newer).getLast().get("summary").toString())
+          .isEqualTo("{\"created\":0,\"updated\":1,\"unchanged\":0}");
+      JsonNode after = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(after.get("geometry")).isEqualTo(before.get("geometry"));
+      assertThat(after.get("placeVisits").size()).isEqualTo(1);
+      assertThat(after.get("placeVisits").get(0).get("name").asText()).isEqualTo("New cafe");
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks?search=New").body()).size())
+          .isEqualTo(1);
+      assertThat(after.get("name")).isEqualTo(before.get("name"));
+      byte[] repeated = takeout(java.util.List.of(semanticVisit("New cafe"), fixes), true);
+      assertThat(historyEvents(client, base(app), repeated).getLast().get("summary").toString())
+          .isEqualTo("{\"created\":0,\"updated\":0,\"unchanged\":1}");
+    }
+  }
+
+  private static String semanticVisit(String name) {
+    return "{\"timelineObjects\":[{\"placeVisit\":{\"location\":{\"name\":\""
+        + name
+        + "\",\"latitudeE7\":593200000,\"longitudeE7\":180700000},\"duration\":"
+        + "{\"startTimestamp\":\"2014-06-18T09:00:00Z\",\"endTimestamp\":"
+        + "\"2014-06-18T09:30:00Z\"}}}]}";
   }
 
   @Test
@@ -597,7 +632,7 @@ class TrackHttpTests {
               .contains("\"total\":3", "\"status\":\"complete\"")
               .doesNotContain("\"status\":\"failed\"");
           assertThat(events)
-              .contains(zipped ? "\"status\":\"imported\"" : "\"status\":\"duplicate\"");
+              .contains(zipped ? "\"status\":\"imported\"" : "\"status\":\"unchanged\"");
           JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body());
           assertThat(overview.size()).isEqualTo(3);
           assertThat(overview.get(0).get("historyDate").asText()).isEqualTo("2014-06-15");

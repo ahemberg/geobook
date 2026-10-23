@@ -154,7 +154,8 @@ public class TrackService {
             || (stored.identity().equals(ContentIdentity.recording(prepared.recording()))
                 && repository
                     .fixCounts(trackId)
-                    .equals(new HistoryDay.FixCounts(day.keptFixCount(), day.droppedFixCount())));
+                    .equals(new HistoryDay.FixCounts(day.keptFixCount(), day.droppedFixCount()))
+                && repository.placeVisits(trackId).equals(day.placeVisits()));
     if (!unchanged) {
       repository.replaceHistory(trackId, prepared, day);
     }

@@ -162,7 +162,9 @@ public class TrackRepository {
     jdbc.update("DELETE FROM overview_run WHERE track_id = ?", trackId);
     jdbc.update("DELETE FROM track_point WHERE track_id = ?", trackId);
     jdbc.update("DELETE FROM track_segment WHERE track_id = ?", trackId);
+    jdbc.update("DELETE FROM place_visit WHERE track_id = ?", trackId);
     insertContent(trackId, prepared);
+    insertPlaceVisits(trackId, day.placeVisits());
   }
 
   private void insertContent(long trackId, Track.Prepared prepared) {
