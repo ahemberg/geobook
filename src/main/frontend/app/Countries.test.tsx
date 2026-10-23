@@ -201,6 +201,25 @@ test('history days appear as inferred candidate sources next to recordings', asy
     if (url.startsWith('/api/visits'))
       return Promise.resolve(Response.json({ candidates, unresolvedPoints: 0 }));
     if (url.startsWith('/api/countries')) return Promise.resolve(Response.json([]));
+    if (url === '/api/tracks/1')
+      return Promise.resolve(
+        Response.json({
+          id: 1,
+          name: '18 Jun 2014',
+          kind: 'history',
+          historyDate: '2014-06-18',
+          visible: true,
+          colour: '#738a91',
+          segmentCount: 1,
+          originalIds: [5],
+          points: [],
+          geometry: [[[52.52, 13.405]]],
+          gaps: [],
+          keptFixCount: 2,
+          droppedFixCount: 0,
+          placeVisits: [],
+        }),
+      );
     return Promise.resolve(
       Response.json([
         {
@@ -225,4 +244,6 @@ test('history days appear as inferred candidate sources next to recordings', asy
   expect(within(row).getByRole('button', { name: 'Berlin walk' })).toBeVisible();
   await user.click(within(row).getByRole('button', { name: '18 Jun 2014 Google history' }));
   expect(screen.queryByRole('main', { name: 'Country visits' })).not.toBeInTheDocument();
+  expect(await screen.findByRole('region', { name: 'History day' })).toBeVisible();
+  expect(await screen.findByText('2 fixes kept · 0 dropped')).toBeVisible();
 });

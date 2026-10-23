@@ -1143,3 +1143,50 @@ select {
   flex: none;
   overflow: visible;
 }
+
+.history-detail .recording-heading h2 .inferred-badge {
+  margin-left: 4px;
+  font-weight: 400;
+  vertical-align: 2px;
+}
+.history-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding-block: 6px;
+  color: var(--muted);
+}
+.history-span {
+  color: #20312d;
+  font-weight: 600;
+}
+.history-visits {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.history-visits button {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-height: 44px;
+  padding: 6px 12px;
+  text-align: left;
+}
+.visit-time {
+  color: var(--muted);
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .history-visits {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  .history-visits button {
+    white-space: nowrap;
+  }
+}
