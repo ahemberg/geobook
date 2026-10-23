@@ -50,6 +50,7 @@ test('Takeout appears as inferred history below tracks on desktop and mobile', a
   const date = info.project.name === 'mobile' ? '2012-06-18' : '2013-06-18';
   const year = Number(date.slice(0, 4));
   const original = takeout(date);
+  const recorded = info.project.name === 'mobile' ? '2025-06-19' : '2025-06-18';
   const name = `18 Jun ${date.slice(0, 4)} · Synthetic station`;
   await page.request.post('/api/imports', {
     multipart: {
@@ -57,7 +58,7 @@ test('Takeout appears as inferred history below tracks on desktop and mobile', a
         name: `synthetic-recording-${info.project.name}.gpx`,
         mimeType: 'application/gpx+xml',
         buffer: Buffer.from(
-          `<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk><name>Waterfront ${info.project.name}</name><trkseg><trkpt lat="59.32" lon="18.07"><time>2025-06-18T10:00:00Z</time></trkpt><trkpt lat="59.321" lon="18.071"><time>2025-06-18T10:01:00Z</time></trkpt></trkseg></trk></gpx>`,
+          `<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk><name>Waterfront ${info.project.name}</name><trkseg><trkpt lat="59.32" lon="18.07"><time>${recorded}T10:00:00Z</time></trkpt><trkpt lat="59.321" lon="18.071"><time>${recorded}T10:01:00Z</time></trkpt></trkseg></trk></gpx>`,
         ),
       },
     },
@@ -151,4 +152,43 @@ test('Takeout appears as inferred history below tracks on desktop and mobile', a
   await expect(page.getByRole('region', { name: 'Google history' }).getByTitle(name)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath('history.png'), fullPage: true });
+
+  await expect(page.locator('.history-stop')).toHaveCount(0);
+  await page.getByRole('region', { name: 'Google history' }).getByTitle(name).click();
+  const day = page.getByRole('region', { name: 'History day' });
+  await expect(day.getByRole('heading', { name: /18 Jun \d{4} Google history/ })).toBeVisible();
+  await expect(day.locator('.history-span')).toHaveText('12:00–13:00');
+  await expect(day.locator('.history-facts')).toContainText('2 fixes kept · 0 dropped');
+  await expect(day.getByRole('button', { name: /play/i })).toHaveCount(0);
+  if (info.project.name === 'mobile')
+    await expect(page.getByRole('button', { name: 'Show library' })).toBeVisible();
+  const stop = page.locator('.history-stop').first();
+  await expect(stop).toBeVisible();
+  await stop.click();
+  await expect(page.locator('.leaflet-tooltip')).toHaveText('Synthetic station · 12:00–13:00');
+  await day.getByRole('button', { name: /Synthetic station/ }).click();
+  await expect(stop).toBeInViewport();
+  await day.getByText('Day details').click();
+  await expect(day.getByText(/Inferred from Google location history/)).toBeVisible();
+  expect(
+    await (
+      await page.request.get(
+        (await day.getByRole('link', { name: 'Download Takeout archive' }).getAttribute('href')) ??
+          '',
+      )
+    ).body(),
+  ).toEqual(original);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('history-day.png') });
+
+  await openLibrary(page);
+  await page.getByRole('button', { name: new RegExp(`^Waterfront ${info.project.name}`) }).click();
+  await expect(page.getByRole('region', { name: 'Complete recording' })).toBeVisible();
+  await expect(day).toHaveCount(0);
+  await expect(page.locator('.history-stop')).toHaveCount(0);
+  await openLibrary(page);
+  await openYear();
+  await page.getByRole('region', { name: 'Google history' }).getByTitle(name).click();
+  await expect(day).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Complete recording' })).toHaveCount(0);
 });

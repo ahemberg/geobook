@@ -23,13 +23,11 @@ export type Detail = {
   visible: boolean;
   kind?: 'recording' | 'history';
   historyDate?: string | null;
-  placeVisits?: {
-    name: string;
-    latitude: number;
-    longitude: number;
-    startTime: string;
-    endTime: string;
-  }[];
+  placeVisits?: PlaceVisit[];
+  keptFixCount?: number | null;
+  droppedFixCount?: number | null;
+  localStartTime?: string | null;
+  localEndTime?: string | null;
   segmentCount: number;
   originalIds: number[];
   geometry: LatLngTuple[][];
@@ -45,6 +43,16 @@ export type Detail = {
     localTime: string | null;
     timeStatus: 'resolved' | 'untimed' | 'unresolved';
   }[];
+};
+
+export type PlaceVisit = {
+  name: string;
+  latitude: number;
+  longitude: number;
+  startTime: string;
+  endTime: string;
+  localStartTime?: string | null;
+  localEndTime?: string | null;
 };
 
 export type MapConfig = {

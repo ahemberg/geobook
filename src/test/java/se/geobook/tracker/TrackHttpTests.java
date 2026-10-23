@@ -829,6 +829,43 @@ class TrackHttpTests {
   }
 
   @Test
+  void openedHistoryDayReportsItsLocalSpanAndVisitTimes() throws IOException, InterruptedException {
+    String raw =
+        """
+        {"locations":[
+          {"latitudeE7":596496000,"longitudeE7":179238000,"timestamp":"2014-06-12T07:00:00Z"}
+        ]}
+        """;
+    String semantic =
+        """
+        {"timelineObjects":[
+          {"placeVisit":{"location":{"name":"Arlanda","latitudeE7":596496000,"longitudeE7":179238000},"duration":{"startTimestamp":"2014-06-12T07:00:00.500Z","endTimestamp":"2014-06-12T08:00:00Z"}}},
+          {"placeVisit":{"location":{"name":"Paddington","latitudeE7":515154000,"longitudeE7":-1755000},"duration":{"startTimestamp":"2014-06-12T14:00:00Z","endTimestamp":"2014-06-12T15:00:00Z"}}},
+          {"placeVisit":{"location":{"name":"Night museum","latitudeE7":593200000,"longitudeE7":180700000},"duration":{"startTimestamp":"2014-06-14T22:30:00Z","endTimestamp":"2014-06-16T01:00:00Z"}}}
+        ]}
+        """;
+    JsonMapper mapper = JsonMapper.builder().build();
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      upload(client, base(app), takeout(java.util.List.of(semantic, raw), true), "/api/imports");
+      JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body());
+      JsonNode stopsOnly =
+          mapper.readTree(
+              get(client, base(app) + "/api/tracks/" + overview.get(0).get("id").asLong()).body());
+      assertThat(stopsOnly.get("localStartTime").asText()).isEqualTo("2014-06-15T00:30:00+02:00");
+      assertThat(stopsOnly.get("localEndTime").asText()).isEqualTo("2014-06-16T03:00:00+02:00");
+      JsonNode day =
+          mapper.readTree(
+              get(client, base(app) + "/api/tracks/" + overview.get(1).get("id").asLong()).body());
+      assertThat(day.get("localStartTime").asText()).isEqualTo("2014-06-12T09:00:00+02:00");
+      assertThat(day.get("localEndTime").asText()).isEqualTo("2014-06-12T16:00:00+01:00");
+      JsonNode arlanda = day.get("placeVisits").get(0);
+      assertThat(arlanda.get("localStartTime").asText()).isEqualTo("2014-06-12T09:00:00.5+02:00");
+      assertThat(arlanda.get("localEndTime").asText()).isEqualTo("2014-06-12T10:00:00+02:00");
+    }
+  }
+
+  @Test
   void semanticOnlyArchiveCreatesStopsOnlyYear() throws IOException, InterruptedException {
     String semantic =
         """
@@ -1255,6 +1292,7 @@ class TrackHttpTests {
           JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks/9").body());
       assertThat(detail.get("name").asText()).isEqualTo("Saved display name");
       assertThat(detail.get("keptFixCount").isNull()).isTrue();
+      assertThat(detail.get("localStartTime").isNull()).isTrue();
       assertThat(detail.get("droppedFixCount").isNull()).isTrue();
       assertThat(
               JsonMapper.builder()

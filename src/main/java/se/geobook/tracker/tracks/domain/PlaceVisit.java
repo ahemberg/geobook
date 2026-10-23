@@ -10,4 +10,17 @@ public record PlaceVisit(
     return PointLocalTime.resolve(latitude.doubleValue(), longitude.doubleValue(), startTime)
         .localDate();
   }
+
+  public String localStartTime() {
+    return localTime(startTime);
+  }
+
+  public String localEndTime() {
+    return localTime(endTime);
+  }
+
+  private String localTime(Instant time) {
+    return PointLocalTime.resolve(latitude.doubleValue(), longitude.doubleValue(), time)
+        .localTime();
+  }
 }

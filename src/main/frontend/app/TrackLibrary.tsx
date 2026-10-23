@@ -125,6 +125,8 @@ export default function TrackLibrary({
         <HistoryLibrary
           days={history}
           display={historyDisplay}
+          selectedId={selectedId}
+          select={openRecording}
           onDisplaySaved={onDisplaySaved}
           onSaved={saved}
           onRemoved={onRemoved}
@@ -137,12 +139,16 @@ export default function TrackLibrary({
 function HistoryLibrary({
   days,
   display,
+  selectedId,
+  select,
   onDisplaySaved,
   onSaved,
   onRemoved,
 }: {
   days: Overview[];
   display: HistoryDisplay | null;
+  selectedId: number | null;
+  select: (id: number) => void;
   onDisplaySaved: (display: HistoryDisplay) => void;
   onSaved: (saved: Controls) => void;
   onRemoved: () => void;
@@ -206,7 +212,10 @@ function HistoryLibrary({
                     onChange={(event) => void save({ year, visible: event.target.checked })}
                   />
                 </label>
-                <details open={index === 0} aria-label={`${year} history days`}>
+                <details
+                  open={index === 0 || yearDays.some((day) => day.id === selectedId)}
+                  aria-label={`${year} history days`}
+                >
                   <summary>
                     {year}{' '}
                     <span>
@@ -218,7 +227,8 @@ function HistoryLibrary({
                       <TrackRow
                         key={day.id}
                         track={day}
-                        selected={false}
+                        selected={day.id === selectedId}
+                        select={() => select(day.id)}
                         onSaved={onSaved}
                         onRemoved={onRemoved}
                       />
