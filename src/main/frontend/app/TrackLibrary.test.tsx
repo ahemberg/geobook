@@ -39,6 +39,8 @@ test('inferred Google history appears below recordings without recording playbac
   const history = screen.getByRole('region', { name: 'Google history' });
   expect(within(history).getByText('Inferred')).toBeVisible();
   expect(within(history).getByText('2014-06-18')).toBeVisible();
+  expect(within(history).getByText('18 Jun 2014')).toBeVisible();
+  expect(within(history).queryByText('Location history')).not.toBeInTheDocument();
   const recording = screen.getByRole('button', { name: /^Waterfront recording/ });
   expect(
     recording.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING,

@@ -299,7 +299,7 @@ function historyDayName(day: Overview) {
   if (!day.historyDate) return day.name;
   const date = historyDateFormat.format(new Date(`${day.historyDate}T00:00:00Z`));
   if (day.name.startsWith(`${date} · `)) return day.name.slice(date.length + 3);
-  return [day.historyDate, date].includes(day.name) ? 'Location history' : day.name;
+  return day.name === day.historyDate ? date : day.name;
 }
 
 function TrackRow({
