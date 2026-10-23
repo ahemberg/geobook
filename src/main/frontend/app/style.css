@@ -1067,3 +1067,42 @@ select {
     gap: 16px;
   }
 }
+
+.history-library {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+.history-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding-inline: 1rem;
+}
+.history-heading h3 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+.inferred-badge {
+  color: #435c64;
+  background: #edf2f4;
+  font-size: 0.875rem;
+  padding: 0.125rem 0.375rem;
+}
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.library-content:has(.history-library) {
+  overflow-y: auto;
+}
+.library-content:has(.history-library) > .track-list,
+.history-library .track-list {
+  flex: none;
+  overflow: visible;
+}

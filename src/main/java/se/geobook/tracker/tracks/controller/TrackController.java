@@ -175,7 +175,10 @@ class TrackController {
   ResponseEntity<byte[]> original(@PathVariable long id) {
     Track.Original original = collection.original(id);
     return ResponseEntity.ok()
-        .contentType(MediaType.parseMediaType("application/gpx+xml"))
+        .contentType(
+            original.filename().toLowerCase(java.util.Locale.ROOT).endsWith(".gpx")
+                ? MediaType.parseMediaType("application/gpx+xml")
+                : MediaType.APPLICATION_OCTET_STREAM)
         .header(
             HttpHeaders.CONTENT_DISPOSITION,
             ContentDisposition.attachment()

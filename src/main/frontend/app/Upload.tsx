@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 type ImportEvent = {
+  kind?: 'recording' | 'history';
   status: 'progress' | 'imported' | 'duplicate' | 'failed' | 'complete';
   completed: number;
   total: number;
@@ -12,7 +13,7 @@ type ImportEvent = {
 };
 type Result = ImportEvent & { filename: string };
 
-export function useUpload(onImported: (trackIds: number[]) => void) {
+export function useUpload(onImported: (trackIds: number[], recordingId: number | null) => void) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState('');
   const [results, setResults] = useState<Result[]>([]);
@@ -24,19 +25,20 @@ export function useUpload(onImported: (trackIds: number[]) => void) {
     setFinished(false);
     setUploading(true);
     const imported: number[] = [];
+    let recordingId: number | null = null;
     for (const [index, file] of files.entries()) {
       const label = `File ${index + 1} of ${files.length}: ${file.name}`;
-      setProgress(`${label}. Uploading and reading GPX…`);
+      setProgress(`${label}. Uploading and reading export…`);
       try {
-        if (file.size > 32 * 1024 * 1024)
-          throw new Error('Choose a GPX file no larger than 32 MB.');
+        if (file.size > 32 * 1024 * 1024) throw new Error('Choose an export no larger than 32 MB.');
         await importFile(file, (event) => {
-          setProgress(`${label}. ${event.completed} of ${event.total} tracks processed.`);
+          setProgress(`${label}. ${event.completed} of ${event.total} items processed.`);
           if (event.status === 'progress' || event.status === 'complete') return;
           setResults((previous) => [...previous, { ...event, filename: file.name }]);
           if (event.status === 'imported' && event.trackId !== null) {
             imported.push(event.trackId);
-            onImported([...imported]);
+            recordingId = imported.length === 1 && event.kind !== 'history' ? event.trackId : null;
+            onImported([...imported], recordingId);
           }
         });
       } catch (error) {
@@ -56,7 +58,7 @@ export function useUpload(onImported: (trackIds: number[]) => void) {
         ]);
       }
     }
-    if (imported.length > 0) onImported(imported);
+    if (imported.length > 0) onImported(imported, recordingId);
     setUploading(false);
     setFinished(true);
   }

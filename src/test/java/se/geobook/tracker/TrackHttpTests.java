@@ -33,6 +33,139 @@ import tools.jackson.databind.json.JsonMapper;
 class TrackHttpTests {
   @TempDir Path directory;
 
+  @Test
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  void takeoutArchivesBecomeLocalHistoryDaysAndKeepTheirOriginals()
+      throws IOException, InterruptedException {
+    String records =
+        """
+        {"locations":[
+          {"latitudeE7":593200000,"longitudeE7":180700000,"timestamp":"2014-06-18T21:59:00Z","accuracy":800,"deviceTag":1,"ignored":{"nested":[1,2]}},
+          {"latitudeE7":593210000,"longitudeE7":180710000,"timestampMs":"1403128800000"},
+          {"latitudeE7":407128000,"longitudeE7":-740060000,"timestamp":"2014-06-18T23:01:00Z"}
+        ]}
+        """;
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      try (ConfigurableApplicationContext app = start()) {
+        JsonMapper mapper = JsonMapper.builder().build();
+        for (boolean zipped : java.util.List.of(true, false)) {
+          byte[] archive = takeout(records, zipped);
+          String events =
+              new String(
+                  upload(client, base(app), archive, "/api/imports").body(),
+                  StandardCharsets.UTF_8);
+          assertThat(events)
+              .contains("\"status\":\"progress\"", "\"total\":2", "\"status\":\"complete\"");
+          assertThat(events)
+              .contains(zipped ? "\"status\":\"imported\"" : "\"status\":\"duplicate\"");
+          assertThat(events).doesNotContain("\"status\":\"failed\"");
+          JsonNode originals = mapper.readTree(get(client, base(app) + "/api/originals").body());
+          long originalId = originals.get(0).get("id").asLong();
+          assertThat(originals.get(0).get("tracks").size()).isEqualTo(2);
+          assertThat(get(client, base(app) + "/api/originals/" + originalId).body())
+              .isEqualTo(archive);
+          String repeated =
+              new String(
+                  upload(client, base(app), archive, "/api/imports").body(),
+                  StandardCharsets.UTF_8);
+          assertThat(repeated)
+              .contains("\"status\":\"duplicate\"")
+              .doesNotContain("\"status\":\"imported\"");
+        }
+        JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body());
+        assertThat(overview.size()).isEqualTo(2);
+        assertThat(overview.get(0).get("kind").asText()).isEqualTo("history");
+        assertThat(overview.get(0).get("historyDate").asText()).isEqualTo("2014-06-19");
+        assertThat(overview.get(1).get("historyDate").asText()).isEqualTo("2014-06-18");
+        assertThat(overview.get(1).get("pointCount").asInt()).isEqualTo(2);
+        assertThat(overview.get(0).get("colour")).isEqualTo(overview.get(1).get("colour"));
+        assertThat(overview.get(0).get("visible").asBoolean()).isTrue();
+        JsonNode detail =
+            mapper.readTree(
+                get(client, base(app) + "/api/tracks/" + overview.get(0).get("id").asLong())
+                    .body());
+        assertThat(detail.get("originalIds").size()).isEqualTo(2);
+        assertThat(detail.get("points").isEmpty()).isTrue();
+        assertThat(detail.get("geometry").isEmpty()).isFalse();
+        assertThat(mapper.readTree(get(client, base(app) + "/api/originals").body()).size())
+            .isEqualTo(2);
+        assertThat(
+                mapper
+                    .readTree(
+                        get(client, base(app) + "/api/tracks?from=2014-06-18&to=2014-06-18").body())
+                    .size())
+            .isEqualTo(1);
+      }
+      try (ConfigurableApplicationContext app = start()) {
+        assertThat(
+                JsonMapper.builder()
+                    .build()
+                    .readTree(get(client, base(app) + "/api/tracks").body())
+                    .size())
+            .isEqualTo(2);
+      }
+    }
+  }
+
+  @Test
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  void rejectedTakeoutArchivesLeaveNoDaysOrOriginals() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      for (String records :
+          java.util.List.of(
+              "{\"timelineObjects\":[]}",
+              "{\"locations\":[]}",
+              "{\"locations\":[{\"latitudeE7\":593200000,\"longitudeE7\":180700000,\"timestamp\":\"2014-06-18T21:59:00Z\"},{]}",
+              "{\"locations\":[{\"latitudeE7\":0,\"longitudeE7\":0,\"timestamp\":\"2014-06-18T21:59:00Z\"}]}")) {
+        for (boolean zipped : java.util.List.of(true, false)) {
+          String events =
+              new String(
+                  upload(client, base(app), takeout(records, zipped), "/api/imports").body(),
+                  StandardCharsets.UTF_8);
+          assertThat(events)
+              .contains("\"status\":\"failed\"")
+              .doesNotContain("\"status\":\"imported\"");
+          assertThat(
+                  new String(get(client, base(app) + "/api/tracks").body(), StandardCharsets.UTF_8))
+              .isEqualTo("[]");
+          assertThat(
+                  new String(
+                      get(client, base(app) + "/api/originals").body(), StandardCharsets.UTF_8))
+              .isEqualTo("[]");
+        }
+      }
+    }
+  }
+
+  private static byte[] takeout(String records, boolean zipped) throws IOException {
+    java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+    byte[] json = records.getBytes(StandardCharsets.UTF_8);
+    if (zipped) {
+      try (java.util.zip.ZipOutputStream archive = new java.util.zip.ZipOutputStream(bytes)) {
+        archive.putNextEntry(new java.util.zip.ZipEntry("別のフォルダー/unrelated.json"));
+        archive.write("{\"timelineObjects\":[]}".getBytes(StandardCharsets.UTF_8));
+        archive.closeEntry();
+        archive.putNextEntry(new java.util.zip.ZipEntry("別のフォルダー/renamed-data"));
+        archive.write(json);
+        archive.closeEntry();
+      }
+    } else {
+      try (org.apache.commons.compress.archivers.tar.TarArchiveOutputStream archive =
+          new org.apache.commons.compress.archivers.tar.TarArchiveOutputStream(
+              new java.util.zip.GZIPOutputStream(bytes))) {
+        org.apache.commons.compress.archivers.tar.TarArchiveEntry entry =
+            new org.apache.commons.compress.archivers.tar.TarArchiveEntry(
+                "anderer-ordner/renamed-data");
+        entry.setSize(json.length);
+        archive.putArchiveEntry(entry);
+        archive.write(json);
+        archive.closeArchiveEntry();
+      }
+    }
+    return bytes.toByteArray();
+  }
+
   // Rejected uploads must leave the public collection unchanged.
   @Test
   void rejectedUploadDoesNotCreateTrackOrOriginal() throws IOException, InterruptedException {
@@ -609,6 +742,8 @@ class TrackHttpTests {
       JsonNode full =
           JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks/1").body());
       assertThat(full.get("name").asText()).isEqualTo("Existing recording");
+      assertThat(full.get("kind").asText()).isEqualTo("recording");
+      assertThat(full.get("historyDate").isNull()).isTrue();
       assertThat(
               JsonMapper.builder()
                   .build()

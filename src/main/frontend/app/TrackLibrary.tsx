@@ -44,6 +44,8 @@ export default function TrackLibrary({
   const matches = tracks.filter((track) =>
     track.name.toLowerCase().includes(search.trim().toLowerCase()),
   );
+  const history = matches.filter((item) => item.kind === 'history');
+  const recordings = matches.filter((item) => item.kind !== 'history');
   return (
     <aside className={`library ${libraryOpen ? 'expanded' : ''}`} id="tracks" tabIndex={-1}>
       <div className="library-heading">
@@ -82,7 +84,7 @@ export default function TrackLibrary({
           </p>
         )}
         <ul className="track-list">
-          {matches.map((track) => (
+          {recordings.map((track) => (
             <TrackRow
               key={track.id}
               track={track}
@@ -93,8 +95,29 @@ export default function TrackLibrary({
             />
           ))}
         </ul>
+        <HistoryLibrary days={history} />
       </div>
     </aside>
+  );
+}
+
+function HistoryLibrary({ days }: { days: Overview[] }) {
+  if (!days.length) return null;
+  return (
+    <section className="history-library" aria-label="Google history">
+      <div className="history-heading">
+        <h3>Google history</h3>
+        <span className="inferred-badge">Inferred</span>
+      </div>
+      <ul className="track-list">
+        {days.map((day) => (
+          <li key={day.id} className="history-row">
+            <span className="swatch" style={{ backgroundColor: day.colour }} />
+            <span>{day.name}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -116,14 +139,14 @@ function EmptyLibrary({
     : {
         title: 'Your travels start here',
         description:
-          'Upload a GPX recording to see it on your map. Your original export stays unchanged.',
+          'Upload a GPX recording or Google Takeout archive to see it on your map. Your original export stays unchanged.',
       };
   return (
     <div className="empty-state">
       <h3>{emptyMessage.title}</h3>
       <p>{emptyMessage.description}</p>
       <button className="primary" disabled={uploading} onClick={chooseFile}>
-        Choose a GPX file
+        Choose GPX or Takeout
       </button>
       <p className="hint">
         Choose files or collection exports. Up to 32 MB per file and 250,000 points per track.

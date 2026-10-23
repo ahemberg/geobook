@@ -6,6 +6,8 @@ export type Overview = {
   colour: string;
   visible: boolean;
   revision: string;
+  kind?: 'recording' | 'history';
+  historyDate?: string | null;
   startTime: string | null;
   pointCount: number;
   unknownDateCount: number;
@@ -18,6 +20,8 @@ export type Detail = {
   name: string;
   colour: string;
   visible: boolean;
+  kind?: 'recording' | 'history';
+  historyDate?: string | null;
   segmentCount: number;
   originalIds: number[];
   geometry: LatLngTuple[][];
@@ -81,5 +85,5 @@ export type RemovalPreview = Pick<OriginalExport, 'id' | 'filename' | 'tracks'> 
   revision: string;
 };
 
-export type MapTrack = Pick<Overview, 'id' | 'colour' | 'visible' | 'geometry' | 'gaps'>;
+export type MapTrack = Pick<Overview, 'id' | 'kind' | 'colour' | 'visible' | 'geometry' | 'gaps'>;
 export type PlaybackSettings = { gapSeconds: number; showGapConnections: boolean };
