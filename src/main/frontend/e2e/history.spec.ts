@@ -72,7 +72,9 @@ test('Takeout appears as inferred history below tracks on desktop and mobile', a
     mimeType: 'application/gzip',
     buffer: original,
   });
-  await expect(page.getByRole('status').filter({ hasText: '1 imported' })).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Google history: 1 created' }),
+  ).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Date filters: All time', exact: true }),
   ).toBeVisible();
@@ -81,16 +83,22 @@ test('Takeout appears as inferred history below tracks on desktop and mobile', a
   await expect(history.getByRole('heading', { name: 'Google history' })).toBeVisible();
   await expect(history.getByText('Inferred')).toBeVisible();
   const yearGroup = history.getByRole('group', { name: `${year} history days` });
-  if ((await yearGroup.getAttribute('open')) === null) await yearGroup.locator('summary').click();
+  const openYear = async () => {
+    if ((await yearGroup.getAttribute('open')) === null) await yearGroup.locator('summary').click();
+  };
+  await openYear();
   await expect(history.getByTitle(name)).toBeVisible();
   await expect(history.getByTitle(name)).toContainText('Synthetic station');
   await expect(history.getByTitle(name)).toContainText(date);
   const search = page.getByRole('searchbox', { name: 'Search tracks' });
   await search.fill('station');
+  await openYear();
   await expect(history.getByTitle(name)).toBeVisible();
   await search.fill(date);
+  await openYear();
   await expect(history.getByTitle(name)).toBeVisible();
   await search.clear();
+  await openYear();
   const allHistory = history.getByRole('switch', { name: 'Show Google history on map' });
   const yearGate = history.getByRole('checkbox', { name: `Show ${year} history on map` });
   const dayGate = history.getByRole('checkbox', { name: `Show ${name} on map` });
