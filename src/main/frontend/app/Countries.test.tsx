@@ -196,6 +196,8 @@ test('history days appear as inferred candidate sources next to recordings', asy
         }),
       );
     if (url === '/api/tracks/years') return Promise.resolve(Response.json([2014]));
+    if (url === '/api/history-display')
+      return Promise.resolve(Response.json({ showHistory: true, hiddenYears: [] }));
     if (url.startsWith('/api/visits'))
       return Promise.resolve(Response.json({ candidates, unresolvedPoints: 0 }));
     if (url.startsWith('/api/countries')) return Promise.resolve(Response.json([]));
