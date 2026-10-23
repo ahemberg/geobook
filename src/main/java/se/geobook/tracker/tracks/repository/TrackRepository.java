@@ -38,6 +38,13 @@ public class TrackRepository {
           + " t.id = r.track_id LEFT JOIN overview_point p ON p.track_id = r.track_id AND"
           + " p.run_ordinal = r.first_ordinal";
   private static final String OVERVIEW_ORDER = " ORDER BY t.id, r.first_ordinal, p.ordinal";
+  private static final String COUNTRY_FILTER = " WHERE (? IS NULL OR r.country_code = ?)";
+  private static final String RANGE_FILTER =
+      COUNTRY_FILTER + " AND COALESCE(r.local_date, t.history_date) BETWEEN ? AND ?";
+  private static final String PLACE_NAMES =
+      "SELECT track_id, name FROM place_visit WHERE track_id IN (SELECT t.id FROM track t LEFT"
+          + " JOIN overview_run r ON t.id = r.track_id";
+  private static final String PLACE_NAMES_ORDER = ") ORDER BY track_id, ordinal";
   private final JdbcTemplate jdbc;
 
   TrackRepository(JdbcTemplate jdbc) {
@@ -290,14 +297,11 @@ public class TrackRepository {
         range.from() == null
             ? new Object[] {country, country}
             : new Object[] {country, country, range.from(), range.through()};
-    Map<Long, List<String>> names = placeNames();
+    Map<Long, List<String>> names = placeNames(range, arguments);
     return jdbc.query(
         range.from() == null
-            ? OVERVIEW_SELECT + " WHERE (? IS NULL OR r.country_code = ?)" + OVERVIEW_ORDER
-            : OVERVIEW_SELECT
-                + " WHERE (? IS NULL OR r.country_code = ?) AND COALESCE(r.local_date,"
-                + " t.history_date) BETWEEN ? AND ?"
-                + OVERVIEW_ORDER,
+            ? OVERVIEW_SELECT + COUNTRY_FILTER + OVERVIEW_ORDER
+            : OVERVIEW_SELECT + RANGE_FILTER + OVERVIEW_ORDER,
         rows -> {
           Map<Long, Track.OverviewBuilder> tracks = new LinkedHashMap<>();
           while (rows.next()) {
@@ -363,7 +367,8 @@ public class TrackRepository {
 
   public void insertPlaceVisits(long trackId, List<PlaceVisit> visits) {
     jdbc.batchUpdate(
-        "INSERT INTO place_visit VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO place_visit(track_id, ordinal, name, latitude, longitude, start_time,"
+            + " end_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
         new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
           @Override
           public void setValues(java.sql.PreparedStatement statement, int index)
@@ -407,15 +412,18 @@ public class TrackRepository {
         trackId);
   }
 
-  private Map<Long, List<String>> placeNames() {
+  private Map<Long, List<String>> placeNames(DateRange range, Object... arguments) {
     Map<Long, List<String>> names = new LinkedHashMap<>();
     jdbc.query(
-        "SELECT track_id, name FROM place_visit ORDER BY track_id, ordinal",
+        range.from() == null
+            ? PLACE_NAMES + COUNTRY_FILTER + PLACE_NAMES_ORDER
+            : PLACE_NAMES + RANGE_FILTER + PLACE_NAMES_ORDER,
         (org.springframework.jdbc.core.RowCallbackHandler)
             row ->
                 names
                     .computeIfAbsent(row.getLong("track_id"), ignored -> new ArrayList<>())
-                    .add(row.getString("name")));
+                    .add(row.getString("name")),
+        arguments);
     return names;
   }
 
