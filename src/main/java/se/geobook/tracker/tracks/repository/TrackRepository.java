@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Repository;
 import se.geobook.tracker.tracks.domain.DateRange;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.OverviewRun;
+import se.geobook.tracker.tracks.domain.PlaceVisit;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointCountry;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
@@ -30,9 +32,9 @@ public class TrackRepository {
   private static final String OVERVIEW_SELECT =
       "SELECT t.id, t.name, t.colour, t.visible, t.content_hash, t.kind, t.history_date,"
           + " t.start_time, r.first_ordinal, r.last_ordinal, r.local_date, r.break_before,"
-          + " r.seconds_before, p.latitude, p.longitude FROM overview_run r JOIN track t ON t.id ="
-          + " r.track_id JOIN overview_point p ON p.track_id = r.track_id AND p.run_ordinal ="
-          + " r.first_ordinal";
+          + " r.seconds_before, p.latitude, p.longitude FROM track t LEFT JOIN overview_run r ON"
+          + " t.id = r.track_id LEFT JOIN overview_point p ON p.track_id = r.track_id AND"
+          + " p.run_ordinal = r.first_ordinal";
   private static final String OVERVIEW_ORDER = " ORDER BY t.id, r.first_ordinal, p.ordinal";
   private final JdbcTemplate jdbc;
 
@@ -226,11 +228,13 @@ public class TrackRepository {
         range.from() == null
             ? new Object[] {country, country}
             : new Object[] {country, country, range.from(), range.through()};
+    Map<Long, List<String>> names = placeNames();
     return jdbc.query(
         range.from() == null
             ? OVERVIEW_SELECT + " WHERE (? IS NULL OR r.country_code = ?)" + OVERVIEW_ORDER
             : OVERVIEW_SELECT
-                + " WHERE (? IS NULL OR r.country_code = ?) AND r.local_date BETWEEN ? AND ?"
+                + " WHERE (? IS NULL OR r.country_code = ?) AND COALESCE(r.local_date,"
+                + " t.history_date) BETWEEN ? AND ?"
                 + OVERVIEW_ORDER,
         rows -> {
           Map<Long, Track.OverviewBuilder> tracks = new LinkedHashMap<>();
@@ -244,8 +248,12 @@ public class TrackRepository {
                       rows.getString("start_time") == null
                           ? null
                           : Instant.parse(rows.getString("start_time")),
-                      track(rows).geometrySettings(settings));
+                      track(rows).geometrySettings(settings),
+                      names.getOrDefault(trackId, List.of()));
               tracks.put(trackId, builder);
+            }
+            if (rows.getObject("first_ordinal") == null) {
+              continue;
             }
             builder.add(
                 rows.getInt("first_ordinal"),
@@ -282,6 +290,64 @@ public class TrackRepository {
         row.getString("content_hash"),
         row.getString("kind"),
         row.getString("history_date"));
+  }
+
+  public void insertPlaceVisits(long trackId, List<PlaceVisit> visits) {
+    jdbc.batchUpdate(
+        "INSERT INTO place_visit VALUES (?, ?, ?, ?, ?, ?, ?)",
+        new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
+          @Override
+          public void setValues(java.sql.PreparedStatement statement, int index)
+              throws SQLException {
+            PlaceVisit visit = visits.get(index);
+            statement.setLong(1, trackId);
+            statement.setInt(2, index);
+            statement.setString(3, visit.name());
+            statement.setString(4, visit.latitude().toString());
+            statement.setString(5, visit.longitude().toString());
+            statement.setString(6, visit.startTime().toString());
+            statement.setString(7, visit.endTime().toString());
+          }
+
+          @Override
+          public int getBatchSize() {
+            return visits.size();
+          }
+        });
+    if (!visits.isEmpty()) {
+      Instant arrival = visits.getFirst().startTime();
+      String start =
+          jdbc.queryForObject("SELECT start_time FROM track WHERE id = ?", String.class, trackId);
+      if (start == null || arrival.isBefore(Instant.parse(start))) {
+        jdbc.update("UPDATE track SET start_time = ? WHERE id = ?", arrival.toString(), trackId);
+      }
+    }
+  }
+
+  public List<PlaceVisit> placeVisits(long trackId) {
+    return jdbc.query(
+        "SELECT name, latitude, longitude, start_time, end_time FROM place_visit WHERE track_id = ?"
+            + " ORDER BY ordinal",
+        (row, index) ->
+            new PlaceVisit(
+                row.getString("name"),
+                new BigDecimal(row.getString("latitude")),
+                new BigDecimal(row.getString("longitude")),
+                Instant.parse(row.getString("start_time")),
+                Instant.parse(row.getString("end_time"))),
+        trackId);
+  }
+
+  private Map<Long, List<String>> placeNames() {
+    Map<Long, List<String>> names = new LinkedHashMap<>();
+    jdbc.query(
+        "SELECT track_id, name FROM place_visit ORDER BY track_id, ordinal",
+        (org.springframework.jdbc.core.RowCallbackHandler)
+            row ->
+                names
+                    .computeIfAbsent(row.getLong("track_id"), ignored -> new ArrayList<>())
+                    .add(row.getString("name")));
+    return names;
   }
 
   public int segmentCount(long id) {
@@ -380,7 +446,8 @@ public class TrackRepository {
   public List<Integer> years() {
     return jdbc.queryForList(
         "SELECT DISTINCT CAST(substr(local_date, 1, 4) AS INTEGER) FROM overview_run WHERE"
-            + " local_date IS NOT NULL ORDER BY 1 DESC",
+            + " local_date IS NOT NULL UNION SELECT DISTINCT CAST(substr(history_date, 1, 4) AS"
+            + " INTEGER) FROM track WHERE history_date IS NOT NULL ORDER BY 1 DESC",
         Integer.class);
   }
 

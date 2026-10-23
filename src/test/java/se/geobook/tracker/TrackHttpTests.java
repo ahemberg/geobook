@@ -178,6 +178,11 @@ class TrackHttpTests {
       for (String records :
           java.util.List.of(
               "{\"timelineObjects\":[]}",
+              "{\"timelineObjects\":[{\"activitySegment\":{\"ignored\":true}}]}",
+              "{\"timelineObjects\":[{\"placeVisit\":{\"location\":{\"name\":\"Invalid named"
+                  + " visit\",\"latitudeE7\":593200000,\"longitudeE7\":180700000}}}]}",
+              "{\"timelineObjects\":[{\"placeVisit\":{\"location\":{\"name\":\"Unresolved"
+                  + " place\",\"latitudeE7\":0,\"longitudeE7\":0},\"duration\":{\"startTimestamp\":\"2014-06-18T10:00:00Z\",\"endTimestamp\":\"2014-06-18T11:00:00Z\"}}}]}",
               "{\"locations\":[]}",
               "{\"locations\":[{\"latitudeE7\":593200000,\"longitudeE7\":180700000,\"timestamp\":\"2014-06-18T21:59:00Z\"},{]}",
               "{\"locations\":[{\"latitudeE7\":0,\"longitudeE7\":0,\"timestamp\":\"2014-06-18T21:59:00Z\"}]}")) {
@@ -202,31 +207,209 @@ class TrackHttpTests {
   }
 
   private static byte[] takeout(String records, boolean zipped) throws IOException {
+    return takeout(java.util.List.of("{\"timelineObjects\":[]}", records), zipped);
+  }
+
+  // File names and directories do not identify either supported JSON format.
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  private static byte[] takeout(java.util.List<String> entries, boolean zipped) throws IOException {
     java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
-    byte[] json = records.getBytes(StandardCharsets.UTF_8);
     if (zipped) {
       try (java.util.zip.ZipOutputStream archive = new java.util.zip.ZipOutputStream(bytes)) {
-        archive.putNextEntry(new java.util.zip.ZipEntry("別のフォルダー/unrelated.json"));
-        archive.write("{\"timelineObjects\":[]}".getBytes(StandardCharsets.UTF_8));
-        archive.closeEntry();
-        archive.putNextEntry(new java.util.zip.ZipEntry("別のフォルダー/renamed-data"));
-        archive.write(json);
-        archive.closeEntry();
+        for (int index = 0; index < entries.size(); index++) {
+          archive.putNextEntry(new java.util.zip.ZipEntry("別のフォルダー/renamed-" + index));
+          archive.write(entries.get(index).getBytes(StandardCharsets.UTF_8));
+          archive.closeEntry();
+        }
       }
     } else {
       try (org.apache.commons.compress.archivers.tar.TarArchiveOutputStream archive =
           new org.apache.commons.compress.archivers.tar.TarArchiveOutputStream(
               new java.util.zip.GZIPOutputStream(bytes))) {
-        org.apache.commons.compress.archivers.tar.TarArchiveEntry entry =
-            new org.apache.commons.compress.archivers.tar.TarArchiveEntry(
-                "anderer-ordner/renamed-data");
-        entry.setSize(json.length);
-        archive.putArchiveEntry(entry);
-        archive.write(json);
-        archive.closeArchiveEntry();
+        for (int index = 0; index < entries.size(); index++) {
+          byte[] json = entries.get(index).getBytes(StandardCharsets.UTF_8);
+          org.apache.commons.compress.archivers.tar.TarArchiveEntry entry =
+              new org.apache.commons.compress.archivers.tar.TarArchiveEntry(
+                  "anderer-ordner/renamed-" + index);
+          entry.setSize(json.length);
+          archive.putArchiveEntry(entry);
+          archive.write(json);
+          archive.closeArchiveEntry();
+        }
       }
     }
     return bytes.toByteArray();
+  }
+
+  @Test
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  void semanticVisitsPersistWithTheirArrivalDayAndRemainSearchable()
+      throws IOException, InterruptedException {
+    String raw =
+        """
+        {"locations":[
+          {"latitudeE7":596496000,"longitudeE7":179238000,"timestamp":"2014-06-12T07:00:00Z"},
+          {"latitudeE7":593200000,"longitudeE7":180700000,"timestamp":"2014-06-13T10:00:00Z"}
+        ]}
+        """;
+    String semantic =
+        """
+        {"timelineObjects":[
+          {"placeVisit":{"location":{"name":"Paddington","latitudeE7":515154000,"longitudeE7":-1755000},"duration":{"startTimestamp":"2014-06-12T14:00:00Z","endTimestamp":"2014-06-12T15:00:00Z"}}},
+          {"activitySegment":{"startLocation":{"latitudeE7":0,"longitudeE7":0},"duration":{"startTimestamp":"2014-06-17T10:00:00Z","endTimestamp":"2014-06-17T12:00:00Z"}}},
+          {"placeVisit":{"location":{"name":"Arlanda","latitudeE7":596496000,"longitudeE7":179238000},"duration":{"startTimestamp":"2014-06-12T07:00:00.500Z","endTimestamp":"2014-06-12T08:00:00Z"},"otherCandidateLocations":[{"name":"Ignored"}]}},
+          {"placeVisit":{"location":{"name":"Heathrow","latitudeE7":514700000,"longitudeE7":-4543000},"duration":{"startTimestampMs":"1402567200000","endTimestampMs":"1402570800000"}}}
+        ]}
+        """;
+    String stopsOnly =
+        """
+        {"timelineObjects":[
+          {"placeVisit":{"location":{"name":"Night museum","latitudeE7":593200000,"longitudeE7":180700000},"duration":{"startTimestamp":"2014-06-14T22:30:00Z","endTimestamp":"2014-06-16T01:00:00Z"}}}
+        ]}
+        """;
+    JsonMapper mapper = JsonMapper.builder().build();
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      try (ConfigurableApplicationContext app = start()) {
+        for (boolean zipped : java.util.List.of(true, false)) {
+          byte[] archive = takeout(java.util.List.of(semantic, raw, stopsOnly), zipped);
+          String events =
+              new String(
+                  upload(client, base(app), archive, "/api/imports").body(),
+                  StandardCharsets.UTF_8);
+          assertThat(events)
+              .contains("\"total\":3", "\"status\":\"complete\"")
+              .doesNotContain("\"status\":\"failed\"");
+          assertThat(events)
+              .contains(zipped ? "\"status\":\"imported\"" : "\"status\":\"duplicate\"");
+          JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body());
+          assertThat(overview.size()).isEqualTo(3);
+          assertThat(overview.get(0).get("historyDate").asText()).isEqualTo("2014-06-15");
+          assertThat(overview.get(0).get("name").asText()).isEqualTo("15 Jun 2014 · Night museum");
+          assertThat(overview.get(0).get("pointCount").asInt()).isZero();
+          assertThat(overview.get(0).get("geometry").isEmpty()).isTrue();
+          assertThat(overview.get(0).get("startTime").asText()).isEqualTo("2014-06-14T22:30:00Z");
+          assertThat(overview.get(1).get("name").asText()).isEqualTo("13 Jun 2014");
+          assertThat(overview.get(2).get("name").asText())
+              .isEqualTo(zipped ? "12 Jun 2014 · Arlanda, Heathrow" : "Saved name");
+          assertThat(overview.get(2).get("placeNames").toString())
+              .isEqualTo("[\"Arlanda\",\"Heathrow\",\"Paddington\"]");
+          long dayId = overview.get(2).get("id").asLong();
+          JsonNode detail = mapper.readTree(get(client, base(app) + "/api/tracks/" + dayId).body());
+          assertThat(detail.get("points").isEmpty()).isTrue();
+          assertThat(detail.get("placeVisits").size()).isEqualTo(3);
+          JsonNode arlanda = detail.get("placeVisits").get(0);
+          assertThat(arlanda.get("name").asText()).isEqualTo("Arlanda");
+          assertThat(arlanda.get("latitude").asDouble()).isEqualTo(59.6496);
+          assertThat(arlanda.get("longitude").asDouble()).isEqualTo(17.9238);
+          assertThat(arlanda.get("startTime").asText()).isEqualTo("2014-06-12T07:00:00.500Z");
+          assertThat(overview.get(2).get("startTime").asText()).isEqualTo("2014-06-12T07:00:00Z");
+          assertThat(arlanda.get("endTime").asText()).isEqualTo("2014-06-12T08:00:00Z");
+          assertThat(
+                  patch(client, base(app) + "/api/tracks/" + dayId, "{\"name\":\"Saved name\"}")
+                      .statusCode())
+              .isEqualTo(200);
+          for (String search : java.util.List.of("PADDINGTON", "2014-06-12", "12%20Jun%202014")) {
+            assertThat(
+                    mapper
+                        .readTree(get(client, base(app) + "/api/tracks?search=" + search).body())
+                        .size())
+                .isEqualTo(1);
+          }
+          JsonNode filtered =
+              mapper.readTree(
+                  get(client, base(app) + "/api/tracks?from=2014-06-15&to=2014-06-15").body());
+          assertThat(filtered.size()).isEqualTo(1);
+          JsonNode stops =
+              mapper.readTree(
+                  get(client, base(app) + "/api/tracks/" + filtered.get(0).get("id").asLong())
+                      .body());
+          assertThat(stops.get("segmentCount").asInt()).isZero();
+          assertThat(stops.get("placeVisits").size()).isEqualTo(1);
+          assertThat(stops.get("placeVisits").get(0).get("endTime").asText())
+              .isEqualTo("2014-06-16T01:00:00Z");
+          assertThat(
+                  mapper
+                      .readTree(
+                          get(client, base(app) + "/api/tracks?from=2014-06-16&to=2014-06-16")
+                              .body())
+                      .isEmpty())
+              .isTrue();
+          assertThat(
+                  mapper
+                      .readTree(
+                          get(
+                                  client,
+                                  base(app)
+                                      + "/api/tracks?country=SWE&from=2014-06-15&to=2014-06-15")
+                              .body())
+                      .isEmpty())
+              .isTrue();
+          JsonNode originals = mapper.readTree(get(client, base(app) + "/api/originals").body());
+          assertThat(
+                  get(client, base(app) + "/api/originals/" + originals.get(0).get("id").asLong())
+                      .body())
+              .isEqualTo(archive);
+        }
+      }
+      try (ConfigurableApplicationContext app = start()) {
+        JsonNode overview =
+            mapper.readTree(get(client, base(app) + "/api/tracks?search=Night").body());
+        assertThat(overview.size()).isEqualTo(1);
+        assertThat(mapper.readTree(get(client, base(app) + "/api/tracks/years").body()).toString())
+            .isEqualTo("[2014]");
+        long dayId = overview.get(0).get("id").asLong();
+        JsonNode detail = mapper.readTree(get(client, base(app) + "/api/tracks/" + dayId).body());
+        assertThat(detail.get("originalIds").size()).isEqualTo(2);
+        assertThat(detail.get("placeVisits").size()).isEqualTo(1);
+        HttpResponse<byte[]> deleted =
+            client.send(
+                HttpRequest.newBuilder(URI.create(base(app) + "/api/tracks/" + dayId))
+                    .header("If-Match", overview.get(0).get("revision").asText())
+                    .DELETE()
+                    .build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertThat(deleted.statusCode()).isEqualTo(200);
+        assertThat(
+                mapper
+                    .readTree(get(client, base(app) + "/api/tracks?search=Night").body())
+                    .isEmpty())
+            .isTrue();
+      }
+    }
+  }
+
+  @Test
+  void semanticOnlyArchiveCreatesStopsOnlyYear() throws IOException, InterruptedException {
+    String semantic =
+        """
+        {"timelineObjects":[{"placeVisit":{"location":{"name":"Synthetic station","latitudeE7":593200000,"longitudeE7":180700000},"duration":{"startTimestamp":"2013-01-01T10:00:00Z","endTimestamp":"2013-01-01T11:00:00Z"}}}]}
+        """;
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      String events =
+          new String(
+              upload(client, base(app), takeout(semantic, true), "/api/imports").body(),
+              StandardCharsets.UTF_8);
+      assertThat(events)
+          .contains("\"status\":\"imported\"")
+          .doesNotContain("\"status\":\"failed\"");
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks/years").body()).toString())
+          .isEqualTo("[2013]");
+      JsonNode overview =
+          mapper.readTree(
+              get(client, base(app) + "/api/tracks?from=2013-01-01&to=2013-01-01&search=station")
+                  .body());
+      assertThat(overview.size()).isEqualTo(1);
+      assertThat(overview.get(0).get("pointCount").asInt()).isZero();
+      assertThat(overview.get(0).get("geometry").isEmpty()).isTrue();
+      assertThat(
+              mapper
+                  .readTree(get(client, base(app) + "/api/visits").body())
+                  .get("candidates")
+                  .isEmpty())
+          .isTrue();
+    }
   }
 
   // Rejected uploads must leave the public collection unchanged.

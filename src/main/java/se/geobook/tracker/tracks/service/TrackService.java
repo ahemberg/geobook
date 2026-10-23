@@ -1,5 +1,7 @@
 package se.geobook.tracker.tracks.service;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -14,6 +16,7 @@ import se.geobook.tracker.tracks.domain.DateRange;
 import se.geobook.tracker.tracks.domain.HistoryDay;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.OverviewRun;
+import se.geobook.tracker.tracks.domain.PlaceVisit;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointCountry;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
@@ -53,11 +56,14 @@ public class TrackService {
   }
 
   Track.Imported save(OriginalExport.Source source, Recording recording) {
-    return save(source, recording, null);
+    return save(source, recording, null, List.of());
   }
 
   private Track.Imported save(
-      OriginalExport.Source source, Recording recording, String historyDate) {
+      OriginalExport.Source source,
+      Recording recording,
+      String historyDate,
+      List<PlaceVisit> visits) {
     List<PointLocalTime.Attribution> local =
         recording.points().stream()
             .map(
@@ -80,7 +86,19 @@ public class TrackService {
         new Track.Prepared(
             recording,
             ContentIdentity.recording(recording),
-            TrackColours.Bounds.enclosing(recording.points()),
+            TrackColours.Bounds.enclosing(
+                recording.points().isEmpty()
+                    ? visits.stream()
+                        .map(
+                            visit ->
+                                new Recording.Point(
+                                    0,
+                                    visit.latitude(),
+                                    visit.longitude(),
+                                    null,
+                                    visit.startTime()))
+                        .toList()
+                    : recording.points()),
             local,
             countries,
             OverviewRun.prepare(recording.points(), local, countries));
@@ -101,10 +119,9 @@ public class TrackService {
             return new Track.Imported(trackId, originalId, true);
           }
           if (historyDate != null) {
-            return new Track.Imported(
-                repository.insert(originalId, prepared, HistoryDay.COLOUR, historyDate),
-                originalId,
-                false);
+            long trackId = repository.insert(originalId, prepared, HistoryDay.COLOUR, historyDate);
+            repository.insertPlaceVisits(trackId, visits);
+            return new Track.Imported(trackId, originalId, false);
           }
           List<String> neighbours =
               repository.neighbours().stream()
@@ -118,7 +135,7 @@ public class TrackService {
   }
 
   Track.Imported saveHistoryDay(OriginalExport.Source source, HistoryDay day) {
-    return save(source, day.recording(), day.date());
+    return save(source, day.recording(), day.date(), day.placeVisits());
   }
 
   public List<Track.Overview> overview(DateRange range, String search, String country) {
@@ -126,18 +143,26 @@ public class TrackService {
       PointCountry.country(country);
     }
     return repository.overview(range, country, playbackSettings()).stream()
-        .filter(
-            overview ->
-                overview
-                    .track()
-                    .name()
-                    .toLowerCase(Locale.ROOT)
-                    .contains(search.strip().toLowerCase(Locale.ROOT)))
+        .filter(overview -> matches(overview, search))
         .sorted(
             Comparator.comparing(
                     Track.Overview::startTime, Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(track -> track.track().id(), Comparator.reverseOrder()))
         .toList();
+  }
+
+  private static boolean matches(Track.Overview overview, String search) {
+    String query = search.strip().toLowerCase(Locale.ROOT);
+    Track track = overview.track();
+    return track.name().toLowerCase(Locale.ROOT).contains(query)
+        || track.isHistory()
+            && (track.historyDate().contains(query)
+                || DateTimeFormatter.ofPattern("d MMM uuuu", Locale.ENGLISH)
+                    .format(LocalDate.parse(track.historyDate()))
+                    .toLowerCase(Locale.ROOT)
+                    .contains(query)
+                || overview.placeNames().stream()
+                    .anyMatch(name -> name.toLowerCase(Locale.ROOT).contains(query)));
   }
 
   public Track.Detail detail(long id) {
@@ -151,7 +176,8 @@ public class TrackService {
         points,
         TrackGeometry.lines(points, settings.gapSeconds()),
         TrackGeometry.gaps(points, settings),
-        repository.originalIds(id));
+        repository.originalIds(id),
+        repository.placeVisits(id));
   }
 
   public PlaybackSettings playbackSettings() {

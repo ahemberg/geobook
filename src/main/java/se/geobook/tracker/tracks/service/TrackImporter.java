@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import se.geobook.tracker.tracks.domain.HistoryDay;
-import se.geobook.tracker.tracks.domain.LocationFix;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
@@ -89,16 +88,20 @@ public class TrackImporter {
     List<HistoryDay> days;
     List<String> warnings;
     try {
-      List<LocationFix> fixes = TakeoutReader.read(bytes);
-      days = HistoryDay.split(fixes);
-      int unresolved = fixes.size() - days.stream().mapToInt(day -> day.fixes().size()).sum();
+      TakeoutReader.History history = TakeoutReader.read(bytes);
+      days = HistoryDay.split(history.fixes(), history.placeVisits());
+      int unresolved =
+          history.fixes().size()
+              - days.stream().mapToInt(day -> day.fixes().size()).sum()
+              + history.placeVisits().size()
+              - days.stream().mapToInt(day -> day.placeVisits().size()).sum();
       warnings =
           unresolved == 0
               ? List.of()
               : List.of(
                   unresolved
-                      + " fixes have unresolved local dates and remain only in the original"
-                      + " export.");
+                      + " fixes or place visits have unresolved local dates and remain only in the"
+                      + " original export.");
     } catch (IllegalArgumentException exception) {
       progress.send(
           new ImportEvent(

@@ -105,9 +105,12 @@ class ArchitectureTests {
     noClasses()
         .that()
         .resideOutsideOfPackage("se.geobook.tracker.*.controller..")
-        // Only the Takeout source reader may use Jackson's streaming parser outside controllers.
+        // Only Takeout source parsing may use Jackson's streaming parser outside controllers.
         .and()
         .doNotHaveFullyQualifiedName("se.geobook.tracker.tracks.service.TakeoutReader")
+        .and()
+        .doNotHaveFullyQualifiedName(
+            "se.geobook.tracker.tracks.service.TakeoutReader$SemanticVisits")
         .should()
         .dependOnClassesThat()
         .resideInAnyPackage("tools.jackson.core..")

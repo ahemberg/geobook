@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import se.geobook.tracker.tracks.domain.OriginalExport;
+import se.geobook.tracker.tracks.domain.PlaceVisit;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
 import se.geobook.tracker.tracks.domain.Recording;
@@ -11,7 +12,7 @@ import se.geobook.tracker.tracks.domain.Track;
 import se.geobook.tracker.tracks.service.TrackImporter;
 
 // Keep the established JSON field names independent of the domain records.
-@SuppressWarnings("PMD.ShortVariable")
+@SuppressWarnings({"PMD.ShortVariable", "PMD.CouplingBetweenObjects", "PMD.TooManyMethods"})
 final class TrackResponses {
   private TrackResponses() {}
 
@@ -35,7 +36,8 @@ final class TrackResponses {
       int pointCount,
       int unknownDateCount,
       List<List<List<BigDecimal>>> geometry,
-      List<List<List<BigDecimal>>> gaps) {}
+      List<List<List<BigDecimal>>> gaps,
+      List<String> placeNames) {}
 
   record Point(
       int segment,
@@ -61,7 +63,11 @@ final class TrackResponses {
       List<Point> points,
       List<List<List<BigDecimal>>> geometry,
       List<List<List<BigDecimal>>> gaps,
-      List<Long> originalIds) {}
+      List<Long> originalIds,
+      List<Visit> placeVisits) {}
+
+  record Visit(
+      String name, BigDecimal latitude, BigDecimal longitude, Instant startTime, Instant endTime) {}
 
   record ImportEvent(
       String status,
@@ -111,7 +117,8 @@ final class TrackResponses {
         overview.pointCount(),
         overview.unknownDateCount(),
         overview.geometry(),
-        overview.gaps());
+        overview.gaps(),
+        overview.placeNames());
   }
 
   static Point from(Track.Point point) {
@@ -144,7 +151,13 @@ final class TrackResponses {
         track.isHistory() ? List.of() : detail.points().stream().map(TrackResponses::from).toList(),
         detail.geometry(),
         detail.gaps(),
-        detail.originalIds());
+        detail.originalIds(),
+        detail.placeVisits().stream().map(TrackResponses::from).toList());
+  }
+
+  private static Visit from(PlaceVisit visit) {
+    return new Visit(
+        visit.name(), visit.latitude(), visit.longitude(), visit.startTime(), visit.endTime());
   }
 
   static ImportEvent from(TrackImporter.ImportEvent event) {

@@ -5,6 +5,14 @@ import { openDateFilters, openLibrary } from './workspaceControls';
 function takeout(date: string) {
   const json = Buffer.from(
     JSON.stringify({
+      timelineObjects: [
+        {
+          placeVisit: {
+            location: { name: 'Synthetic station', latitudeE7: 593200000, longitudeE7: 180700000 },
+            duration: { startTimestamp: `${date}T10:00:00Z`, endTimestamp: `${date}T11:00:00Z` },
+          },
+        },
+      ],
       locations: [
         { latitudeE7: 593200000, longitudeE7: 180700000, timestamp: `${date}T10:00:00Z` },
         { latitudeE7: 593210000, longitudeE7: 180710000, timestamp: `${date}T10:01:00Z` },
@@ -41,6 +49,7 @@ test('Takeout appears as inferred history below tracks on desktop and mobile', a
   await page.route('https://tile.openstreetmap.org/**', (route) => route.fulfill({ status: 204 }));
   const date = info.project.name === 'mobile' ? '2012-06-18' : '2013-06-18';
   const original = takeout(date);
+  const name = `18 Jun ${date.slice(0, 4)} · Synthetic station`;
   await page.request.post('/api/imports', {
     multipart: {
       file: {
@@ -70,7 +79,13 @@ test('Takeout appears as inferred history below tracks on desktop and mobile', a
   const history = page.getByRole('region', { name: 'Google history' });
   await expect(history.getByRole('heading', { name: 'Google history' })).toBeVisible();
   await expect(history.getByText('Inferred')).toBeVisible();
-  await expect(history.getByText(date, { exact: true })).toBeVisible();
+  await expect(history.getByText(name, { exact: true })).toBeVisible();
+  const search = page.getByRole('searchbox', { name: 'Search tracks' });
+  await search.fill('station');
+  await expect(history.getByText(name, { exact: true })).toBeVisible();
+  await search.fill(date);
+  await expect(history.getByText(name, { exact: true })).toBeVisible();
+  await search.clear();
   await expect(page.getByRole('region', { name: 'Complete recording' })).toHaveCount(0);
   await expect(page.locator('.leaflet-history-pane canvas')).toBeAttached();
   expect(
@@ -87,7 +102,7 @@ test('Takeout appears as inferred history below tracks on desktop and mobile', a
   await page.reload();
   await openLibrary(page);
   await expect(
-    page.getByRole('region', { name: 'Google history' }).getByText(date, { exact: true }),
+    page.getByRole('region', { name: 'Google history' }).getByText(name, { exact: true }),
   ).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath('history.png'), fullPage: true });

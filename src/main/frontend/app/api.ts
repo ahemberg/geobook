@@ -8,6 +8,7 @@ export type Overview = {
   revision: string;
   kind?: 'recording' | 'history';
   historyDate?: string | null;
+  placeNames?: string[];
   startTime: string | null;
   pointCount: number;
   unknownDateCount: number;
@@ -22,6 +23,13 @@ export type Detail = {
   visible: boolean;
   kind?: 'recording' | 'history';
   historyDate?: string | null;
+  placeVisits?: {
+    name: string;
+    latitude: number;
+    longitude: number;
+    startTime: string;
+    endTime: string;
+  }[];
   segmentCount: number;
   originalIds: number[];
   geometry: LatLngTuple[][];

@@ -4,6 +4,13 @@ import RemovalDialog from './RemovalDialog';
 import type { Controls, Overview } from './api';
 import { trackDateLabel } from './trackDateLabel';
 
+const historyDateFormat = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
 export default function TrackLibrary({
   tracks,
   filtered,
@@ -43,9 +50,18 @@ export default function TrackLibrary({
     if (!controls.name.toLowerCase().includes(search.trim().toLowerCase()))
       searchInput.current?.focus();
   }
-  const matches = tracks.filter((track) =>
-    track.name.toLowerCase().includes(search.trim().toLowerCase()),
-  );
+  const query = search.trim().toLowerCase();
+  const matches = tracks.filter((track) => {
+    if (track.name.toLowerCase().includes(query)) return true;
+    const terms: string[] = [];
+    if (track.kind === 'history') {
+      terms.push(track.historyDate ?? '', ...(track.placeNames ?? []));
+      if (track.historyDate) {
+        terms.push(historyDateFormat.format(new Date(track.historyDate)));
+      }
+    }
+    return terms.some((term) => term.toLowerCase().includes(query));
+  });
   const history = matches.filter((item) => item.kind === 'history');
   const recordings = matches.filter((item) => item.kind !== 'history');
   return (
