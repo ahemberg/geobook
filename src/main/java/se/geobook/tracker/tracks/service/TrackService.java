@@ -201,9 +201,8 @@ public class TrackService {
   }
 
   public Track.Detail detail(long id) {
-    PlaybackSettings settings = playbackSettings();
-    Track track = find(id);
-    settings = track.geometrySettings(settings);
+    final Track track = find(id);
+    final PlaybackSettings settings = track.geometrySettings(playbackSettings());
     List<Track.Point> points = repository.points(id);
     return new Track.Detail(
         track,
