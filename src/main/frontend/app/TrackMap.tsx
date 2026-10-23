@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import L from 'leaflet';
 import type { Country, MapConfig, MapTrack } from './api';
 import { mapGeometry } from './mapGeometry';
 
 export default function TrackMap({
   tracks,
+  history,
   selectedId,
   importedIds,
   config,
@@ -12,6 +13,7 @@ export default function TrackMap({
   country: scope,
 }: {
   tracks: MapTrack[];
+  history: MapTrack[];
   country: Country | null;
   selectedId: number | null;
   importedIds: number[];
@@ -45,6 +47,8 @@ export default function TrackMap({
     resize?.observe(container.current);
     return () => {
       resize?.disconnect();
+      // Layer effects clean up after this one; stop late animation events reaching their handlers.
+      map.off();
       map.remove();
       mapRef.current = null;
       tilesRef.current = null;
@@ -54,17 +58,18 @@ export default function TrackMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const longitude = country ? (country.bounds[0][1] + country.bounds[1][1]) / 2 : undefined;
+    const longitude = centreLongitude(country);
 
     const fitKey = JSON.stringify([
       selectedId,
       importedIds,
       country?.country,
       tracks.map((track) => [track.id, track.geometry]),
+      history.map((day) => day.id),
     ]);
     const bounds = country
       ? L.latLngBounds(country.bounds)
-      : trackBounds(fittedTracks(tracks, selectedId, importedIds));
+      : trackBounds(fittedTracks(tracks, history, selectedId, importedIds));
     if (fitKey !== fitted.current && bounds.isValid()) {
       map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16, animate: false });
       fitted.current = fitKey;
@@ -76,7 +81,8 @@ export default function TrackMap({
         drawGaps(track, layer, origin + offset);
       }
     });
-  }, [tracks, selectedId, importedIds, config, country]);
+  }, [tracks, history, selectedId, importedIds, config, country]);
+  useHistoryLayer(mapRef, history, country, config);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -102,7 +108,7 @@ export default function TrackMap({
 
   function fitAll() {
     mapRef.current?.invalidateSize();
-    const longitude = country ? (country.bounds[0][1] + country.bounds[1][1]) / 2 : undefined;
+    const longitude = centreLongitude(country);
     const bounds = trackBounds(tracks, longitude);
     if (bounds.isValid()) mapRef.current?.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
   }
@@ -130,6 +136,44 @@ export default function TrackMap({
       )}
     </section>
   );
+}
+
+function centreLongitude(country: Country | null) {
+  return country ? (country.bounds[0][1] + country.bounds[1][1]) / 2 : undefined;
+}
+
+function useHistoryLayer(
+  mapRef: RefObject<L.Map | null>,
+  history: MapTrack[],
+  country: Country | null,
+  config: MapConfig,
+) {
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const renderer = historyRenderer(map);
+    const longitude = centreLongitude(country);
+    const visible = history.filter((day) => day.visible);
+    return repeatWorlds(map, trackBounds(visible, longitude), (layer, offset) => {
+      for (const day of visible) {
+        const origin = longitude ?? day.geometry[0]?.[0]?.[1] ?? 0;
+        drawHistory(day, renderer, layer, origin + offset);
+      }
+    });
+  }, [mapRef, history, country, config]);
+}
+
+const historyRenderers = new WeakMap<L.Map, L.Canvas>();
+
+// History sits under the track overlay pane and shares one canvas per map for thousands of days.
+function historyRenderer(map: L.Map) {
+  let renderer = historyRenderers.get(map);
+  if (!renderer) {
+    map.createPane('history').style.zIndex = '350';
+    renderer = L.canvas({ pane: 'history' });
+    historyRenderers.set(map, renderer);
+  }
+  return renderer;
 }
 
 function repeatWorlds(
@@ -183,6 +227,17 @@ function drawTrack(
   }
 }
 
+function drawHistory(day: MapTrack, renderer: L.Canvas, layer: L.FeatureGroup, longitude: number) {
+  const style = { pane: 'history', renderer, color: day.colour, interactive: false };
+  for (const line of mapGeometry(day.geometry, longitude)) {
+    if (line.length === 1 && line[0]) {
+      L.circleMarker(line[0], { ...style, radius: 2, weight: 0, fillOpacity: 0.4 }).addTo(layer);
+    } else {
+      L.polyline(line, { ...style, weight: 2, opacity: 0.4 }).addTo(layer);
+    }
+  }
+}
+
 function drawGaps(track: MapTrack, layer: L.FeatureGroup, longitude = track.geometry[0]?.[0]?.[1]) {
   for (const gap of mapGeometry(track.gaps ?? [], longitude)) {
     L.polyline(gap, {
@@ -206,7 +261,13 @@ function trackBounds(tracks: MapTrack[], longitude?: number) {
   return bounds;
 }
 
-function fittedTracks(tracks: MapTrack[], selectedId: number | null, importedIds: number[]) {
-  if (importedIds.length) return tracks.filter((track) => importedIds.includes(track.id));
+function fittedTracks(
+  tracks: MapTrack[],
+  history: MapTrack[],
+  selectedId: number | null,
+  importedIds: number[],
+) {
+  if (importedIds.length)
+    return [...tracks, ...history].filter((track) => importedIds.includes(track.id));
   return selectedId === null ? tracks : tracks.filter((track) => track.id === selectedId);
 }

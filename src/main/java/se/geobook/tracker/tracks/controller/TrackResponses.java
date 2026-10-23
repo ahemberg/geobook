@@ -29,6 +29,8 @@ final class TrackResponses {
       String colour,
       boolean visible,
       String revision,
+      String kind,
+      String historyDate,
       Instant startTime,
       int pointCount,
       int unknownDateCount,
@@ -67,7 +69,8 @@ final class TrackResponses {
       Long trackId,
       Long originalId,
       List<String> warnings,
-      String message) {}
+      String message,
+      String kind) {}
 
   record Original(long id, String filename, long byteCount, List<AffectedTrack> tracks) {}
 
@@ -100,6 +103,8 @@ final class TrackResponses {
         track.colour(),
         track.visible(),
         track.revision(),
+        track.kind().value(),
+        track.historyDate(),
         overview.startTime(),
         overview.pointCount(),
         overview.unknownDateCount(),
@@ -147,7 +152,8 @@ final class TrackResponses {
         event.trackId(),
         event.originalId(),
         event.warnings(),
-        event.message());
+        event.message(),
+        event.kind() == null ? null : event.kind().value());
   }
 
   static Removal removal(OriginalExport original) {

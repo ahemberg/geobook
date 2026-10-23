@@ -8,7 +8,28 @@ import java.util.List;
 
 // IDs use the same name throughout storage and the public track representation.
 @SuppressWarnings("PMD.ShortVariable")
-public record Track(long id, String name, String colour, boolean visible, String identity) {
+public record Track(
+    long id,
+    String name,
+    String colour,
+    boolean visible,
+    String identity,
+    Kind kind,
+    String historyDate) {
+  /** Recordings are tracks; history entries are history days that reuse the track storage. */
+  public enum Kind {
+    RECORDING,
+    HISTORY;
+
+    public static Kind stored(String value) {
+      return valueOf(value.toUpperCase(java.util.Locale.ROOT));
+    }
+
+    public String value() {
+      return name().toLowerCase(java.util.Locale.ROOT);
+    }
+  }
+
   public String revision() {
     String state =
         id
@@ -112,6 +133,16 @@ public record Track(long id, String name, String colour, boolean visible, String
     @Override
     public byte[] bytes() {
       return bytes.clone();
+    }
+
+    public String mediaType() {
+      if (bytes.length >= 2 && bytes[0] == 'P' && bytes[1] == 'K') {
+        return "application/zip";
+      }
+      if (bytes.length >= 2 && bytes[0] == (byte) 0x1f && bytes[1] == (byte) 0x8b) {
+        return "application/gzip";
+      }
+      return "application/gpx+xml";
     }
   }
 

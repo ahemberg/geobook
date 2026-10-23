@@ -2,6 +2,7 @@ package se.geobook.tracker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -13,10 +14,19 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.zip.GZIPOutputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.server.context.WebServerApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -28,9 +38,16 @@ import tools.jackson.databind.json.JsonMapper;
   "PMD.TooManyMethods",
   "PMD.GodClass",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.UnitTestContainsTooManyAsserts"
+  "PMD.UnitTestContainsTooManyAsserts",
+  "PMD.ExcessiveImports",
+  "PMD.CouplingBetweenObjects"
 })
 class TrackHttpTests {
+  private enum Archive {
+    ZIP,
+    TGZ
+  }
+
   @TempDir Path directory;
 
   // Rejected uploads must leave the public collection unchanged.
@@ -249,6 +266,7 @@ class TrackHttpTests {
       String result = new String(response.body(), StandardCharsets.UTF_8);
       assertThat(result)
           .contains(
+              "\"kind\":\"recording\"",
               "\"status\":\"imported\"",
               "\"status\":\"failed\"",
               "\"status\":\"complete\"",
@@ -323,7 +341,7 @@ class TrackHttpTests {
     try (HttpClient client = HttpClient.newHttpClient();
         ConfigurableApplicationContext app = start()) {
       HttpResponse<byte[]> response =
-          uploadBatch(client, base(app), "/api/imports", java.util.List.of(malformed, valid));
+          uploadBatch(client, base(app), "/api/imports", List.of(malformed, valid));
       assertThat(response.statusCode()).isEqualTo(200);
       assertThat(new String(response.body(), StandardCharsets.UTF_8))
           .contains("could not be read", "\"status\":\"imported\"");
@@ -428,6 +446,10 @@ class TrackHttpTests {
       assertThat(detail.get("colour").asText()).isEqualTo("#123456");
       assertThat(detail.get("visible").asBoolean()).isTrue();
       assertThat(get(client, base(app) + "/api/originals/7").body()).isEqualTo(original);
+      JsonNode overview =
+          JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks").body());
+      assertThat(overview.get(0).get("kind").asText()).isEqualTo("recording");
+      assertThat(overview.get(0).get("historyDate").isNull()).isTrue();
     }
   }
 
@@ -1255,6 +1277,166 @@ class TrackHttpTests {
     }
   }
 
+  // Synthetic Stockholm fixes straddle local midnight; the folder names differ per archive.
+  @ParameterizedTest
+  @EnumSource(Archive.class)
+  void takeoutArchiveImportsHistoryDaysBelowRecordedTracks(Archive format)
+      throws IOException, InterruptedException {
+    byte[] archive =
+        takeout(
+            format,
+            Map.of(
+                "Takeout/Historique des positions/Records.json",
+                """
+                {"locations": [
+                  {"latitudeE7": 593200000, "longitudeE7": 180600000, "accuracy": 20,
+                   "deviceTag": 11, "timestampMs": "1403128200000"},
+                  {"latitudeE7": 593300000, "longitudeE7": 180700000, "accuracy": 25,
+                   "activity": [{"timestamp": "2014-06-18T22:10:00Z",
+                                 "activity": [{"type": "STILL", "confidence": 100}]}],
+                   "deviceTag": 11, "timestamp": "2014-06-18T22:10:00.000Z"},
+                  {"latitudeE7": 593400000, "longitudeE7": 180800000, "accuracy": 25,
+                   "deviceTag": 11, "timestamp": "2014-06-18T23:10:00Z", "source": "WIFI"}
+                ]}
+                """,
+                "Takeout/Historique des positions/Semantic Location History/2014/2014_JUNE.json",
+                "{\"timelineObjects\": []}",
+                "Takeout/archive_browser.html",
+                "<html></html>",
+                "Takeout/Drive/notes.json",
+                "not json at all"));
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      upload(
+          client,
+          base(app),
+          gpx("<trk><name>Recorded</name><trkseg><trkpt lat='1' lon='2'/></trkseg></trk>"));
+      String events =
+          new String(
+              upload(client, base(app), archive, "/api/imports").body(), StandardCharsets.UTF_8);
+      assertThat(events).contains("\"total\":2", "\"status\":\"complete\"");
+      List<JsonNode> imported =
+          events
+              .lines()
+              .map(mapper::readTree)
+              .filter(event -> "imported".equals(event.get("status").asText()))
+              .toList();
+      assertThat(imported).allMatch(event -> "history".equals(event.get("kind").asText()));
+      assertThat(imported)
+          .extracting(event -> event.get("name").asText())
+          .containsExactly("2014-06-18", "2014-06-19");
+      final long originalId = imported.getFirst().get("originalId").asLong();
+
+      JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body());
+      assertThat(overview.size()).isEqualTo(3);
+      JsonNode recorded = overview.get(2);
+      assertThat(recorded.get("kind").asText()).isEqualTo("recording");
+      assertThat(recorded.get("historyDate").isNull()).isTrue();
+      for (int index = 0; index < 2; index++) {
+        JsonNode day = overview.get(index);
+        String date = index == 0 ? "2014-06-19" : "2014-06-18";
+        assertThat(day.get("kind").asText()).isEqualTo("history");
+        assertThat(day.get("historyDate").asText()).isEqualTo(date);
+        assertThat(day.get("name").asText()).isEqualTo(date);
+        assertThat(day.get("colour").asText()).isEqualTo("#5f7186");
+        assertThat(day.get("visible").asBoolean()).isTrue();
+      }
+      assertThat(overview.get(0).get("pointCount").asInt()).isEqualTo(2);
+      JsonNode detail =
+          mapper.readTree(
+              get(client, base(app) + "/api/tracks/" + overview.get(0).get("id").asLong()).body());
+      assertThat(detail.get("originalIds").toString()).isEqualTo("[" + originalId + "]");
+
+      HttpResponse<byte[]> original = get(client, base(app) + "/api/originals/" + originalId);
+      assertThat(original.body()).isEqualTo(archive);
+      assertThat(original.headers().firstValue("Content-Type").orElseThrow())
+          .isEqualTo(format == Archive.ZIP ? "application/zip" : "application/gzip");
+
+      JsonNode filtered =
+          mapper.readTree(
+              get(client, base(app) + "/api/tracks?from=2014-06-18&to=2014-06-18").body());
+      assertThat(filtered.size()).isEqualTo(1);
+      assertThat(filtered.get(0).get("historyDate").asText()).isEqualTo("2014-06-18");
+      assertThat(get(client, base(app) + "/api/tracks/years").body())
+          .isEqualTo("[2014]".getBytes(StandardCharsets.UTF_8));
+      // Country suggestions from history arrive with cleaning; uncleaned fixes create none yet.
+      assertThat(
+              mapper
+                  .readTree(get(client, base(app) + "/api/visits").body())
+                  .get("candidates")
+                  .size())
+          .isZero();
+
+      String repeat =
+          new String(
+              upload(client, base(app), archive, "/api/imports").body(), StandardCharsets.UTF_8);
+      assertThat(repeat)
+          .doesNotContain("\"status\":\"imported\"")
+          .contains("\"status\":\"duplicate\"");
+      assertThat(mapper.readTree(get(client, base(app) + "/api/originals").body()).size())
+          .isEqualTo(2);
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks").body()).size())
+          .isEqualTo(3);
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(Archive.class)
+  void archiveWithoutLocationHistoryIsRejectedAndNothingIsStored(Archive format)
+      throws IOException, InterruptedException {
+    byte[] archive =
+        takeout(
+            format,
+            Map.of(
+                "Takeout/My Activity/Search/MyActivity.json",
+                "[{\"title\": \"Searched for maps\"}]",
+                "Takeout/Location History/Semantic Location History/2014/2014_JUNE.json",
+                "{\"timelineObjects\": []}",
+                "Takeout/Location History/Records.json",
+                "{\"locations\": []}"));
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      String events =
+          new String(
+              upload(client, base(app), archive, "/api/imports").body(), StandardCharsets.UTF_8);
+      assertThat(events).contains("\"status\":\"failed\"", "no Google location history");
+      assertThat(new String(get(client, base(app) + "/api/tracks").body(), StandardCharsets.UTF_8))
+          .isEqualTo("[]");
+      assertThat(
+              new String(get(client, base(app) + "/api/originals").body(), StandardCharsets.UTF_8))
+          .isEqualTo("[]");
+    }
+  }
+
+  // Each archive entry needs its own header.
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  private static byte[] takeout(Archive format, Map<String, String> files) throws IOException {
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    if (format == Archive.ZIP) {
+      try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
+        for (Map.Entry<String, String> file : new java.util.TreeMap<>(files).entrySet()) {
+          zip.putNextEntry(new ZipEntry(file.getKey()));
+          zip.write(file.getValue().getBytes(StandardCharsets.UTF_8));
+          zip.closeEntry();
+        }
+      }
+      return bytes.toByteArray();
+    }
+    try (TarArchiveOutputStream tar = new TarArchiveOutputStream(new GZIPOutputStream(bytes))) {
+      tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
+      for (Map.Entry<String, String> file : new java.util.TreeMap<>(files).entrySet()) {
+        byte[] content = file.getValue().getBytes(StandardCharsets.UTF_8);
+        TarArchiveEntry entry = new TarArchiveEntry(file.getKey());
+        entry.setSize(content.length);
+        tar.putArchiveEntry(entry);
+        tar.write(content);
+        tar.closeArchiveEntry();
+      }
+    }
+    return bytes.toByteArray();
+  }
+
   private static String trackRevision(HttpClient client, String base, long trackId)
       throws IOException, InterruptedException {
     JsonNode overview =
@@ -1313,13 +1495,13 @@ class TrackHttpTests {
   private static HttpResponse<byte[]> upload(
       HttpClient client, String base, byte[] original, String endpoint)
       throws IOException, InterruptedException {
-    return uploadBatch(client, base, endpoint, java.util.List.of(original));
+    return uploadBatch(client, base, endpoint, List.of(original));
   }
 
   private static HttpResponse<byte[]> uploadBatch(
-      HttpClient client, String base, String endpoint, java.util.List<byte[]> originals)
+      HttpClient client, String base, String endpoint, List<byte[]> originals)
       throws IOException, InterruptedException {
-    java.util.List<HttpRequest.BodyPublisher> parts = new java.util.ArrayList<>();
+    List<HttpRequest.BodyPublisher> parts = new java.util.ArrayList<>();
     for (byte[] original : originals) {
       parts.add(
           HttpRequest.BodyPublishers.ofString(
