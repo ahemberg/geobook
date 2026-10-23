@@ -170,7 +170,19 @@ public class TrackImporter {
                 warnings,
                 null,
                 HISTORY));
-      } catch (IllegalArgumentException | org.springframework.dao.DataAccessException exception) {
+      } catch (IllegalArgumentException exception) {
+        progress.send(
+            new ImportEvent(
+                FAILED,
+                index + 1,
+                days.size(),
+                day.date(),
+                null,
+                source.id(),
+                warnings,
+                exception.getMessage(),
+                HISTORY));
+      } catch (org.springframework.dao.DataAccessException exception) {
         progress.send(
             new ImportEvent(
                 FAILED,
