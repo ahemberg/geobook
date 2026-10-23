@@ -101,7 +101,14 @@ public class TrackService {
                     : recording.points()),
             local,
             countries,
-            OverviewRun.prepare(recording.points(), local, countries));
+            historyDay == null
+                ? OverviewRun.prepare(recording.points(), local, countries, 1, 10)
+                : OverviewRun.prepare(
+                    recording.points(),
+                    local,
+                    countries,
+                    HistoryDay.GAP_SECONDS,
+                    HistoryDay.OVERVIEW_METRES));
     return write(
         () -> {
           if (!repository.sourceExists(source)) {

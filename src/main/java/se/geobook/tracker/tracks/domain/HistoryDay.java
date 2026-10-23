@@ -22,6 +22,8 @@ public record HistoryDay(
   public static final String COLOUR = "#738a91";
   public static final int GAP_SECONDS = 30 * 60;
   public static final PlaybackSettings GEOMETRY = new PlaybackSettings(GAP_SECONDS, false);
+  // Inferred fixes are noisy and drawn faintly, so the overview keeps far fewer of them.
+  public static final double OVERVIEW_METRES = 50;
   private static final int ACCURACY_METRES = 200;
   private static final double MAX_SPEED_KMH = 300;
   private static final double GAP_METRES = 2000;
