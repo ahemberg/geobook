@@ -1,7 +1,6 @@
 package se.geobook.tracker.tracks.service;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -102,7 +101,12 @@ public class TrackService {
             local,
             countries,
             historyDay == null
-                ? OverviewRun.prepare(recording.points(), local, countries, 1, 10)
+                ? OverviewRun.prepare(
+                    recording.points(),
+                    local,
+                    countries,
+                    OverviewRun.MIN_GAP_SECONDS,
+                    OverviewRun.RECORDING_METRES)
                 : OverviewRun.prepare(
                     recording.points(),
                     local,
@@ -185,7 +189,7 @@ public class TrackService {
     return track.name().toLowerCase(Locale.ROOT).contains(query)
         || track.isHistory()
             && (track.historyDate().contains(query)
-                || DateTimeFormatter.ofPattern("d MMM uuuu", Locale.ENGLISH)
+                || HistoryDay.DATE
                     .format(LocalDate.parse(track.historyDate()))
                     .toLowerCase(Locale.ROOT)
                     .contains(query)

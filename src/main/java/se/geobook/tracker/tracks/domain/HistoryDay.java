@@ -17,7 +17,7 @@ import java.util.stream.Stream;
 /** One local date of inferred location history, independent of recording sessions. */
 public record HistoryDay(
     String date, List<LocationFix> fixes, int droppedFixCount, List<PlaceVisit> placeVisits) {
-  private static final DateTimeFormatter DATE =
+  public static final DateTimeFormatter DATE =
       DateTimeFormatter.ofPattern("d MMM uuuu", Locale.ENGLISH);
   public static final String COLOUR = "#738a91";
   public static final int GAP_SECONDS = 30 * 60;
@@ -33,10 +33,6 @@ public record HistoryDay(
     placeVisits =
         List.copyOf(
             placeVisits.stream().sorted(Comparator.comparing(PlaceVisit::startTime)).toList());
-  }
-
-  public HistoryDay(String date, List<LocationFix> fixes, int droppedFixCount) {
-    this(date, fixes, droppedFixCount, List.of());
   }
 
   public HistoryDay(String date, List<LocationFix> source) {

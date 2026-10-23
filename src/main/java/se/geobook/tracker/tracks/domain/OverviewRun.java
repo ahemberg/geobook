@@ -17,6 +17,10 @@ public record OverviewRun(
     boolean breakBefore,
     long secondsBefore,
     List<Recording.Point> points) {
+  // The smallest gap threshold a reader can choose.
+  public static final int MIN_GAP_SECONDS = 1;
+  public static final double RECORDING_METRES = 10;
+
   public OverviewRun {
     points = List.copyOf(points);
   }
