@@ -5,7 +5,7 @@ import App from './App';
 
 afterEach(() => vi.unstubAllGlobals());
 
-test('upload above 32 MB uses the configured hint and keeps the original download', async () => {
+test('upload shows the saved track and a download of the original export', async () => {
   let imported = false;
   const track = {
     id: 1,
@@ -50,9 +50,9 @@ test('upload above 32 MB uses the configured hint and keeps the original downloa
           ),
         );
       }
-      if (url === '/api/upload-config')
-        return Promise.resolve(Response.json({ maxUploadBytes: 67108864 }));
       if (url === '/api/tracks/years') return Promise.resolve(Response.json([]));
+      if (url === '/api/history-display')
+        return Promise.resolve(Response.json({ showHistory: true, hiddenYears: [] }));
       if (url === '/api/playback-settings')
         return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')
@@ -61,6 +61,7 @@ test('upload above 32 MB uses the configured hint and keeps the original downloa
             url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             attribution: '© OpenStreetMap contributors',
             attributionUrl: 'https://www.openstreetmap.org/copyright',
+            uploadLimitMb: 512,
           }),
         );
       if (url === '/api/tracks/1')
@@ -81,10 +82,10 @@ test('upload above 32 MB uses the configured hint and keeps the original downloa
   const user = userEvent.setup();
   render(<App />);
   expect(await screen.findByText('Your travels start here')).toBeVisible();
-  expect(await screen.findByText(/Up to 64 MB per upload, including form data/)).toBeVisible();
+  expect(screen.getByText(/Upload limit: 512 MB/)).toBeVisible();
   const file = new File(['synthetic'], 'walk.gpx', { type: 'application/gpx+xml' });
   Object.defineProperty(file, 'size', { value: 33 * 1024 * 1024 });
-  await user.upload(screen.getByLabelText('Choose GPX file'), file);
+  await user.upload(screen.getByLabelText('Choose GPX or Takeout'), file);
   await waitFor(() =>
     expect(screen.getByRole('button', { name: /^Synthetic waterfront.*/ })).toBeVisible(),
   );
@@ -96,16 +97,41 @@ test('upload above 32 MB uses the configured hint and keeps the original downloa
   expect(screen.getAllByText('Date unknown')).toHaveLength(2);
 });
 
-test('an oversized upload explains the server limit and allows another file', async () => {
+test('the upload hint and rejection use the configured limit', async () => {
+  const fetch = vi.fn((url: string) =>
+    Promise.resolve(
+      Response.json(
+        url === '/api/tracks' || url === '/api/tracks/years'
+          ? []
+          : {
+              url: '/tiles/{z}/{x}/{y}.png',
+              attribution: 'Test tiles',
+              attributionUrl: '/copyright',
+              uploadLimitMb: 1,
+            },
+      ),
+    ),
+  );
+  vi.stubGlobal('fetch', fetch);
+  render(<App />);
+  expect(await screen.findByText(/Upload limit: 1 MB/)).toBeVisible();
+  const file = new File(['synthetic'], 'large.gpx');
+  Object.defineProperty(file, 'size', { value: 2 * 1024 * 1024 });
+  await userEvent.setup().upload(screen.getByLabelText('Choose GPX or Takeout'), file);
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Upload exceeds the 1 MB limit. Choose a smaller file.',
+  );
+  expect(fetch.mock.calls.some(([url]) => url === '/api/imports')).toBe(false);
+  expect(screen.getByRole('button', { name: 'Upload GPX / Takeout' })).toBeEnabled();
+});
+
+test('a rejected upload explains the problem and allows another file', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string, options?: RequestInit) => {
       if (options?.method === 'POST')
         return Promise.resolve(
-          Response.json(
-            { message: 'Upload exceeds the configured size limit. Choose a smaller file.' },
-            { status: 413 },
-          ),
+          Response.json({ message: 'The GPX could not be read.' }, { status: 400 }),
         );
       return Promise.resolve(
         Response.json(
@@ -115,6 +141,7 @@ test('an oversized upload explains the server limit and allows another file', as
                 url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 attribution: '© OpenStreetMap contributors',
                 attributionUrl: 'https://www.openstreetmap.org/copyright',
+                uploadLimitMb: 512,
               },
         ),
       );
@@ -124,11 +151,9 @@ test('an oversized upload explains the server limit and allows another file', as
   await screen.findByText('Your travels start here');
   await userEvent
     .setup()
-    .upload(screen.getByLabelText('Choose GPX file'), new File(['invalid'], 'invalid.gpx'));
-  expect(await screen.findByRole('alert')).toHaveTextContent(
-    'Upload exceeds the configured size limit. Choose a smaller file.',
-  );
-  expect(screen.getByRole('button', { name: 'Upload GPX' })).toBeEnabled();
+    .upload(screen.getByLabelText('Choose GPX or Takeout'), new File(['invalid'], 'invalid.gpx'));
+  expect(await screen.findByRole('alert')).toHaveTextContent('could not be read');
+  expect(screen.getByRole('button', { name: 'Upload GPX / Takeout' })).toBeEnabled();
   expect(screen.queryByRole('link', { name: 'Download original export' })).not.toBeInTheDocument();
 });
 
@@ -165,6 +190,8 @@ test('search and editing use saved responses and explain failures', async () => 
         track = { ...track, ...(changes as Partial<typeof track>) };
         return Promise.resolve(Response.json(track));
       }
+      if (url === '/api/history-display')
+        return Promise.resolve(Response.json({ showHistory: true, hiddenYears: [] }));
       if (url === '/api/playback-settings')
         return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')
@@ -173,6 +200,7 @@ test('search and editing use saved responses and explain failures', async () => 
             url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             attribution: '© OpenStreetMap contributors',
             attributionUrl: 'https://www.openstreetmap.org/copyright',
+            uploadLimitMb: 512,
           }),
         );
       return Promise.resolve(Response.json([track]));
@@ -254,6 +282,7 @@ test('a delayed collection load cannot overwrite a saved visibility change', asy
           url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           attribution: '© OpenStreetMap contributors',
           attributionUrl: 'https://www.openstreetmap.org/copyright',
+          uploadLimitMb: 512,
         }),
       );
     }),
@@ -331,19 +360,19 @@ test('batch progress keeps per-track results and continues after a failed file',
   await screen.findByText('Your travels start here');
   await userEvent
     .setup()
-    .upload(screen.getByLabelText('Choose GPX file'), [
+    .upload(screen.getByLabelText('Choose GPX or Takeout'), [
       new File(['bad'], 'bad.gpx'),
       new File(['collection'], 'collection.gpx'),
     ]);
-  expect(await screen.findByText(/1 of 2 tracks processed/)).toBeVisible();
+  expect(await screen.findByText(/1 of 2 items processed/)).toBeVisible();
   expect(screen.getByText(/Existing walk/)).toHaveTextContent('Duplicate');
   expect(screen.getByText(/Some points have no elevation/)).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Importing GPX…' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Importing…' })).toBeDisabled();
   release?.();
   expect(await screen.findByText(/0 imported.*1 duplicate.*2 failed/)).toBeVisible();
   expect(screen.getByText(/Unreadable XML/)).toBeVisible();
   expect(screen.getByText(/Latitude out of range/)).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Upload GPX' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Upload GPX / Takeout' })).toBeEnabled();
 });
 
 test('an interrupted result stream reports uncertainty and allows a safe retry', async () => {
@@ -369,12 +398,15 @@ test('an interrupted result stream reports uncertainty and allows a safe retry',
   await screen.findByText('Your travels start here');
   await userEvent
     .setup()
-    .upload(screen.getByLabelText('Choose GPX file'), new File(['collection'], 'collection.gpx'));
+    .upload(
+      screen.getByLabelText('Choose GPX or Takeout'),
+      new File(['collection'], 'collection.gpx'),
+    );
   expect(await screen.findByRole('alert')).toHaveTextContent(
     'connection ended before import finished',
   );
   expect(screen.getByRole('alert')).toHaveTextContent('skip duplicates');
-  expect(screen.getByRole('button', { name: 'Upload GPX' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Upload GPX / Takeout' })).toBeEnabled();
 });
 
 test('local-date filters open a complete recording and uploads reset All time', async () => {
@@ -392,6 +424,8 @@ test('local-date filters open a complete recording and uploads reset All time', 
     'fetch',
     vi.fn((url: string, options?: RequestInit) => {
       if (options?.method === 'POST') return Promise.resolve(importedResponse());
+      if (url === '/api/history-display')
+        return Promise.resolve(Response.json({ showHistory: true, hiddenYears: [] }));
       if (url === '/api/playback-settings')
         return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')
@@ -400,6 +434,7 @@ test('local-date filters open a complete recording and uploads reset All time', 
             url: '/tiles/{z}/{x}/{y}.png',
             attribution: 'Test tiles',
             attributionUrl: 'https://example.org',
+            uploadLimitMb: 512,
           }),
         );
       if (url === '/api/tracks/years') return Promise.resolve(Response.json([2025]));
@@ -459,7 +494,10 @@ test('local-date filters open a complete recording and uploads reset All time', 
   expect(screen.getByText('2025-06-18 23:59:00+02:00')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Next point' }));
   expect(screen.getByText('2025-06-19 00:00:00+02:00')).toBeVisible();
-  await user.upload(screen.getByLabelText('Choose GPX file'), new File(['fixture'], 'walk.gpx'));
+  await user.upload(
+    screen.getByLabelText('Choose GPX or Takeout'),
+    new File(['fixture'], 'walk.gpx'),
+  );
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Date filters: All time' })).toHaveAttribute(
       'aria-expanded',
@@ -479,6 +517,7 @@ test('empty date ranges and invalid endpoints have clear recovery', async () => 
                 url: '/tiles/{z}/{x}/{y}.png',
                 attribution: 'Test tiles',
                 attributionUrl: 'https://example.org',
+                uploadLimitMb: 512,
               }
             : [],
         ),
@@ -517,6 +556,8 @@ test('an upload finishing after a filter change still resets All time', async ()
         return new Promise<Response>((resolve) => {
           finishUpload = resolve;
         });
+      if (url === '/api/history-display')
+        return Promise.resolve(Response.json({ showHistory: true, hiddenYears: [] }));
       if (url === '/api/playback-settings')
         return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')
@@ -525,6 +566,7 @@ test('an upload finishing after a filter change still resets All time', async ()
             url: '/tiles/{z}/{x}/{y}.png',
             attribution: 'Test tiles',
             attributionUrl: 'https://example.org',
+            uploadLimitMb: 512,
           }),
         );
       if (url === '/api/tracks/1')
@@ -545,7 +587,10 @@ test('an upload finishing after a filter change still resets All time', async ()
   const user = userEvent.setup();
   render(<App />);
   await screen.findByText('Your travels start here');
-  await user.upload(screen.getByLabelText('Choose GPX file'), new File(['fixture'], 'walk.gpx'));
+  await user.upload(
+    screen.getByLabelText('Choose GPX or Takeout'),
+    new File(['fixture'], 'walk.gpx'),
+  );
   await user.click(screen.getByRole('button', { name: /^Date filters:/ }));
   await user.selectOptions(screen.getByLabelText('Year'), '2025');
   await screen.findByText('2025-01-01 to 2025-12-31');
@@ -614,6 +659,8 @@ test('batch completion restores All time after the last new track has arrived', 
             }),
           ),
         );
+      if (url === '/api/history-display')
+        return Promise.resolve(Response.json({ showHistory: true, hiddenYears: [] }));
       if (url === '/api/playback-settings')
         return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
       if (url === '/api/map-config')
@@ -622,6 +669,7 @@ test('batch completion restores All time after the last new track has arrived', 
             url: '/tiles/{z}/{x}/{y}.png',
             attribution: 'Test tiles',
             attributionUrl: 'https://example.org',
+            uploadLimitMb: 512,
           }),
         );
       if (url === '/api/tracks/1')
@@ -642,7 +690,10 @@ test('batch completion restores All time after the last new track has arrived', 
   const user = userEvent.setup();
   render(<App />);
   await screen.findByText('Your travels start here');
-  await user.upload(screen.getByLabelText('Choose GPX file'), new File(['fixture'], 'walk.gpx'));
+  await user.upload(
+    screen.getByLabelText('Choose GPX or Takeout'),
+    new File(['fixture'], 'walk.gpx'),
+  );
   await screen.findByRole('heading', { name: 'Imported walk' });
   await user.click(screen.getByRole('button', { name: /^Date filters:/ }));
   await user.selectOptions(screen.getByLabelText('Year'), '2025');
@@ -684,6 +735,7 @@ test('compact overview geometry keeps full point counts and fetches detail only 
             url: '/tiles/{z}/{x}/{y}.png',
             attribution: 'Test tiles',
             attributionUrl: 'https://example.org',
+            uploadLimitMb: 512,
           }),
         );
       if (url === '/api/tracks/years') return Promise.resolve(Response.json([2025]));
@@ -723,71 +775,4 @@ test('compact overview geometry keeps full point counts and fetches detail only 
   await user.click(await screen.findByText('Recording details'));
   expect(await screen.findByText(/Complete recording · 10,000 points/)).toBeVisible();
   expect(requests.filter((url) => url === '/api/tracks/1')).toHaveLength(1);
-});
-
-test('an imported history day appears under Google history without opening a recording', async () => {
-  let imported = false;
-  const day = {
-    id: 4,
-    name: '2014-06-18',
-    kind: 'history',
-    historyDate: '2014-06-18',
-    colour: '#5f7186',
-    visible: true,
-    revision: '"4"',
-    startTime: '2014-06-18T08:00:00Z',
-    pointCount: 2,
-    unknownDateCount: 0,
-    geometry: [
-      [
-        [59.32, 18.07],
-        [59.321, 18.071],
-      ],
-    ],
-    gaps: [],
-  };
-  const fetch = vi.fn((url: string, options?: RequestInit) => {
-    if (options?.method === 'POST') {
-      imported = true;
-      return Promise.resolve(
-        new Response(
-          [
-            JSON.stringify({
-              status: 'imported',
-              completed: 1,
-              total: 1,
-              name: day.name,
-              trackId: day.id,
-              originalId: 1,
-              warnings: [],
-              kind: 'history',
-            }),
-            JSON.stringify({ status: 'complete', completed: 1, total: 1, warnings: [] }),
-            '',
-          ].join('\n'),
-        ),
-      );
-    }
-    if (url === '/api/tracks/years') return Promise.resolve(Response.json(imported ? [2014] : []));
-    if (url === '/api/playback-settings')
-      return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
-    if (url === '/api/map-config')
-      return Promise.resolve(
-        Response.json({ url: '/tiles/{z}/{x}/{y}.png', attribution: 'Map', attributionUrl: '' }),
-      );
-    return Promise.resolve(Response.json(imported ? [day] : []));
-  });
-  vi.stubGlobal('fetch', fetch);
-  const user = userEvent.setup();
-  render(<App />);
-  expect(await screen.findByText('Your travels start here')).toBeVisible();
-  await user.upload(
-    screen.getByLabelText('Choose GPX file'),
-    new File(['PK'], 'takeout-20240101.zip', { type: 'application/zip' }),
-  );
-  const section = await screen.findByRole('region', { name: 'Google history' });
-  expect(section).toHaveTextContent('2014-06-18');
-  expect(screen.getByText('Tracks: 0')).toBeVisible();
-  expect(screen.queryByRole('region', { name: 'Complete recording' })).not.toBeInTheDocument();
-  expect(fetch).not.toHaveBeenCalledWith('/api/tracks/4', expect.anything());
 });

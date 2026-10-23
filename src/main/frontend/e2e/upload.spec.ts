@@ -31,14 +31,13 @@ test('upload, select, reopen and download a recording on the packaged map', asyn
       visible: boolean;
       kind: string;
     }[];
-  // History days draw on their own canvas, not as overlay paths.
   const previousPaths = existing
     .filter((track) => track.visible && track.kind !== 'history')
     .reduce((count, track) => count + track.geometry.length, 0);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Recorded travel' })).toBeVisible();
   await page
-    .getByLabel('Choose GPX file')
+    .getByLabel('Choose GPX or Takeout')
     .setInputFiles({ name: 'synthetic.gpx', mimeType: 'application/gpx+xml', buffer: original });
   await expect(page.getByRole('status').filter({ hasText: '1 imported' })).toBeVisible();
   await expect(page.getByRole('heading', { name })).toBeVisible();
@@ -80,7 +79,7 @@ test('batch collection import reports partial failure and skips repeated recordi
   await openDateFilters(page);
   await page.getByRole('combobox', { name: 'Year', exact: true }).selectOption('2025');
   await expect(page.getByText('2025-01-01 to 2025-12-31')).toBeVisible();
-  await page.getByLabel('Choose GPX file').setInputFiles([
+  await page.getByLabel('Choose GPX or Takeout').setInputFiles([
     { name: 'collection.gpx', mimeType: 'application/gpx+xml', buffer: collection },
     { name: 'individual.gpx', mimeType: 'application/gpx+xml', buffer: individual },
   ]);
@@ -111,7 +110,7 @@ test('batch collection import reports partial failure and skips repeated recordi
   ).toHaveCount(2);
   const before = (await (await page.request.get('/api/tracks')).json()) as unknown[];
   await page
-    .getByLabel('Choose GPX file')
+    .getByLabel('Choose GPX or Takeout')
     .setInputFiles({ name: 'collection.gpx', mimeType: 'application/gpx+xml', buffer: collection });
   await expect(
     page.getByRole('status').filter({ hasText: '0 imported · 2 duplicate · 1 failed' }),
@@ -135,7 +134,7 @@ test('filter point-local dates then open and inspect the full recording', async 
   const name = `Synthetic midnight ${testInfo.project.name}`;
   const latitude = testInfo.project.name === 'mobile' ? '59.3201' : '59.32';
   await page.goto('/');
-  await page.getByLabel('Choose GPX file').setInputFiles({
+  await page.getByLabel('Choose GPX or Takeout').setInputFiles({
     name: 'midnight.gpx',
     mimeType: 'application/gpx+xml',
     buffer: Buffer.from(`

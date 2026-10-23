@@ -23,7 +23,7 @@ test('reviewed visits persist and country exploration keeps dates and full recor
     </trkseg></trk></gpx>`);
   await page.goto('/');
   await page
-    .getByLabel('Choose GPX file')
+    .getByLabel('Choose GPX or Takeout')
     .setInputFiles({ name: 'countries.gpx', mimeType: 'application/gpx+xml', buffer });
   await expect(page.getByRole('heading', { name })).toBeVisible();
   await openDateFilters(page);

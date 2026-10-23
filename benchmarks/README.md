@@ -2,7 +2,7 @@
 
 This workload is separate from the fast correctness suite. It generates 500 synthetic tracks
 with 10,000 points each, then imports all five million points through `/api/imports`. Each
-file contains ten tracks and stays below the default 512 MB upload limit. No private exports
+file contains ten tracks and stays below the existing 32 MB upload limit. No private exports
 are included. The workload size is a benchmark, not a collection limit.
 
 Each recording follows two curved loops near Stockholm. It has two source segments and a
@@ -146,6 +146,79 @@ Background services remained running, but these measurements do not cover sustai
 storage contention. [pi5-import.json](results/pi5-import.json) contains import and read
 timings plus the resource samples.
 
+## Location history
+
+The history workload adds a synthetic Google Takeout to the large collection. `takeout.py`
+writes one ZIP with a `Records.json` and monthly semantic files covering 1 March 2013 to
+31 October 2022. Early years have a fix every two minutes on almost every day. Later years
+thin out to one fix every 30 minutes on about 60% of days, with long overnight silences.
+Positions follow invented days around Stockholm and a few trips a year to other cities.
+Each year also has noisy cell fixes, rare spikes, a secondary device and both timestamp
+formats. The default seed produces 612,238 fixes, 3,017 named place visits and a 28 MB
+archive. No real data is used.
+
+Import the collection first, then the Takeout into the same database:
+
+```sh
+python3 takeout.py generate /path/on/ssd/benchmark-takeout
+python3 takeout.py import /path/on/ssd/benchmark-takeout \
+  --url http://127.0.0.1:18081 > takeout-import.jsonl
+```
+
+Import records the number of history days in `takeout-manifest.json`. Copy that file to the
+browser client and pass it as the fourth argument:
+
+```sh
+node benchmarks/browser.mjs http://PI_LAN_IP:18081 /path/to/manifest.json 5 \
+  /path/to/takeout-manifest.json > history-browser.jsonl
+```
+
+With a Takeout manifest, every painted state also waits for the history year groups and the
+history canvas. The one-day filter excludes all history. An extra one-year filter on the
+second history year must show only that year's days. Assertions check the history day count
+in the full overview.
+
+## History results, 2026-10-23
+
+Same Pi, client, Wi-Fi LAN, JDK and `-Xmx2g` as the 2026-10-12 results, with the same
+background containers. The database started empty for each import.
+
+On `cf1eced`, the overview carried 498,561 history vertices in a 13,959,123-byte response.
+Overview runs split at every gap over one second, so sparse fixes were never simplified. One
+browser run opened the overview in 5.217 seconds and returned to All time in 4.911 seconds,
+missing both targets. History day overviews now split only where the 30-minute or 2 km
+history rule breaks a line, and simplify with a 50-metre tolerance. Full day geometry is
+unchanged. The library also stopped building a date formatter for each history row.
+
+On `5ccb8a7` the response holds 87,432 history vertices next to the same 34,500 recording
+vertices, in 4,090,456 bytes. All five runs met the targets. The first run used a freshly
+started JVM. Raw samples are in [pi5-history-browser.json](results/pi5-history-browser.json).
+
+| Operation | Minimum | Median | Maximum | Target |
+| --- | ---: | ---: | ---: | ---: |
+| Opening overview | 1.880 s | 1.913 s | 2.129 s | < 5 s |
+| One-day filter | 0.467 s | 0.481 s | 0.520 s | < 2 s |
+| One-year history filter | 0.290 s | 0.322 s | 0.355 s | < 2 s |
+| Return to All time | 1.712 s | 1.845 s | 1.895 s | < 2 s |
+
+Return to All time has the least headroom. The server answers in about 0.6 seconds; the rest
+is the browser rebuilding 500 recording rows, 2,919 history rows and the map. A larger history
+or a slower client could cross two seconds. Rendering only the open history years would be
+the next step.
+
+The collection imported in 203.5 seconds. The Takeout then imported in 111.2 seconds, with
+first progress after 19.4 seconds while the archive was read and split into days. It created
+2,919 history days. 270 fixes or place visits had no resolvable local date and stay only in
+the original export. All 21 collection reads during the Takeout import succeeded; the
+slowest took 0.958 seconds. Before the fix the same import took 147.3 seconds and the slowest
+read took 3.824 seconds.
+
+Sampled server high-water RSS was 2,064,448 KiB, about 1.97 GiB, across both imports. Samples
+reported no swap and no throttling, with temperatures between 45.5 and 51.6 degrees Celsius.
+The database was about 1.8 GiB. After the browser series the restarted server peaked at
+1,137,648 KiB. [pi5-history-import.json](results/pi5-history-import.json) contains import
+and read timings plus resource samples.
+
 ## Limits and release recheck
 
 Overview drawing uses a conservative ten-metre simplification tolerance and retains each
@@ -155,6 +228,8 @@ gap threshold. Stored boundary durations let reads apply the current gap setting
 rebuilding geometry or scanning source points. Adjacent matching portions reconnect only when
 source order and the gap rule allow it. Counts describe original points. No viewport limit,
 track cap, source rewrite or original-BLOB read is involved in collection queries.
+History days ignore the gap setting, so their overviews split only at the history break rule
+and use a 50-metre tolerance for noisy inferred fixes.
 
 The geometry size depends on the recording, not a fixed vertex quota. Very jagged recordings
 or frequent date/country/segment/gap changes can retain many points. Sampling intervals over one

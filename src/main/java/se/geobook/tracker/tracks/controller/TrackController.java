@@ -10,7 +10,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.unit.DataSize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,20 +32,17 @@ import tools.jackson.databind.JsonNode;
 
 // Path variables match the public id contract.
 // Keep the track endpoints and their shared request-error handling together.
-@SuppressWarnings({
-  "PMD.ShortVariable",
-  "PMD.TooManyMethods",
-  "PMD.CouplingBetweenObjects",
-  "PMD.ExcessiveImports"
-})
+@SuppressWarnings({"PMD.ShortVariable", "PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 @RestController
-class TrackController {
+final class TrackController {
   private final TrackService collection;
   private final TrackImporter importer;
+  private final UploadLimit uploadLimit;
 
-  TrackController(TrackService collection, TrackImporter importer) {
+  TrackController(TrackService collection, TrackImporter importer, UploadLimit uploadLimit) {
     this.collection = collection;
     this.importer = importer;
+    this.uploadLimit = uploadLimit;
   }
 
   @PostMapping(value = "/api/tracks", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -175,7 +171,10 @@ class TrackController {
   ResponseEntity<byte[]> original(@PathVariable long id) {
     Track.Original original = collection.original(id);
     return ResponseEntity.ok()
-        .contentType(MediaType.parseMediaType(original.mediaType()))
+        .contentType(
+            original.filename().toLowerCase(java.util.Locale.ROOT).endsWith(".gpx")
+                ? MediaType.parseMediaType("application/gpx+xml")
+                : MediaType.APPLICATION_OCTET_STREAM)
         .header(
             HttpHeaders.CONTENT_DISPOSITION,
             ContentDisposition.attachment()
@@ -211,12 +210,16 @@ class TrackController {
   }
 
   @GetMapping("/api/map-config")
-  Map<String, String> mapConfig(
+  Map<String, Object> mapConfig(
       @Value("${geobook.tiles.url:https://tile.openstreetmap.org/{z}/{x}/{y}.png}") String url,
       @Value("${geobook.tiles.attribution:© OpenStreetMap contributors}") String attribution,
       @Value("${geobook.tiles.attribution-url:https://www.openstreetmap.org/copyright}")
           String attributionUrl) {
-    return Map.of("url", url, "attribution", attribution, "attributionUrl", attributionUrl);
+    return Map.of(
+        "url", url,
+        "attribution", attribution,
+        "attributionUrl", attributionUrl,
+        "uploadLimitMb", uploadLimit.megabytes());
   }
 
   @ExceptionHandler(TrackNotFoundException.class)
@@ -228,11 +231,5 @@ class TrackController {
   @ExceptionHandler(IllegalArgumentException.class)
   ResponseEntity<Map<String, String>> invalid(IllegalArgumentException exception) {
     return ResponseEntity.badRequest().body(Map.of("message", exception.getMessage()));
-  }
-
-  @GetMapping("/api/upload-config")
-  Map<String, Long> uploadConfig(
-      @Value("${spring.servlet.multipart.max-request-size}") String limit) {
-    return Map.of("maxUploadBytes", DataSize.parse(limit).toBytes());
   }
 }

@@ -31,7 +31,7 @@ test('full recording playback and touch scrubbing keep the manual camera fixed',
   );
   await page.goto('/');
   await page
-    .getByLabel('Choose GPX file')
+    .getByLabel('Choose GPX or Takeout')
     .setInputFiles({ name: 'replay.gpx', mimeType: 'application/gpx+xml', buffer: original });
   await expect(page.getByRole('heading', { name })).toBeVisible();
   await openDateFilters(page);

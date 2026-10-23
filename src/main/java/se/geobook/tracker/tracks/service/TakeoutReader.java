@@ -1,191 +1,287 @@
 package se.geobook.tracker.tracks.service;
 
-import jakarta.json.Json;
-import jakarta.json.JsonException;
-import jakarta.json.stream.JsonParser;
 import java.io.ByteArrayInputStream;
-import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import org.apache.commons.compress.archivers.ArchiveEntry;
-import org.apache.commons.compress.archivers.ArchiveInputStream;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.ZipInputStream;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
-import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
-import se.geobook.tracker.tracks.domain.HistoryDay;
+import se.geobook.tracker.tracks.domain.LocationFix;
+import se.geobook.tracker.tracks.domain.PlaceVisit;
+import se.geobook.tracker.tracks.domain.Recording;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.StreamReadFeature;
+import tools.jackson.core.json.JsonFactory;
 
-/** Reads raw location records from a Google Takeout archive, whatever its folder names. */
-// Small steps keep each stage of the streaming parse readable.
-@SuppressWarnings("PMD.TooManyMethods")
+/** Reads raw fixes and semantic place visits without buffering an uncompressed JSON file. */
+// Archive lifetimes and source field mappings stay together in this streaming reader.
+@SuppressWarnings("PMD.GodClass")
 final class TakeoutReader {
-  private static final long LATITUDE_E7 = 900_000_000L;
-  private static final long LONGITUDE_E7 = 1_800_000_000L;
-  private static final long OVERFLOW = 1L << 32;
-  private static final Set<String> FIELDS =
-      Set.of("latitudeE7", "longitudeE7", "accuracy", "deviceTag", "timestamp", "timestampMs");
+  private static final int ZIP_SIGNATURE = 'P';
+  private static final int OBJECT_START = '{';
+  private static final JsonFactory JSON =
+      JsonFactory.builder().disable(StreamReadFeature.AUTO_CLOSE_SOURCE).build();
+  private static final String UNREADABLE =
+      "The Takeout archive could not be read. Check the file and try again.";
 
   private TakeoutReader() {}
 
-  static boolean recognises(byte[] bytes) {
-    boolean zip = bytes.length >= 4 && bytes[0] == 'P' && bytes[1] == 'K' && bytes[2] == 3;
-    boolean gzip = bytes.length >= 2 && bytes[0] == (byte) 0x1f && bytes[1] == (byte) 0x8b;
-    return zip || gzip;
+  static boolean isArchive(byte[] bytes) {
+    return bytes.length >= 2
+        && (bytes[0] == ZIP_SIGNATURE && bytes[1] == 'K'
+            || bytes[0] == (byte) 0x1f && bytes[1] == (byte) 0x8b);
   }
 
-  static List<HistoryDay.Fix> fixes(byte[] bytes) {
-    List<HistoryDay.Fix> fixes;
-    try {
-      fixes = read(bytes);
-    } catch (IOException exception) {
-      throw new IllegalArgumentException(
-          "The Takeout archive could not be read. Check the file and try again.", exception);
-    } catch (JsonException exception) {
-      throw new IllegalArgumentException(
-          "The location history in the archive could not be read.", exception);
+  record History(List<LocationFix> fixes, List<PlaceVisit> placeVisits) {
+    History {
+      fixes = List.copyOf(fixes);
+      placeVisits = List.copyOf(placeVisits);
     }
-    if (fixes.isEmpty()) {
-      throw new IllegalArgumentException(
-          "The archive contains no Google location history. Choose a Takeout export that"
-              + " includes Location History.");
-    }
-    return fixes;
   }
 
-  private static List<HistoryDay.Fix> read(byte[] bytes) throws IOException {
-    List<HistoryDay.Fix> fixes = new ArrayList<>();
-    try (ArchiveInputStream<? extends ArchiveEntry> archive = open(bytes);
-        InputStream entries = new Unclosed(archive)) {
-      for (ArchiveEntry entry = archive.getNextEntry();
+  static History read(byte[] bytes) {
+    List<LocationFix> fixes = new ArrayList<>();
+    List<PlaceVisit> visits = new ArrayList<>();
+    try (InputStream input = new ByteArrayInputStream(bytes)) {
+      if (bytes[0] == ZIP_SIGNATURE) {
+        readZip(input, fixes, visits);
+      } else {
+        readTar(input, fixes, visits);
+      }
+    } catch (IOException | tools.jackson.core.JacksonException exception) {
+      throw new IllegalArgumentException(UNREADABLE, exception);
+    }
+    if (fixes.isEmpty() && visits.isEmpty()) {
+      throw new IllegalArgumentException(
+          "The archive contains no usable Google location history. Choose a Takeout ZIP or TGZ"
+              + " containing location records or named place visits.");
+    }
+    return new History(fixes, visits);
+  }
+
+  private static void readZip(InputStream input, List<LocationFix> fixes, List<PlaceVisit> visits)
+      throws IOException {
+    try (ZipInputStream archive = new ZipInputStream(input)) {
+      for (java.util.zip.ZipEntry entry = archive.getNextEntry();
           entry != null;
           entry = archive.getNextEntry()) {
-        if (!entry.isDirectory() && entry.getName().toLowerCase(Locale.ROOT).endsWith(".json")) {
-          readRecords(entries, fixes);
+        if (!entry.isDirectory()) {
+          readEntry(archive, fixes, visits);
         }
       }
     }
-    return fixes;
   }
 
-  private static ArchiveInputStream<? extends ArchiveEntry> open(byte[] bytes) throws IOException {
-    InputStream input = new ByteArrayInputStream(bytes);
-    return bytes[0] == 'P'
-        ? new ZipArchiveInputStream(input)
-        : new TarArchiveInputStream(new GzipCompressorInputStream(input));
+  private static void readTar(InputStream input, List<LocationFix> fixes, List<PlaceVisit> visits)
+      throws IOException {
+    try (TarArchiveInputStream archive = new TarArchiveInputStream(new GZIPInputStream(input))) {
+      for (TarArchiveEntry entry = archive.getNextEntry();
+          entry != null;
+          entry = archive.getNextEntry()) {
+        if (entry.isFile() && archive.canReadEntryData(entry)) {
+          readEntry(archive, fixes, visits);
+        }
+      }
+    }
   }
 
-  // The raw records file is the JSON object whose first key is "locations"; others are skipped.
-  private static void readRecords(InputStream input, List<HistoryDay.Fix> fixes) {
-    JsonParser parser = Json.createParser(input);
-    if (!startsRecords(parser)) {
+  private static void readEntry(InputStream input, List<LocationFix> fixes, List<PlaceVisit> visits)
+      throws IOException {
+    // Entry names are deliberately irrelevant, including the name of the records file itself.
+    int first;
+    do {
+      first = input.read();
+    } while (Character.isWhitespace(first));
+    if (first != OBJECT_START) {
       return;
     }
-    for (JsonParser.Event event = parser.next();
-        event != JsonParser.Event.END_ARRAY;
-        event = parser.next()) {
-      if (event == JsonParser.Event.START_OBJECT) {
-        fix(values(parser)).ifPresent(fixes::add);
-      } else {
-        skip(parser, event);
+    java.io.PushbackInputStream json = new java.io.PushbackInputStream(input);
+    json.unread(first);
+    try (JsonParser parser = JSON.createParser(json)) {
+      parser.nextToken();
+      while (parser.nextToken() != JsonToken.END_OBJECT) {
+        String name = parser.currentName();
+        JsonToken token = parser.nextToken();
+        if (token == JsonToken.START_ARRAY) {
+          switch (name) {
+            case "locations" -> readLocations(parser, fixes);
+            case "timelineObjects" -> SemanticVisits.readTimeline(parser, visits);
+            default -> parser.skipChildren();
+          }
+        } else {
+          parser.skipChildren();
+        }
+      }
+      if (parser.nextToken() != null) {
+        throw new IllegalArgumentException(UNREADABLE);
       }
     }
   }
 
-  // Other Takeout JSON files are never read past their first key, so their errors don't matter.
-  private static boolean startsRecords(JsonParser parser) {
+  private static void readLocations(JsonParser parser, List<LocationFix> fixes) {
+    while (parser.nextToken() != JsonToken.END_ARRAY) {
+      if (parser.currentToken() != JsonToken.START_OBJECT) {
+        throw new IllegalArgumentException(UNREADABLE);
+      }
+      fixes.add(readFix(parser));
+    }
+  }
+
+  /** The monthly semantic schema is independent of the raw fixes schema. */
+  private static final class SemanticVisits {
+    private static void readTimeline(JsonParser parser, List<PlaceVisit> visits) {
+      while (parser.nextToken() != JsonToken.END_ARRAY) {
+        if (parser.currentToken() != JsonToken.START_OBJECT) {
+          throw new IllegalArgumentException(UNREADABLE);
+        }
+        while (parser.nextToken() != JsonToken.END_OBJECT) {
+          String name = parser.currentName();
+          JsonToken token = parser.nextToken();
+          if ("placeVisit".equals(name) && token == JsonToken.START_OBJECT) {
+            PlaceVisit visit = readVisit(parser);
+            if (visit != null) {
+              visits.add(visit);
+            }
+          } else {
+            parser.skipChildren();
+          }
+        }
+      }
+    }
+
+    private record VisitLocation(String name, BigDecimal latitude, BigDecimal longitude) {
+      PlaceVisit visit(VisitTimes times) {
+        if (name() == null || name().isBlank()) {
+          return null;
+        }
+        if (latitude() == null || longitude() == null || times == null || !times.valid()) {
+          throw new IllegalArgumentException(
+              "A Google place visit is missing a valid position or duration.");
+        }
+        return new PlaceVisit(name.strip(), latitude, longitude, times.start(), times.end());
+      }
+    }
+
+    private record VisitTimes(Instant start, Instant end) {
+      boolean valid() {
+        return start != null && end != null && !end.isBefore(start);
+      }
+    }
+
+    private static PlaceVisit readVisit(JsonParser parser) {
+      VisitLocation location = null;
+      VisitTimes times = null;
+      try {
+        while (parser.nextToken() != JsonToken.END_OBJECT) {
+          String name = parser.currentName();
+          JsonToken token = parser.nextToken();
+          if ("location".equals(name) && token == JsonToken.START_OBJECT) {
+            location = readVisitLocation(parser);
+          } else if ("duration".equals(name) && token == JsonToken.START_OBJECT) {
+            times = readVisitTimes(parser);
+          } else {
+            parser.skipChildren();
+          }
+        }
+      } catch (NumberFormatException | DateTimeException exception) {
+        throw new IllegalArgumentException(
+            "A Google place visit has an invalid position or timestamp.", exception);
+      }
+      // Unnamed inferred locations are not named place visits.
+      return location == null ? null : location.visit(times);
+    }
+
+    private static VisitLocation readVisitLocation(JsonParser parser) {
+      String name = null;
+      BigDecimal latitude = null;
+      BigDecimal longitude = null;
+      while (parser.nextToken() != JsonToken.END_OBJECT) {
+        String field = parser.currentName();
+        parser.nextToken();
+        switch (field) {
+          case "name" -> {
+            if (parser.currentToken() == JsonToken.VALUE_STRING) {
+              name = parser.getText();
+            } else {
+              parser.skipChildren();
+            }
+          }
+          case "latitudeE7" -> latitude = coordinate(parser.getText(), 90);
+          case "longitudeE7" -> longitude = coordinate(parser.getText(), 180);
+          default -> parser.skipChildren();
+        }
+      }
+      return new VisitLocation(name, latitude, longitude);
+    }
+
+    private static VisitTimes readVisitTimes(JsonParser parser) {
+      Instant start = null;
+      Instant end = null;
+      while (parser.nextToken() != JsonToken.END_OBJECT) {
+        String field = parser.currentName();
+        parser.nextToken();
+        switch (field) {
+          case "startTimestamp" -> start = Instant.parse(parser.getText());
+          case "endTimestamp" -> end = Instant.parse(parser.getText());
+          case "startTimestampMs" -> start = Instant.ofEpochMilli(Long.parseLong(parser.getText()));
+          case "endTimestampMs" -> end = Instant.ofEpochMilli(Long.parseLong(parser.getText()));
+          default -> parser.skipChildren();
+        }
+      }
+      return new VisitTimes(start, end);
+    }
+  }
+
+  // Keep the source field mapping together; each supported field adds one switch branch.
+  @SuppressWarnings("PMD.CyclomaticComplexity")
+  private static LocationFix readFix(JsonParser parser) {
+    BigDecimal latitude = null;
+    BigDecimal longitude = null;
+    Instant time = null;
+    Integer accuracy = null;
+    String device = null;
     try {
-      return parser.hasNext()
-          && parser.next() == JsonParser.Event.START_OBJECT
-          && parser.next() == JsonParser.Event.KEY_NAME
-          && "locations".equals(parser.getString())
-          && parser.next() == JsonParser.Event.START_ARRAY;
-    } catch (JsonException exception) {
-      return false;
-    }
-  }
-
-  private static Map<String, String> values(JsonParser parser) {
-    Map<String, String> values = new HashMap<>();
-    while (parser.next() == JsonParser.Event.KEY_NAME) {
-      String key = parser.getString();
-      JsonParser.Event value = parser.next();
-      if (FIELDS.contains(key)
-          && (value == JsonParser.Event.VALUE_STRING || value == JsonParser.Event.VALUE_NUMBER)) {
-        values.put(key, parser.getString());
-      } else {
-        skip(parser, value);
+      while (parser.nextToken() != JsonToken.END_OBJECT) {
+        String name = parser.currentName();
+        parser.nextToken();
+        switch (name) {
+          case "latitudeE7" -> latitude = coordinate(parser.getText(), 90);
+          case "longitudeE7" -> longitude = coordinate(parser.getText(), 180);
+          case "timestamp" -> time = Instant.parse(parser.getText());
+          case "timestampMs" -> time = Instant.ofEpochMilli(Long.parseLong(parser.getText()));
+          case "accuracy" -> {
+            if (parser.currentToken() != JsonToken.VALUE_NULL) {
+              accuracy = Integer.valueOf(parser.getText());
+            }
+          }
+          case "deviceTag" -> device = parser.getText();
+          default -> parser.skipChildren();
+        }
       }
+    } catch (NumberFormatException | DateTimeException exception) {
+      throw new IllegalArgumentException(
+          "A Google location record has an invalid position or timestamp.", exception);
     }
-    return values;
+    if (latitude == null || longitude == null || time == null) {
+      throw new IllegalArgumentException(
+          "A Google location record is missing its position or timestamp.");
+    }
+    return new LocationFix(
+        new Recording.Point(0, latitude, longitude, null, time), accuracy, device);
   }
 
-  // Records without a valid position or time are left in the original export only.
-  private static Optional<HistoryDay.Fix> fix(Map<String, String> values) {
-    try {
-      Integer latitude = coordinate(values.get("latitudeE7"), LATITUDE_E7);
-      Integer longitude = coordinate(values.get("longitudeE7"), LONGITUDE_E7);
-      Instant time = time(values);
-      if (latitude == null || longitude == null || time == null) {
-        return Optional.empty();
-      }
-      String accuracy = values.get("accuracy");
-      String device = values.get("deviceTag");
-      return Optional.of(
-          new HistoryDay.Fix(
-              time,
-              latitude,
-              longitude,
-              accuracy == null ? null : Integer.valueOf(accuracy),
-              device == null ? null : Long.valueOf(device)));
-    } catch (DateTimeException | NumberFormatException exception) {
-      return Optional.empty();
+  private static BigDecimal coordinate(String value, int limit) {
+    BigDecimal coordinate = new BigDecimal(value).movePointLeft(7);
+    if (coordinate.abs().compareTo(BigDecimal.valueOf(limit)) > 0) {
+      throw new IllegalArgumentException("A Google location record has an out-of-range position.");
     }
-  }
-
-  private static Integer coordinate(String value, long limit) {
-    if (value == null) {
-      return null;
-    }
-    long parsed = Long.parseLong(value);
-    // Some exports wrapped large coordinates around a signed 32-bit integer.
-    long corrected = parsed > limit ? parsed - OVERFLOW : parsed;
-    return Math.abs(corrected) > limit ? null : Math.toIntExact(corrected);
-  }
-
-  private static Instant time(Map<String, String> values) {
-    String timestamp = values.get("timestamp");
-    if (timestamp != null) {
-      return Instant.parse(timestamp);
-    }
-    String milliseconds = values.get("timestampMs");
-    return milliseconds == null ? null : Instant.ofEpochMilli(Long.parseLong(milliseconds));
-  }
-
-  private static void skip(JsonParser parser, JsonParser.Event event) {
-    if (event == JsonParser.Event.START_OBJECT) {
-      parser.skipObject();
-    } else if (event == JsonParser.Event.START_ARRAY) {
-      parser.skipArray();
-    }
-  }
-
-  // The archive stream continues to the next entry after each JSON file.
-  private static final class Unclosed extends FilterInputStream {
-    Unclosed(InputStream input) {
-      super(input);
-    }
-
-    @Override
-    public void close() {
-      // Leave the archive open.
-    }
+    return coordinate;
   }
 }

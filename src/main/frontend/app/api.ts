@@ -6,8 +6,9 @@ export type Overview = {
   colour: string;
   visible: boolean;
   revision: string;
-  kind: 'recording' | 'history';
-  historyDate: string | null;
+  kind?: 'recording' | 'history';
+  historyDate?: string | null;
+  placeNames?: string[];
   startTime: string | null;
   pointCount: number;
   unknownDateCount: number;
@@ -20,6 +21,13 @@ export type Detail = {
   name: string;
   colour: string;
   visible: boolean;
+  kind?: 'recording' | 'history';
+  historyDate?: string | null;
+  placeVisits?: PlaceVisit[];
+  keptFixCount?: number | null;
+  droppedFixCount?: number | null;
+  localStartTime?: string | null;
+  localEndTime?: string | null;
   segmentCount: number;
   originalIds: number[];
   geometry: LatLngTuple[][];
@@ -37,11 +45,22 @@ export type Detail = {
   }[];
 };
 
-export function isHistory(track: Pick<Overview, 'kind'>) {
-  return track.kind === 'history';
-}
+export type PlaceVisit = {
+  name: string;
+  latitude: number;
+  longitude: number;
+  startTime: string;
+  endTime: string;
+  localStartTime?: string | null;
+  localEndTime?: string | null;
+};
 
-export type MapConfig = { url: string; attribution: string; attributionUrl: string };
+export type MapConfig = {
+  url: string;
+  attribution: string;
+  attributionUrl: string;
+  uploadLimitMb: number;
+};
 
 export async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, options);
@@ -70,7 +89,7 @@ export type VisitCandidate = {
   name: string;
   date: string;
   state: 'pending' | 'confirmed' | 'excluded';
-  tracks: { trackId: number; name: string }[];
+  tracks: { trackId: number; name: string; kind?: 'recording' | 'history' }[];
 };
 
 export type DateRange = { from: string; to: string } | null;
@@ -87,5 +106,10 @@ export type RemovalPreview = Pick<OriginalExport, 'id' | 'filename' | 'tracks'> 
   revision: string;
 };
 
-export type MapTrack = Pick<Overview, 'id' | 'colour' | 'visible' | 'geometry' | 'gaps'>;
+export type MapTrack = Pick<
+  Overview,
+  'id' | 'kind' | 'historyDate' | 'colour' | 'visible' | 'geometry' | 'gaps'
+>;
 export type PlaybackSettings = { gapSeconds: number; showGapConnections: boolean };
+
+export type HistoryDisplay = { showHistory: boolean; hiddenYears: number[] };

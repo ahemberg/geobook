@@ -1,5 +1,6 @@
 package se.geobook.tracker.tracks.service;
 
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -12,8 +13,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 import se.geobook.tracker.tracks.domain.ContentIdentity;
 import se.geobook.tracker.tracks.domain.DateRange;
 import se.geobook.tracker.tracks.domain.HistoryDay;
+import se.geobook.tracker.tracks.domain.HistoryDisplay;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.OverviewRun;
+import se.geobook.tracker.tracks.domain.PlaceVisit;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointCountry;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
@@ -53,26 +56,81 @@ public class TrackService {
   }
 
   Track.Imported save(OriginalExport.Source source, Recording recording) {
+    return save(source, recording, null);
+  }
+
+  private Track.Imported save(
+      OriginalExport.Source source, Recording recording, HistoryDay historyDay) {
+    String historyDate = historyDay == null ? null : historyDay.date();
+    List<PlaceVisit> visits = historyDay == null ? List.of() : historyDay.placeVisits();
+    List<PointLocalTime.Attribution> local =
+        recording.points().stream()
+            .map(
+                point ->
+                    PointLocalTime.resolve(
+                        point.latitude().doubleValue(),
+                        point.longitude().doubleValue(),
+                        point.time()))
+            .toList();
+    List<String> countries =
+        recording.points().stream()
+            .map(
+                point ->
+                    PointCountry.resolve(
+                        point.latitude().doubleValue(), point.longitude().doubleValue()))
+            .toList();
     Track.Prepared prepared =
-        prepare(
+        new Track.Prepared(
             recording,
-            recording.points().stream()
-                .map(
-                    point ->
-                        PointLocalTime.resolve(
-                            point.latitude().doubleValue(),
-                            point.longitude().doubleValue(),
-                            point.time()))
-                .toList());
+            historyDay == null
+                ? ContentIdentity.recording(recording)
+                : ContentIdentity.history(historyDay),
+            TrackColours.Bounds.enclosing(
+                recording.points().isEmpty()
+                    ? visits.stream()
+                        .map(
+                            visit ->
+                                new Recording.Point(
+                                    0,
+                                    visit.latitude(),
+                                    visit.longitude(),
+                                    null,
+                                    visit.startTime()))
+                        .toList()
+                    : recording.points()),
+            local,
+            countries,
+            historyDay == null
+                ? OverviewRun.prepare(
+                    recording.points(),
+                    local,
+                    countries,
+                    OverviewRun.MIN_GAP_SECONDS,
+                    OverviewRun.RECORDING_METRES)
+                : OverviewRun.prepare(
+                    recording.points(),
+                    local,
+                    countries,
+                    HistoryDay.GAP_SECONDS,
+                    HistoryDay.OVERVIEW_METRES));
     return write(
         () -> {
-          requireSource(source);
+          if (!repository.sourceExists(source)) {
+            throw new IllegalArgumentException(
+                "The original export was removed during import. Upload it again to restore it.");
+          }
           long originalId = source.id();
-          Optional<Long> existing = repository.findByIdentity(prepared.identity());
+          Optional<Long> existing =
+              historyDate == null
+                  ? repository.findByIdentity(prepared.identity())
+                  : repository.findHistoryDate(historyDate);
           if (existing.isPresent()) {
-            long trackId = existing.orElseThrow();
-            repository.linkOriginal(trackId, originalId);
-            return new Track.Imported(trackId, originalId, true);
+            return saveExisting(source, prepared, historyDay, existing.orElseThrow());
+          }
+          if (historyDate != null) {
+            long trackId = repository.insert(originalId, prepared, HistoryDay.COLOUR, historyDay);
+            repository.insertPlaceVisits(trackId, visits);
+            return new Track.Imported(trackId, originalId, false);
           }
           List<String> neighbours =
               repository.neighbours().stream()
@@ -85,47 +143,31 @@ public class TrackService {
         });
   }
 
-  Track.Imported saveHistory(OriginalExport.Source source, HistoryDay day) {
-    Track.Prepared prepared = prepare(day.recording(), day.local());
-    return write(
-        () -> {
-          requireSource(source);
-          long originalId = source.id();
-          // shortcut: an existing date keeps its content; newer exports update it in #74.
-          Optional<Long> existing = repository.findHistoryDay(day.date());
-          if (existing.isPresent()) {
-            long dayId = existing.orElseThrow();
-            repository.linkOriginal(dayId, originalId);
-            return new Track.Imported(dayId, originalId, true);
-          }
-          return new Track.Imported(
-              repository.insertHistory(originalId, prepared, day.date()), originalId, false);
-        });
-  }
-
-  private static Track.Prepared prepare(
-      Recording recording, List<PointLocalTime.Attribution> local) {
-    List<String> countries =
-        recording.points().stream()
-            .map(
-                point ->
-                    PointCountry.resolve(
-                        point.latitude().doubleValue(), point.longitude().doubleValue()))
-            .toList();
-    return new Track.Prepared(
-        recording,
-        ContentIdentity.recording(recording),
-        TrackColours.Bounds.enclosing(recording.points()),
-        local,
-        countries,
-        OverviewRun.prepare(recording.points(), local, countries));
-  }
-
-  private void requireSource(OriginalExport.Source source) {
-    if (!repository.sourceExists(source)) {
-      throw new IllegalArgumentException(
-          "The original export was removed during import. Upload it again to restore it.");
+  private Track.Imported saveExisting(
+      OriginalExport.Source source, Track.Prepared prepared, HistoryDay day, long trackId) {
+    if (day != null) {
+      return replaceHistory(source, prepared, day, trackId);
     }
+    repository.linkOriginal(trackId, source.id());
+    return new Track.Imported(trackId, source.id(), true);
+  }
+
+  private Track.Imported replaceHistory(
+      OriginalExport.Source source, Track.Prepared prepared, HistoryDay day, long trackId) {
+    // Retrying an older original must not roll back a day updated by a later import.
+    if (repository.originalIds(trackId).contains(source.id())) {
+      return new Track.Imported(trackId, source.id(), true);
+    }
+    boolean unchanged = find(trackId).identity().equals(prepared.identity());
+    if (!unchanged) {
+      repository.replaceHistory(trackId, prepared, day);
+    }
+    repository.linkOriginal(trackId, source.id());
+    return new Track.Imported(trackId, source.id(), unchanged ? "unchanged" : "updated");
+  }
+
+  Track.Imported saveHistoryDay(OriginalExport.Source source, HistoryDay day) {
+    return save(source, day.recording(), day);
   }
 
   public List<Track.Overview> overview(DateRange range, String search, String country) {
@@ -133,13 +175,7 @@ public class TrackService {
       PointCountry.country(country);
     }
     return repository.overview(range, country, playbackSettings()).stream()
-        .filter(
-            overview ->
-                overview
-                    .track()
-                    .name()
-                    .toLowerCase(Locale.ROOT)
-                    .contains(search.strip().toLowerCase(Locale.ROOT)))
+        .filter(overview -> matches(overview, search))
         .sorted(
             Comparator.comparing(
                     Track.Overview::startTime, Comparator.nullsLast(Comparator.reverseOrder()))
@@ -147,9 +183,23 @@ public class TrackService {
         .toList();
   }
 
+  private static boolean matches(Track.Overview overview, String search) {
+    String query = search.strip().toLowerCase(Locale.ROOT);
+    Track track = overview.track();
+    return track.name().toLowerCase(Locale.ROOT).contains(query)
+        || track.isHistory()
+            && (track.historyDate().contains(query)
+                || HistoryDay.DATE
+                    .format(LocalDate.parse(track.historyDate()))
+                    .toLowerCase(Locale.ROOT)
+                    .contains(query)
+                || overview.placeNames().stream()
+                    .anyMatch(name -> name.toLowerCase(Locale.ROOT).contains(query)));
+  }
+
   public Track.Detail detail(long id) {
-    PlaybackSettings settings = playbackSettings();
-    Track track = find(id);
+    final Track track = find(id);
+    final PlaybackSettings settings = track.geometrySettings(playbackSettings());
     List<Track.Point> points = repository.points(id);
     return new Track.Detail(
         track,
@@ -157,7 +207,22 @@ public class TrackService {
         points,
         TrackGeometry.lines(points, settings.gapSeconds()),
         TrackGeometry.gaps(points, settings),
-        repository.originalIds(id));
+        repository.originalIds(id),
+        track.isHistory() ? repository.fixCounts(id) : null,
+        repository.placeVisits(id));
+  }
+
+  public HistoryDisplay historyDisplay() {
+    return repository.historyDisplay();
+  }
+
+  public HistoryDisplay showHistory(boolean show) {
+    return write(() -> repository.showHistory(show));
+  }
+
+  public HistoryDisplay showHistoryYear(int year, boolean show) {
+    HistoryDisplay.validateYear(year);
+    return write(() -> repository.showHistoryYear(year, show));
   }
 
   public PlaybackSettings playbackSettings() {

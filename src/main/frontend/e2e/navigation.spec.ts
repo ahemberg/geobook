@@ -8,7 +8,7 @@ test('direct map navigation loads the bundled app without hiding missing resourc
   expect(response?.status()).toBe(200);
   await expect(page.getByRole('heading', { name: 'Recorded travel' })).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel('Choose GPX file')).toBeAttached();
+  await expect(page.getByLabel('Choose GPX or Takeout')).toBeAttached();
   for (const path of [
     '/api/unknown',
     '/api/tracks/999999',

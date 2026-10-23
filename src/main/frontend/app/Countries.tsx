@@ -212,7 +212,7 @@ function VisitRow({
         <strong>{candidate.name}</strong>
       </label>
       <div className="visit-evidence">
-        <span className="hint">Recorded evidence</span>
+        <span className="hint">Evidence</span>
         {candidate.tracks.map((track) => (
           <button
             className="evidence-link"
@@ -220,6 +220,12 @@ function VisitRow({
             onClick={() => openRecording(track.trackId)}
           >
             {track.name}
+            {track.kind === 'history' && (
+              <>
+                {' '}
+                <span className="inferred-badge">Google history</span>
+              </>
+            )}
           </button>
         ))}
       </div>

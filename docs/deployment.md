@@ -50,19 +50,16 @@ holds uploads and extracted native libraries. The data mount holds persistent st
 The Java runtime handles container signals directly; Compose allows 60 seconds for shutdown.
 If a migration is running, let it finish before stopping or replacing the container.
 
-## Upload limit
+## Upload limit, map provider and distribution notices
 
-`GEOBOOK_UPLOAD_LIMIT` in `.env` sets both the maximum file size and the total
-multipart request size. Compose passes it to the application. The default is
-`512MB`, including form data. Values accept `KB`, `MB`, `GB` or plain bytes;
-units use powers of 1024. Set `GEOBOOK_UPLOAD_LIMIT=1GB`, for example, then recreate
-the container to apply it. The empty-library hint shows the running limit.
-
-If using a reverse proxy, allow request bodies at least as large as this limit.
-Requests rejected by Geobook return HTTP 413 with a clear message and save nothing.
-A proxy may supply its own rejection message.
-
-## Map provider and distribution notices
+`.env.example` also lists `GEOBOOK_UPLOAD_LIMIT_MB`, a positive whole number that defaults
+to 512 MB. Compose passes it to the application. It limits each file and the entire
+multipart request, including headers; MB means 1,048,576 bytes. The browser sends one
+file per request and displays the configured limit in the empty library. Oversized
+requests save nothing and return HTTP 413 with a message naming the limit.
+Set a reverse proxy's request-body limit to this value or higher. Disable response
+buffering for `/api/imports` so import progress reaches the browser. Recreate the
+container after changing the value in `.env`.
 
 `.env.example` lists `GEOBOOK_TILES_URL`, `GEOBOOK_TILES_ATTRIBUTION` and
 `GEOBOOK_TILES_ATTRIBUTIONURL`. These configure `/api/map-config`; the browser
