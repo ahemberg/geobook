@@ -37,19 +37,12 @@ import tools.jackson.databind.JsonNode;
 final class TrackController {
   private final TrackService collection;
   private final TrackImporter importer;
-  private final int uploadLimitMb;
+  private final UploadLimit uploadLimit;
 
-  TrackController(
-      TrackService collection,
-      TrackImporter importer,
-      @Value("${geobook.upload-limit-mb}") int uploadLimitMb) {
-    if (uploadLimitMb <= 0) {
-      throw new IllegalArgumentException(
-          "GEOBOOK_UPLOAD_LIMIT_MB must be a positive whole number.");
-    }
+  TrackController(TrackService collection, TrackImporter importer, UploadLimit uploadLimit) {
     this.collection = collection;
     this.importer = importer;
-    this.uploadLimitMb = uploadLimitMb;
+    this.uploadLimit = uploadLimit;
   }
 
   @PostMapping(value = "/api/tracks", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -226,7 +219,7 @@ final class TrackController {
         "url", url,
         "attribution", attribution,
         "attributionUrl", attributionUrl,
-        "uploadLimitMb", uploadLimitMb);
+        "uploadLimitMb", uploadLimit.megabytes());
   }
 
   @ExceptionHandler(TrackNotFoundException.class)
