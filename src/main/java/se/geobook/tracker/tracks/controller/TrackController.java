@@ -175,7 +175,7 @@ class TrackController {
   ResponseEntity<byte[]> original(@PathVariable long id) {
     Track.Original original = collection.original(id);
     return ResponseEntity.ok()
-        .contentType(MediaType.parseMediaType("application/gpx+xml"))
+        .contentType(MediaType.parseMediaType(original.mediaType()))
         .header(
             HttpHeaders.CONTENT_DISPOSITION,
             ContentDisposition.attachment()

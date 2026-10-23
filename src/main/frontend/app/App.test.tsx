@@ -717,3 +717,70 @@ test('compact overview geometry keeps full point counts and fetches detail only 
   expect(await screen.findByText(/Complete recording · 10,000 points/)).toBeVisible();
   expect(requests.filter((url) => url === '/api/tracks/1')).toHaveLength(1);
 });
+
+test('an imported history day appears under Google history without opening a recording', async () => {
+  let imported = false;
+  const day = {
+    id: 4,
+    name: '2014-06-18',
+    kind: 'history',
+    historyDate: '2014-06-18',
+    colour: '#5f7186',
+    visible: true,
+    revision: '"4"',
+    startTime: '2014-06-18T08:00:00Z',
+    pointCount: 2,
+    unknownDateCount: 0,
+    geometry: [
+      [
+        [59.32, 18.07],
+        [59.321, 18.071],
+      ],
+    ],
+    gaps: [],
+  };
+  const fetch = vi.fn((url: string, options?: RequestInit) => {
+    if (options?.method === 'POST') {
+      imported = true;
+      return Promise.resolve(
+        new Response(
+          [
+            JSON.stringify({
+              status: 'imported',
+              completed: 1,
+              total: 1,
+              name: day.name,
+              trackId: day.id,
+              originalId: 1,
+              warnings: [],
+              kind: 'history',
+            }),
+            JSON.stringify({ status: 'complete', completed: 1, total: 1, warnings: [] }),
+            '',
+          ].join('\n'),
+        ),
+      );
+    }
+    if (url === '/api/tracks/years') return Promise.resolve(Response.json(imported ? [2014] : []));
+    if (url === '/api/playback-settings')
+      return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
+    if (url === '/api/map-config')
+      return Promise.resolve(
+        Response.json({ url: '/tiles/{z}/{x}/{y}.png', attribution: 'Map', attributionUrl: '' }),
+      );
+    return Promise.resolve(Response.json(imported ? [day] : []));
+  });
+  vi.stubGlobal('fetch', fetch);
+  const user = userEvent.setup();
+  render(<App />);
+  expect(await screen.findByText('Your travels start here')).toBeVisible();
+  await user.upload(
+    screen.getByLabelText('Choose GPX file'),
+    new File(['PK'], 'takeout-20240101.zip', { type: 'application/zip' }),
+  );
+  const section = await screen.findByRole('region', { name: 'Google history' });
+  expect(section).toHaveTextContent('2014-06-18');
+  expect(screen.getByText('Tracks: 0')).toBeVisible();
+  expect(screen.queryByRole('region', { name: 'Complete recording' })).not.toBeInTheDocument();
+  expect(fetch).not.toHaveBeenCalledWith('/api/tracks/4', expect.anything());
+});

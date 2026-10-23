@@ -46,6 +46,7 @@ function renderMap(props: Partial<ComponentProps<typeof TrackMap>> = {}) {
         attribution: 'Map',
         attributionUrl: 'https://example.com',
       }}
+      history={[]}
       position={[0, 0]}
       country={null}
       {...props}
@@ -160,4 +161,51 @@ test('hidden tracks stay absent from repeated worlds', () => {
   });
   map.setView([0, 720], 0, { animate: false });
   expect(container.querySelectorAll('.leaflet-overlay-pane path')).toHaveLength(0);
+});
+
+test('history draws thin lines in its own pane under tracks and Fit all tracks ignores it', async () => {
+  const { map, getByRole } = renderMap({
+    history: [
+      {
+        id: 2,
+        colour: '#5f7186',
+        visible: true,
+        geometry: [
+          [
+            [50, 50],
+            [51, 51],
+          ],
+        ],
+        gaps: [],
+      },
+      {
+        id: 3,
+        colour: '#5f7186',
+        visible: false,
+        geometry: [
+          [
+            [50.5, 50],
+            [50.6, 50.4],
+          ],
+        ],
+        gaps: [],
+      },
+    ],
+  });
+  map.setView([50.5, 50.5], 6, { animate: false });
+  const history: L.PolylineOptions[] = [];
+  map.eachLayer((layer) => {
+    if (layer instanceof L.Polyline && layer.options.pane === 'history')
+      history.push(layer.options);
+  });
+  expect(history).toHaveLength(1);
+  expect(history[0]).toMatchObject({ color: '#5f7186', weight: 2, opacity: 0.4 });
+  // Leaflet stacks the track overlay pane at z-index 400.
+  expect(Number(map.getPane('history')?.style.zIndex)).toBeLessThan(400);
+  const fitted = new Promise((resolve) => map.once('moveend', resolve));
+  fireEvent.click(getByRole('button', { name: 'Fit all tracks' }));
+  await fitted;
+  expect(map.getCenter().lng).toBeCloseTo(2.5, 0);
+  // Leaflet 1.9 can leave a queued canvas redraw that fails if the map is removed first.
+  await new Promise((resolve) => requestAnimationFrame(resolve));
 });
