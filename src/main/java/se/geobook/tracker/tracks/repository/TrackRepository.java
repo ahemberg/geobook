@@ -12,6 +12,7 @@ import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import se.geobook.tracker.tracks.domain.DateRange;
+import se.geobook.tracker.tracks.domain.HistoryDay;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.OverviewRun;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
@@ -117,12 +118,14 @@ public class TrackRepository {
     return insert(originalId, prepared, colour, null);
   }
 
-  public long insert(long originalId, Track.Prepared prepared, String colour, String historyDate) {
+  public long insert(
+      long originalId, Track.Prepared prepared, String colour, HistoryDay historyDay) {
     Recording recording = prepared.recording();
     TrackColours.Bounds bounds = prepared.bounds();
     jdbc.update(
         "INSERT INTO track(name, colour, south, north, west, east, content_hash, kind,"
-            + " history_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            + " history_date, kept_fix_count, dropped_fix_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,"
+            + " ?, ?)",
         recording.name(),
         colour,
         bounds.south(),
@@ -130,8 +133,10 @@ public class TrackRepository {
         bounds.west(),
         bounds.east(),
         prepared.identity(),
-        historyDate == null ? "recording" : "history",
-        historyDate);
+        historyDay == null ? "recording" : "history",
+        historyDay == null ? null : historyDay.date(),
+        historyDay == null ? null : historyDay.keptFixCount(),
+        historyDay == null ? null : historyDay.droppedFixCount());
     long trackId =
         Objects.requireNonNull(jdbc.queryForObject("SELECT last_insert_rowid()", Long.class));
     jdbc.update("INSERT INTO track_original VALUES (?, ?)", trackId, originalId);
@@ -282,6 +287,13 @@ public class TrackRepository {
         row.getString("content_hash"),
         row.getString("kind"),
         row.getString("history_date"));
+  }
+
+  public HistoryDay.FixCounts fixCounts(long id) {
+    return jdbc.queryForObject(
+        "SELECT kept_fix_count, dropped_fix_count FROM track WHERE id = ?",
+        (row, index) -> new HistoryDay.FixCounts(row.getInt(1), row.getInt(2)),
+        id);
   }
 
   public int segmentCount(long id) {

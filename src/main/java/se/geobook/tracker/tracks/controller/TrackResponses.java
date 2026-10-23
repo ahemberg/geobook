@@ -61,7 +61,9 @@ final class TrackResponses {
       List<Point> points,
       List<List<List<BigDecimal>>> geometry,
       List<List<List<BigDecimal>>> gaps,
-      List<Long> originalIds) {}
+      List<Long> originalIds,
+      Integer keptFixCount,
+      Integer droppedFixCount) {}
 
   record ImportEvent(
       String status,
@@ -144,7 +146,9 @@ final class TrackResponses {
         track.isHistory() ? List.of() : detail.points().stream().map(TrackResponses::from).toList(),
         detail.geometry(),
         detail.gaps(),
-        detail.originalIds());
+        detail.originalIds(),
+        detail.fixCounts() == null ? null : detail.fixCounts().kept(),
+        detail.fixCounts() == null ? null : detail.fixCounts().dropped());
   }
 
   static ImportEvent from(TrackImporter.ImportEvent event) {

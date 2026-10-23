@@ -91,7 +91,9 @@ public class TrackImporter {
     try {
       List<LocationFix> fixes = TakeoutReader.read(bytes);
       days = HistoryDay.split(fixes);
-      int unresolved = fixes.size() - days.stream().mapToInt(day -> day.fixes().size()).sum();
+      int unresolved =
+          fixes.size()
+              - days.stream().mapToInt(day -> day.keptFixCount() + day.droppedFixCount()).sum();
       warnings =
           unresolved == 0
               ? List.of()
@@ -105,6 +107,7 @@ public class TrackImporter {
               FAILED, 0, 0, filename, null, null, List.of(), exception.getMessage(), HISTORY));
       return;
     }
+    days = days.stream().filter(day -> day.keptFixCount() > 0).toList();
     if (days.isEmpty()) {
       progress.send(
           new ImportEvent(
@@ -115,7 +118,8 @@ public class TrackImporter {
               null,
               null,
               List.of(),
-              "The archive contains no Google location history with resolvable local dates.",
+              "The archive contains no usable Google location history after cleaning and local date"
+                  + " resolution.",
               HISTORY));
       return;
     }

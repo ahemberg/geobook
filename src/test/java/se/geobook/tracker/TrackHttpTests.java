@@ -103,9 +103,9 @@ class TrackHttpTests {
     String records =
         """
         {"locations":[
-          {"latitudeE7":593200000,"longitudeE7":180700000,"timestamp":"2014-06-18T21:59:00Z","accuracy":800,"deviceTag":1,"ignored":{"nested":[1,2]}},
+          {"latitudeE7":593200000,"longitudeE7":180700000,"timestamp":"2014-06-18T21:59:00Z","accuracy":200,"deviceTag":1,"ignored":{"nested":[1,2]}},
           {"latitudeE7":593210000,"longitudeE7":180710000,"timestampMs":"1403128800000"},
-          {"latitudeE7":407128000,"longitudeE7":-740060000,"timestamp":"2014-06-18T23:01:00Z"}
+          {"latitudeE7":407128000,"longitudeE7":-740060000,"timestamp":"2014-06-18T23:01:00Z","deviceTag":1}
         ]}
         """;
     try (HttpClient client = HttpClient.newHttpClient()) {
@@ -171,6 +171,72 @@ class TrackHttpTests {
   }
 
   @Test
+  void noisyHistoryArrivesCleanedWithPersistentCountsAndIndependentBreaks()
+      throws IOException, InterruptedException {
+    byte[] archive =
+        takeout(
+            """
+            {"locations":[
+              {"latitudeE7":593200000,"longitudeE7":180700000,"timestamp":"2014-06-18T10:00:00Z","accuracy":200,"deviceTag":1},
+              {"latitudeE7":593200000,"longitudeE7":190700000,"timestamp":"2014-06-18T10:01:00Z","accuracy":10,"deviceTag":1},
+              {"latitudeE7":593200000,"longitudeE7":180710000,"timestamp":"2014-06-18T10:02:00Z","deviceTag":1},
+              {"latitudeE7":593200000,"longitudeE7":180720000,"timestamp":"2014-06-18T10:03:00Z","accuracy":201,"deviceTag":1},
+              {"latitudeE7":593200000,"longitudeE7":180720000,"timestamp":"2014-06-18T10:04:00Z","accuracy":10,"deviceTag":2},
+              {"latitudeE7":593200000,"longitudeE7":180730000,"timestamp":"2014-06-18T10:32:00Z","accuracy":10,"deviceTag":1},
+              {"latitudeE7":593200000,"longitudeE7":180740000,"timestamp":"2014-06-18T11:03:00Z","accuracy":10,"deviceTag":1},
+              {"latitudeE7":593200000,"longitudeE7":181740000,"timestamp":"2014-06-18T11:04:00Z","accuracy":10,"deviceTag":1}
+            ]}
+            """,
+            true);
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      JsonNode geometry;
+      try (ConfigurableApplicationContext app = start()) {
+        String events =
+            new String(
+                upload(client, base(app), archive, "/api/imports").body(), StandardCharsets.UTF_8);
+        assertThat(events)
+            .contains("\"status\":\"imported\"")
+            .doesNotContain("unresolved", "\"status\":\"failed\"");
+        JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body()).get(0);
+        assertThat(overview.get("pointCount").asInt()).isEqualTo(5);
+        geometry = overview.get("geometry");
+        assertThat(geometry.toString())
+            .isEqualTo(
+                "[[[59.32,18.07],[59.32,18.071],[59.32,18.073]],[[59.32,18.074]],[[59.32,18.174]]]");
+        JsonNode detail = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+        assertThat(detail.get("geometry")).isEqualTo(geometry);
+        assertThat(detail.get("keptFixCount").asInt()).isEqualTo(5);
+        assertThat(detail.get("droppedFixCount").asInt()).isEqualTo(3);
+        assertThat(detail.get("segmentCount").asInt()).isEqualTo(3);
+        assertThat(detail.get("points").isEmpty()).isTrue();
+        for (int gap : new int[] {1, 86_400}) {
+          assertThat(
+                  patch(
+                          client,
+                          base(app) + "/api/playback-settings",
+                          "{\"gapSeconds\":" + gap + ",\"showGapConnections\":true}")
+                      .statusCode())
+              .isEqualTo(200);
+          JsonNode changed = mapper.readTree(get(client, base(app) + "/api/tracks").body()).get(0);
+          assertThat(changed.get("geometry")).isEqualTo(geometry);
+          assertThat(changed.get("gaps").isEmpty()).isTrue();
+          JsonNode opened = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+          assertThat(opened.get("geometry")).isEqualTo(geometry);
+          assertThat(opened.get("gaps").isEmpty()).isTrue();
+        }
+        assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(archive);
+      }
+      try (ConfigurableApplicationContext app = start()) {
+        JsonNode detail = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+        assertThat(detail.get("keptFixCount").asInt()).isEqualTo(5);
+        assertThat(detail.get("droppedFixCount").asInt()).isEqualTo(3);
+        assertThat(detail.get("geometry")).isEqualTo(geometry);
+      }
+    }
+  }
+
+  @Test
   @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
   void rejectedTakeoutArchivesLeaveNoDaysOrOriginals() throws IOException, InterruptedException {
     try (HttpClient client = HttpClient.newHttpClient();
@@ -179,6 +245,7 @@ class TrackHttpTests {
           java.util.List.of(
               "{\"timelineObjects\":[]}",
               "{\"locations\":[]}",
+              "{\"locations\":[{\"latitudeE7\":593200000,\"longitudeE7\":180700000,\"timestamp\":\"2014-06-18T10:00:00Z\",\"accuracy\":201}]}",
               "{\"locations\":[{\"latitudeE7\":593200000,\"longitudeE7\":180700000,\"timestamp\":\"2014-06-18T21:59:00Z\"},{]}",
               "{\"locations\":[{\"latitudeE7\":0,\"longitudeE7\":0,\"timestamp\":\"2014-06-18T21:59:00Z\"}]}")) {
         for (boolean zipped : java.util.List.of(true, false)) {
@@ -621,9 +688,40 @@ class TrackHttpTests {
       JsonNode detail =
           JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks/9").body());
       assertThat(detail.get("name").asText()).isEqualTo("Saved display name");
+      assertThat(detail.get("keptFixCount").isNull()).isTrue();
+      assertThat(detail.get("droppedFixCount").isNull()).isTrue();
       assertThat(detail.get("colour").asText()).isEqualTo("#123456");
       assertThat(detail.get("visible").asBoolean()).isTrue();
       assertThat(get(client, base(app) + "/api/originals/7").body()).isEqualTo(original);
+    }
+  }
+
+  @Test
+  void upgradingHistoryDaysBackfillsCountsWithoutChangingSavedData()
+      throws IOException, InterruptedException, SQLException {
+    String url = "jdbc:sqlite:" + directory.resolve("geobook.db");
+    Flyway.configure().dataSource(url, null, null).target("11").load().migrate();
+    try (Connection connection = DriverManager.getConnection(url);
+        Statement statement = connection.createStatement()) {
+      statement.executeUpdate(
+          "INSERT INTO track(id, name, colour, visible, kind, history_date) VALUES (9, 'Saved"
+              + " history name', '#123456', 0, 'history', '2014-06-18')");
+      statement.executeUpdate("INSERT INTO track_segment VALUES (9, 0)");
+      statement.executeUpdate(
+          "INSERT INTO track_point(track_id, ordinal, segment, latitude, longitude, recorded_time)"
+              + " VALUES (9, 0, 0, '59.32', '18.07', '2014-06-18T10:00:00Z')");
+    }
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonNode detail =
+          JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks/9").body());
+      assertThat(detail.get("name").asText()).isEqualTo("Saved history name");
+      assertThat(detail.get("colour").asText()).isEqualTo("#123456");
+      assertThat(detail.get("visible").asBoolean()).isFalse();
+      assertThat(detail.get("historyDate").asText()).isEqualTo("2014-06-18");
+      assertThat(detail.get("keptFixCount").asInt()).isEqualTo(1);
+      assertThat(detail.get("droppedFixCount").asInt()).isZero();
+      assertThat(detail.get("geometry").toString()).isEqualTo("[[[59.32,18.07]]]");
     }
   }
 
