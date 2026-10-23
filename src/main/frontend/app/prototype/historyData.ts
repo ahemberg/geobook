@@ -27,7 +27,22 @@ const cities: City[] = [
   {
     name: 'Stockholm',
     centre: [59.332, 18.065],
-    places: ['Central Station', 'Office', 'Home', 'Old Town Café', 'Gym', 'Library', 'Market Hall'],
+    places: [
+      'Central Station',
+      'Office',
+      'Home',
+      'Old Town Café',
+      'Gym',
+      'Library',
+      'Market Hall',
+      'Climbing Hall',
+      'Ferry Terminal',
+      'Bakery',
+      'Bookshop',
+      'Hospital',
+      'Allotment',
+      'Friends’ Flat',
+    ],
   },
   {
     name: 'Gothenburg',
@@ -131,12 +146,35 @@ function placeAt(city: City, name: string): LatLng {
   return position;
 }
 
-// Repeated trips between the same places follow the same corridor, like a real commute.
-function corridor(city: City, from: string, to: string): LatLng[] {
-  const [a, b] = [placeAt(city, from), placeAt(city, to)];
-  const bend = placeAt(city, `${[from, to].sort().join('>')}`);
-  const via: LatLng = [(a[0] + b[0] + bend[0]) / 3, (a[1] + b[1] + bend[1]) / 3];
-  return [a, [a[0], via[1]], via, [via[0], b[1]], b];
+// A curved random walk with momentum that steers towards the destination. Each pair of
+// places gets its own seeded base route, so repeated trips look similar but not identical.
+const routeCache = new Map<string, LatLng[]>();
+function route(city: City, from: string, to: string): LatLng[] {
+  const key = `${city.name}:${from}>${to}`;
+  const cached = routeCache.get(key);
+  if (cached) return cached;
+  const next = random([...key].reduce((sum, char) => sum * 31 + char.charCodeAt(0), 11) % 100000);
+  const [start, end] = [placeAt(city, from), placeAt(city, to)];
+  const points: LatLng[] = [start];
+  let [lat, lng] = start;
+  let heading = Math.atan2(end[0] - lat, (end[1] - lng) / 2) + (next() - 0.5) * 1.2;
+  const step = 0.00045;
+  let wander = (next() - 0.5) * 1.6;
+  for (let index = 0; index < 400; index++) {
+    const target = Math.atan2(end[0] - lat, (end[1] - lng) / 2);
+    const remaining = Math.hypot(end[0] - lat, (end[1] - lng) / 2);
+    wander = Math.max(-1.1, Math.min(1.1, wander * 0.97 + (next() - 0.5) * 0.22));
+    let turn = target + wander * Math.min(1, remaining / 0.006) - heading;
+    turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+    heading += turn * 0.18;
+    lat += Math.sin(heading) * step;
+    lng += Math.cos(heading) * step * 2;
+    points.push([lat, lng]);
+    if (Math.hypot(end[0] - lat, (end[1] - lng) / 2) < step * 4) break;
+  }
+  points.push(end);
+  routeCache.set(key, points);
+  return points;
 }
 
 function makeDay(
@@ -151,26 +189,25 @@ function makeDay(
   const anchors = names.map((name) => placeAt(city, name));
   const lines: LatLng[][] = [];
   let current: LatLng[] = [];
-  const perLeg = dense ? 5 : 2;
+  // Dense years keep roughly every 3rd walk point, sparse years every 10th with gaps.
+  const every = dense ? 3 : 10;
+  const noise = dense ? 0.00015 : 0.0004;
   let kept = 0;
   for (let leg = 0; leg < names.length - 1; leg++) {
-    const path = corridor(city, names[leg]!, names[leg + 1]!);
-    for (let corner = 0; corner < path.length - 1; corner++) {
-      const [from, to] = [path[corner]!, path[corner + 1]!];
-      for (let index = 0; index < perLeg; index++) {
-        if (!dense && next() < 0.15) {
-          if (current.length > 1) lines.push(current);
-          current = [];
-          continue;
-        }
-        const fraction = index / perLeg;
-        const noise = dense ? 0.0004 : 0.0012;
-        current.push([
-          from[0] + (to[0] - from[0]) * fraction + (next() - 0.5) * noise,
-          from[1] + (to[1] - from[1]) * fraction + (next() - 0.5) * noise * 2,
-        ]);
-        kept++;
+    const path = route(city, names[leg]!, names[leg + 1]!);
+    const drift = (next() - 0.5) * 0.0006;
+    for (let index = 0; index < path.length; index += every) {
+      if (!dense && next() < 0.08) {
+        if (current.length > 1) lines.push(current);
+        current = [];
+        continue;
       }
+      const point = path[index]!;
+      current.push([
+        point[0] + drift + (next() - 0.5) * noise,
+        point[1] + drift * 2 + (next() - 0.5) * noise * 2,
+      ]);
+      kept++;
     }
   }
   if (current.length > 1) lines.push(current);
