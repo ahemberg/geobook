@@ -46,8 +46,10 @@ public record Track(
       int pointCount,
       int unknownDateCount,
       List<List<List<BigDecimal>>> geometry,
-      List<List<List<BigDecimal>>> gaps) {
+      List<List<List<BigDecimal>>> gaps,
+      List<String> placeNames) {
     public Overview {
+      placeNames = List.copyOf(placeNames);
       geometry = List.copyOf(TrackGeometry.copy(geometry));
       gaps = List.copyOf(TrackGeometry.copy(gaps));
     }
@@ -56,6 +58,7 @@ public record Track(
   public static final class OverviewBuilder {
     private final Track track;
     private final Instant start;
+    private final List<String> placeNames;
     private final PlaybackSettings settings;
     private final List<List<List<BigDecimal>>> gaps = new ArrayList<>();
     private final List<List<List<BigDecimal>>> geometry = new ArrayList<>();
@@ -64,7 +67,9 @@ public record Track(
     private int count;
     private int unknown;
 
-    public OverviewBuilder(Track track, Instant start, PlaybackSettings settings) {
+    public OverviewBuilder(
+        Track track, Instant start, PlaybackSettings settings, List<String> placeNames) {
+      this.placeNames = List.copyOf(placeNames);
       this.track = track;
       this.start = start;
       this.settings = settings;
@@ -97,7 +102,7 @@ public record Track(
     }
 
     public Overview build() {
-      return new Overview(track, start, count, unknown, geometry, gaps);
+      return new Overview(track, start, count, unknown, geometry, gaps, placeNames);
     }
   }
 
@@ -111,8 +116,10 @@ public record Track(
       List<List<List<BigDecimal>>> geometry,
       List<List<List<BigDecimal>>> gaps,
       List<Long> originalIds,
-      HistoryDay.FixCounts fixCounts) {
+      HistoryDay.FixCounts fixCounts,
+      List<PlaceVisit> placeVisits) {
     public Detail {
+      placeVisits = List.copyOf(placeVisits);
       points = List.copyOf(points);
       geometry = List.copyOf(TrackGeometry.copy(geometry));
       gaps = List.copyOf(TrackGeometry.copy(gaps));
