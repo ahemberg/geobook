@@ -4,6 +4,7 @@ import type { Country, Detail, MapConfig, MapTrack, Overview, PlaybackSettings }
 import Playback from './Playback';
 import TrackMap from './TrackMap';
 import { mapGeometry } from './mapGeometry';
+import { HistoryDayPanel, type HistoryState } from './prototype/HistoryPrototype';
 
 export default function RecordingWorkspace({
   tracks,
@@ -15,6 +16,7 @@ export default function RecordingWorkspace({
   settings,
   loadError,
   close,
+  history,
 }: {
   tracks: Overview[];
   country: Country | null;
@@ -25,6 +27,7 @@ export default function RecordingWorkspace({
   settings: PlaybackSettings | null;
   loadError: string;
   close: () => void;
+  history: HistoryState;
 }) {
   const [pointIndex, setPointIndex] = useState(0);
   const { detail, detailError } = useRecording(selectedId, reload);
@@ -39,10 +42,12 @@ export default function RecordingWorkspace({
           config={config}
           position={marker}
           country={country}
+          history={history}
         />
       ) : (
         <div className="map-placeholder">{loadError ? 'Map unavailable' : 'Loading map…'}</div>
       )}
+      <HistoryDayPanel history={history} />
       {selectedId !== null && (
         <SelectedRecording
           key={selectedId}

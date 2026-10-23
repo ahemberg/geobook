@@ -8,6 +8,11 @@ import Countries from './Countries';
 import OriginalArchive from './OriginalArchive';
 import TrackLibrary from './TrackLibrary';
 import { useUpload, UploadFeedback } from './Upload';
+import {
+  HistoryScopeToggle,
+  useHistoryPrototype,
+  VariantSwitcher,
+} from './prototype/HistoryPrototype';
 
 type View = 'map' | 'countries' | 'originals';
 
@@ -20,6 +25,7 @@ export default function App() {
   const [importedIds, setImportedIds] = useState<number[]>([]);
   const [range, setRange] = useState<DateRange>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const history = useHistoryPrototype(() => setSelectedId(null));
 
   const {
     tracks,
@@ -52,6 +58,7 @@ export default function App() {
   }
 
   function select(id: number) {
+    history.close();
     setImportedIds([]);
     if (selectedId === id) setReload((value) => value + 1);
     setSelectedId(id);
@@ -85,6 +92,7 @@ export default function App() {
         <>
           <TravelScope country={country} count={tracks.length} clearCountry={() => explore(null)}>
             <DateFilter range={range} years={years} apply={filter} />
+            <HistoryScopeToggle history={history} />
             {settings && (
               <GapSettings
                 settings={settings}
@@ -124,6 +132,7 @@ export default function App() {
               empty={empty}
               uploading={uploading}
               chooseFile={() => fileInput.current?.click()}
+              history={history}
             />
             <RecordingWorkspace
               tracks={tracks}
@@ -135,10 +144,12 @@ export default function App() {
               settings={settings}
               loadError={loadError}
               close={() => setSelectedId(null)}
+              history={history}
             />
           </main>
         </>
       )}
+      <VariantSwitcher history={history} />
     </div>
   );
 }

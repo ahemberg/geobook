@@ -3,6 +3,7 @@ import { request } from './api';
 import RemovalDialog from './RemovalDialog';
 import type { Controls, Overview } from './api';
 import { trackDateLabel } from './trackDateLabel';
+import { HistoryLibrary, HistoryLibraryTop, type HistoryState } from './prototype/HistoryPrototype';
 
 export default function TrackLibrary({
   tracks,
@@ -15,6 +16,7 @@ export default function TrackLibrary({
   empty,
   uploading,
   chooseFile,
+  history,
 }: {
   tracks: Overview[];
   filtered: boolean;
@@ -26,6 +28,7 @@ export default function TrackLibrary({
   empty: boolean;
   uploading: boolean;
   chooseFile: () => void;
+  history: HistoryState;
 }) {
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -45,7 +48,11 @@ export default function TrackLibrary({
     track.name.toLowerCase().includes(search.trim().toLowerCase()),
   );
   return (
-    <aside className={`library ${libraryOpen ? 'expanded' : ''}`} id="tracks" tabIndex={-1}>
+    <aside
+      className={`library ${libraryOpen ? 'expanded' : ''} ${history.variant === 'B' && history.tab === 'history' ? 'history-tab' : ''}`}
+      id="tracks"
+      tabIndex={-1}
+    >
       <div className="library-heading">
         <h2>Tracks</h2>
         <button
@@ -59,6 +66,7 @@ export default function TrackLibrary({
         </button>
       </div>
       <div id="track-list" className="library-content">
+        <HistoryLibraryTop history={history} trackCount={tracks.length} />
         {loading && (
           <p className="library-copy" role="status">
             Loading your tracks…
@@ -93,6 +101,7 @@ export default function TrackLibrary({
             />
           ))}
         </ul>
+        <HistoryLibrary history={history} />
       </div>
     </aside>
   );

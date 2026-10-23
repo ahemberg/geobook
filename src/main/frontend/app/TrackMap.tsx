@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import type { Country, MapConfig, MapTrack } from './api';
 import { mapGeometry } from './mapGeometry';
+import { useHistoryLayer, type HistoryState } from './prototype/HistoryPrototype';
 
 export default function TrackMap({
   tracks,
@@ -10,6 +11,7 @@ export default function TrackMap({
   config,
   position,
   country: scope,
+  history,
 }: {
   tracks: MapTrack[];
   country: Country | null;
@@ -17,6 +19,7 @@ export default function TrackMap({
   importedIds: number[];
   config: MapConfig;
   position: L.LatLngTuple | null;
+  history?: HistoryState;
 }) {
   const country = selectedId === null ? scope : null;
   const container = useRef<HTMLDivElement>(null);
@@ -24,12 +27,15 @@ export default function TrackMap({
   const [tileFailed, setTileFailed] = useState(false);
   const fitted = useRef('');
   const tilesRef = useRef<L.TileLayer | null>(null);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  useHistoryLayer(mapInstance, history, mapInstance);
 
   const { url, attribution, attributionUrl } = config;
   useEffect(() => {
     if (!container.current) return;
     const map = L.map(container.current, { preferCanvas: false }).setView([25, 10], 2);
     mapRef.current = map;
+    setMapInstance(map);
     const credit = document.createElement('a');
     credit.textContent = attribution;
     credit.href = /^https?:\/\//.test(attributionUrl)

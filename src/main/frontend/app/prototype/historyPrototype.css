@@ -1,0 +1,229 @@
+/* PROTOTYPE (throwaway): styles for the history-days variants. */
+.library-content {
+  overflow-y: auto;
+}
+.library-content .track-list {
+  flex: none;
+  overflow: visible;
+}
+.history-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3c5470;
+  background: #eef1f5;
+  border: 1px solid #c9d3de;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.history-swatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0 2px,
+    rgb(255 255 255 / 0.55) 2px 4px
+  );
+}
+.history-day .track-row {
+  padding: 10px 20px;
+  background: #fafbfc;
+}
+.history-day.compact .track-row {
+  padding: 7px 20px;
+}
+.history-day .track-label strong {
+  font-weight: 500;
+  color: #34465a;
+}
+.history-day.selected .track-row {
+  background: var(--selection);
+}
+.history-places {
+  color: var(--muted);
+  font-weight: 400;
+}
+.history-section {
+  border-top: 2px solid var(--line);
+  margin-top: 12px;
+}
+.history-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 1;
+}
+.history-disclosure {
+  border: 0;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 4px 0;
+  background: none;
+}
+.history-master {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 14px;
+  color: var(--muted);
+}
+.history-hint {
+  padding: 0 16px;
+  margin: 0 0 8px;
+}
+.history-year > summary {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  background: #f4f6f8;
+}
+.history-year-label {
+  font-weight: 600;
+}
+.history-count {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--muted);
+}
+.history-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  margin: 0 12px 8px;
+}
+.history-tabs button {
+  flex: 1;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  padding: 8px 4px;
+  font-size: 14px;
+}
+.history-tabs button[aria-selected='true'] {
+  border-bottom-color: var(--blue);
+  font-weight: 700;
+}
+.library.history-tab .library-search,
+.library.history-tab .track-list,
+.library.history-tab .library-copy {
+  display: none;
+}
+.history-calendar-controls {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 16px 8px;
+}
+.history-year-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 16px 8px;
+}
+.history-year-chips button {
+  padding: 2px 8px;
+  font-size: 13px;
+}
+.history-year-chips button[aria-pressed='true'] {
+  background: var(--blue);
+  color: white;
+  border-color: var(--blue);
+}
+.calendar-grid {
+  display: grid;
+  gap: 3px;
+  padding: 0 16px 16px;
+}
+.calendar-month {
+  display: grid;
+  grid-template-columns: 28px repeat(31, 1fr);
+  gap: 1px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+.calendar-cell {
+  all: unset;
+  display: block;
+  cursor: pointer;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 1px;
+  padding: 0;
+  min-width: 0;
+  background: #5f7186;
+}
+.calendar-cell.empty {
+  background: #eef1f4;
+}
+.calendar-cell.selected {
+  outline: 2px solid #e0a020;
+  opacity: 1 !important;
+}
+.calendar-cell.hidden-day {
+  background: #c3ccd6;
+}
+.history-inline {
+  border-top: 2px solid var(--line);
+}
+.history-scope-switch {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 14px;
+  padding: 2px 8px;
+  border: 1px solid #c9d3de;
+  border-radius: 999px;
+}
+.history-facts {
+  margin: 4px 0 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.history-visits {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.history-visits button {
+  display: flex;
+  gap: 8px;
+  font-size: 14px;
+  padding: 4px 10px;
+}
+.visit-time {
+  color: var(--muted);
+}
+.prototype-switcher {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: #111;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.35);
+  font-size: 14px;
+}
+.prototype-switcher button {
+  background: #333;
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
