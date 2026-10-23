@@ -162,3 +162,49 @@ test('hidden tracks stay absent from repeated worlds', () => {
   map.setView([0, 720], 0, { animate: false });
   expect(container.querySelectorAll('.leaflet-overlay-pane path')).toHaveLength(0);
 });
+
+test('history draws beneath recordings and Fit all tracks excludes its extent', () => {
+  // jsdom has no canvas context; use Leaflet's SVG renderer to inspect the history pane.
+  vi.spyOn(L, 'canvas').mockImplementation((options) => L.svg(options));
+  const { map, container, getByRole } = renderMap({
+    tracks: [
+      {
+        id: 1,
+        kind: 'recording',
+        colour: '#123456',
+        visible: true,
+        geometry: [
+          [
+            [0, 0],
+            [1, 1],
+          ],
+        ],
+        gaps: [],
+      },
+      {
+        id: 2,
+        kind: 'history',
+        colour: '#738a91',
+        visible: true,
+        geometry: [
+          [
+            [60, 100],
+            [61, 101],
+          ],
+        ],
+        gaps: [],
+      },
+    ],
+    importedIds: [2],
+    position: null,
+  });
+  map.setView([30, 50], 0, { animate: false });
+  expect(container.querySelector('.leaflet-history-pane')?.getAttribute('style')).toContain('350');
+  const path = container.querySelector('.leaflet-history-pane path');
+  expect(path).toHaveAttribute('stroke', '#738a91');
+  expect(path).toHaveAttribute('stroke-width', '2');
+  expect(path).toHaveAttribute('stroke-opacity', '0.4');
+  fireEvent.click(getByRole('button', { name: 'Fit all tracks' }));
+  expect(map.getCenter().lat).toBeCloseTo(0.5, 0);
+  expect(map.getCenter().lng).toBeCloseTo(0.5, 0);
+});

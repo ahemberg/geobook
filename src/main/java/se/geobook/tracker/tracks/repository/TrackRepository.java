@@ -28,10 +28,11 @@ import se.geobook.tracker.tracks.domain.TrackUpdate;
 public class TrackRepository {
   private static final String COLOUR_COLUMN = "colour";
   private static final String OVERVIEW_SELECT =
-      "SELECT t.id, t.name, t.colour, t.visible, t.content_hash, t.start_time, r.first_ordinal,"
-          + " r.last_ordinal, r.local_date, r.break_before, r.seconds_before, p.latitude,"
-          + " p.longitude FROM overview_run r JOIN track t ON t.id = r.track_id JOIN overview_point"
-          + " p ON p.track_id = r.track_id AND p.run_ordinal = r.first_ordinal";
+      "SELECT t.id, t.name, t.colour, t.visible, t.content_hash, t.kind, t.history_date,"
+          + " t.start_time, r.first_ordinal, r.last_ordinal, r.local_date, r.break_before,"
+          + " r.seconds_before, p.latitude, p.longitude FROM overview_run r JOIN track t ON t.id ="
+          + " r.track_id JOIN overview_point p ON p.track_id = r.track_id AND p.run_ordinal ="
+          + " r.first_ordinal";
   private static final String OVERVIEW_ORDER = " ORDER BY t.id, r.first_ordinal, p.ordinal";
   private final JdbcTemplate jdbc;
 
@@ -74,7 +75,10 @@ public class TrackRepository {
   public Optional<Long> findByIdentity(String identity) {
     return jdbc
         .queryForList(
-            "SELECT id FROM track WHERE content_hash = ? ORDER BY id LIMIT 1", Long.class, identity)
+            "SELECT id FROM track WHERE content_hash = ? AND kind = 'recording' ORDER BY id LIMIT"
+                + " 1",
+            Long.class,
+            identity)
         .stream()
         .findFirst();
   }
@@ -85,7 +89,7 @@ public class TrackRepository {
 
   public List<Track.Neighbour> neighbours() {
     return jdbc.query(
-        "SELECT colour, south, north, west, east FROM track",
+        "SELECT colour, south, north, west, east FROM track WHERE kind = 'recording'",
         (row, index) ->
             new Track.Neighbour(
                 row.getString(COLOUR_COLUMN),
@@ -97,22 +101,37 @@ public class TrackRepository {
   }
 
   public long count() {
-    return Objects.requireNonNull(jdbc.queryForObject("SELECT count(*) FROM track", Long.class));
+    return Objects.requireNonNull(
+        jdbc.queryForObject("SELECT count(*) FROM track WHERE kind = 'recording'", Long.class));
+  }
+
+  public Optional<Long> findHistoryDate(String date) {
+    return jdbc
+        .queryForList(
+            "SELECT id FROM track WHERE kind = 'history' AND history_date = ?", Long.class, date)
+        .stream()
+        .findFirst();
   }
 
   public long insert(long originalId, Track.Prepared prepared, String colour) {
+    return insert(originalId, prepared, colour, null);
+  }
+
+  public long insert(long originalId, Track.Prepared prepared, String colour, String historyDate) {
     Recording recording = prepared.recording();
     TrackColours.Bounds bounds = prepared.bounds();
     jdbc.update(
-        "INSERT INTO track(name, colour, south, north, west, east, content_hash) VALUES (?,"
-            + " ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO track(name, colour, south, north, west, east, content_hash, kind,"
+            + " history_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         recording.name(),
         colour,
         bounds.south(),
         bounds.north(),
         bounds.west(),
         bounds.east(),
-        prepared.identity());
+        prepared.identity(),
+        historyDate == null ? "recording" : "history",
+        historyDate);
     long trackId =
         Objects.requireNonNull(jdbc.queryForObject("SELECT last_insert_rowid()", Long.class));
     jdbc.update("INSERT INTO track_original VALUES (?, ?)", trackId, originalId);
@@ -225,7 +244,7 @@ public class TrackRepository {
                       rows.getString("start_time") == null
                           ? null
                           : Instant.parse(rows.getString("start_time")),
-                      settings);
+                      track(rows).geometrySettings(settings));
               tracks.put(trackId, builder);
             }
             builder.add(
@@ -246,7 +265,8 @@ public class TrackRepository {
   public Optional<Track> find(long id) {
     return jdbc
         .query(
-            "SELECT id, name, colour, visible, content_hash FROM track WHERE id = ?",
+            "SELECT id, name, colour, visible, content_hash, kind, history_date FROM track WHERE id"
+                + " = ?",
             (row, index) -> track(row),
             id)
         .stream()
@@ -259,7 +279,9 @@ public class TrackRepository {
         row.getString("name"),
         row.getString(COLOUR_COLUMN),
         row.getBoolean("visible"),
-        row.getString("content_hash"));
+        row.getString("content_hash"),
+        row.getString("kind"),
+        row.getString("history_date"));
   }
 
   public int segmentCount(long id) {

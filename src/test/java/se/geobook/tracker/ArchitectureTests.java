@@ -89,7 +89,7 @@ class ArchitectureTests {
   }
 
   @Test
-  void httpAndJsonBelongToControllers() {
+  void httpAndResponseJsonBelongToControllers() {
     noClasses()
         .that()
         .resideOutsideOfPackage("se.geobook.tracker.*.controller..")
@@ -100,7 +100,17 @@ class ArchitectureTests {
             "org.springframework.http..",
             "jakarta.servlet..",
             "com.fasterxml.jackson..",
-            "tools.jackson..")
+            "tools.jackson.databind..")
+        .check(APPLICATION);
+    noClasses()
+        .that()
+        .resideOutsideOfPackage("se.geobook.tracker.*.controller..")
+        // Only the Takeout source reader may use Jackson's streaming parser outside controllers.
+        .and()
+        .doNotHaveFullyQualifiedName("se.geobook.tracker.tracks.service.TakeoutReader")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("tools.jackson.core..")
         .check(APPLICATION);
   }
 

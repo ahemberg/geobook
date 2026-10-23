@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import se.geobook.tracker.tracks.domain.ContentIdentity;
 import se.geobook.tracker.tracks.domain.DateRange;
+import se.geobook.tracker.tracks.domain.HistoryDay;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.OverviewRun;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
@@ -52,6 +53,11 @@ public class TrackService {
   }
 
   Track.Imported save(OriginalExport.Source source, Recording recording) {
+    return save(source, recording, null);
+  }
+
+  private Track.Imported save(
+      OriginalExport.Source source, Recording recording, String historyDate) {
     List<PointLocalTime.Attribution> local =
         recording.points().stream()
             .map(
@@ -65,8 +71,10 @@ public class TrackService {
         recording.points().stream()
             .map(
                 point ->
-                    PointCountry.resolve(
-                        point.latitude().doubleValue(), point.longitude().doubleValue()))
+                    historyDate == null
+                        ? PointCountry.resolve(
+                            point.latitude().doubleValue(), point.longitude().doubleValue())
+                        : null)
             .toList();
     Track.Prepared prepared =
         new Track.Prepared(
@@ -83,11 +91,20 @@ public class TrackService {
                 "The original export was removed during import. Upload it again to restore it.");
           }
           long originalId = source.id();
-          Optional<Long> existing = repository.findByIdentity(prepared.identity());
+          Optional<Long> existing =
+              historyDate == null
+                  ? repository.findByIdentity(prepared.identity())
+                  : repository.findHistoryDate(historyDate);
           if (existing.isPresent()) {
             long trackId = existing.orElseThrow();
             repository.linkOriginal(trackId, originalId);
             return new Track.Imported(trackId, originalId, true);
+          }
+          if (historyDate != null) {
+            return new Track.Imported(
+                repository.insert(originalId, prepared, HistoryDay.COLOUR, historyDate),
+                originalId,
+                false);
           }
           List<String> neighbours =
               repository.neighbours().stream()
@@ -98,6 +115,10 @@ public class TrackService {
           return new Track.Imported(
               repository.insert(originalId, prepared, colour), originalId, false);
         });
+  }
+
+  Track.Imported saveHistoryDay(OriginalExport.Source source, HistoryDay day) {
+    return save(source, day.recording(), day.date());
   }
 
   public List<Track.Overview> overview(DateRange range, String search, String country) {
@@ -122,6 +143,7 @@ public class TrackService {
   public Track.Detail detail(long id) {
     PlaybackSettings settings = playbackSettings();
     Track track = find(id);
+    settings = track.geometrySettings(settings);
     List<Track.Point> points = repository.points(id);
     return new Track.Detail(
         track,

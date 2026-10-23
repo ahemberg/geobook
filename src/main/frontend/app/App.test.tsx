@@ -83,7 +83,7 @@ test('upload shows the saved track and a download of the original export', async
   expect(screen.getByText(/Upload limit: 512 MB/)).toBeVisible();
   const file = new File(['synthetic'], 'walk.gpx', { type: 'application/gpx+xml' });
   Object.defineProperty(file, 'size', { value: 33 * 1024 * 1024 });
-  await user.upload(screen.getByLabelText('Choose GPX file'), file);
+  await user.upload(screen.getByLabelText('Choose GPX or Takeout'), file);
   await waitFor(() =>
     expect(screen.getByRole('button', { name: /^Synthetic waterfront.*/ })).toBeVisible(),
   );
@@ -115,12 +115,12 @@ test('the upload hint and rejection use the configured limit', async () => {
   expect(await screen.findByText(/Upload limit: 1 MB/)).toBeVisible();
   const file = new File(['synthetic'], 'large.gpx');
   Object.defineProperty(file, 'size', { value: 2 * 1024 * 1024 });
-  await userEvent.setup().upload(screen.getByLabelText('Choose GPX file'), file);
+  await userEvent.setup().upload(screen.getByLabelText('Choose GPX or Takeout'), file);
   expect(await screen.findByRole('alert')).toHaveTextContent(
     'Upload exceeds the 1 MB limit. Choose a smaller file.',
   );
   expect(fetch.mock.calls.some(([url]) => url === '/api/imports')).toBe(false);
-  expect(screen.getByRole('button', { name: 'Upload GPX' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Upload GPX / Takeout' })).toBeEnabled();
 });
 
 test('a rejected upload explains the problem and allows another file', async () => {
@@ -149,9 +149,9 @@ test('a rejected upload explains the problem and allows another file', async () 
   await screen.findByText('Your travels start here');
   await userEvent
     .setup()
-    .upload(screen.getByLabelText('Choose GPX file'), new File(['invalid'], 'invalid.gpx'));
+    .upload(screen.getByLabelText('Choose GPX or Takeout'), new File(['invalid'], 'invalid.gpx'));
   expect(await screen.findByRole('alert')).toHaveTextContent('could not be read');
-  expect(screen.getByRole('button', { name: 'Upload GPX' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Upload GPX / Takeout' })).toBeEnabled();
   expect(screen.queryByRole('link', { name: 'Download original export' })).not.toBeInTheDocument();
 });
 
@@ -356,19 +356,19 @@ test('batch progress keeps per-track results and continues after a failed file',
   await screen.findByText('Your travels start here');
   await userEvent
     .setup()
-    .upload(screen.getByLabelText('Choose GPX file'), [
+    .upload(screen.getByLabelText('Choose GPX or Takeout'), [
       new File(['bad'], 'bad.gpx'),
       new File(['collection'], 'collection.gpx'),
     ]);
-  expect(await screen.findByText(/1 of 2 tracks processed/)).toBeVisible();
+  expect(await screen.findByText(/1 of 2 items processed/)).toBeVisible();
   expect(screen.getByText(/Existing walk/)).toHaveTextContent('Duplicate');
   expect(screen.getByText(/Some points have no elevation/)).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Importing GPX…' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Importing…' })).toBeDisabled();
   release?.();
   expect(await screen.findByText(/0 imported.*1 duplicate.*2 failed/)).toBeVisible();
   expect(screen.getByText(/Unreadable XML/)).toBeVisible();
   expect(screen.getByText(/Latitude out of range/)).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Upload GPX' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Upload GPX / Takeout' })).toBeEnabled();
 });
 
 test('an interrupted result stream reports uncertainty and allows a safe retry', async () => {
@@ -394,12 +394,15 @@ test('an interrupted result stream reports uncertainty and allows a safe retry',
   await screen.findByText('Your travels start here');
   await userEvent
     .setup()
-    .upload(screen.getByLabelText('Choose GPX file'), new File(['collection'], 'collection.gpx'));
+    .upload(
+      screen.getByLabelText('Choose GPX or Takeout'),
+      new File(['collection'], 'collection.gpx'),
+    );
   expect(await screen.findByRole('alert')).toHaveTextContent(
     'connection ended before import finished',
   );
   expect(screen.getByRole('alert')).toHaveTextContent('skip duplicates');
-  expect(screen.getByRole('button', { name: 'Upload GPX' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Upload GPX / Takeout' })).toBeEnabled();
 });
 
 test('local-date filters open a complete recording and uploads reset All time', async () => {
@@ -485,7 +488,10 @@ test('local-date filters open a complete recording and uploads reset All time', 
   expect(screen.getByText('2025-06-18 23:59:00+02:00')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Next point' }));
   expect(screen.getByText('2025-06-19 00:00:00+02:00')).toBeVisible();
-  await user.upload(screen.getByLabelText('Choose GPX file'), new File(['fixture'], 'walk.gpx'));
+  await user.upload(
+    screen.getByLabelText('Choose GPX or Takeout'),
+    new File(['fixture'], 'walk.gpx'),
+  );
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Date filters: All time' })).toHaveAttribute(
       'aria-expanded',
@@ -573,7 +579,10 @@ test('an upload finishing after a filter change still resets All time', async ()
   const user = userEvent.setup();
   render(<App />);
   await screen.findByText('Your travels start here');
-  await user.upload(screen.getByLabelText('Choose GPX file'), new File(['fixture'], 'walk.gpx'));
+  await user.upload(
+    screen.getByLabelText('Choose GPX or Takeout'),
+    new File(['fixture'], 'walk.gpx'),
+  );
   await user.click(screen.getByRole('button', { name: /^Date filters:/ }));
   await user.selectOptions(screen.getByLabelText('Year'), '2025');
   await screen.findByText('2025-01-01 to 2025-12-31');
@@ -671,7 +680,10 @@ test('batch completion restores All time after the last new track has arrived', 
   const user = userEvent.setup();
   render(<App />);
   await screen.findByText('Your travels start here');
-  await user.upload(screen.getByLabelText('Choose GPX file'), new File(['fixture'], 'walk.gpx'));
+  await user.upload(
+    screen.getByLabelText('Choose GPX or Takeout'),
+    new File(['fixture'], 'walk.gpx'),
+  );
   await screen.findByRole('heading', { name: 'Imported walk' });
   await user.click(screen.getByRole('button', { name: /^Date filters:/ }));
   await user.selectOptions(screen.getByLabelText('Year'), '2025');

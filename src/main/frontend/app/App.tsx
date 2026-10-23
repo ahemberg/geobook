@@ -58,13 +58,13 @@ export default function App() {
     setSelectedId(id);
   }
 
-  const uploadState = useUpload((trackIds) => {
+  const uploadState = useUpload((trackIds, recordingId) => {
     setCountry(null);
     setView('map');
     setRange(null);
     clear();
     setImportedIds(trackIds);
-    setSelectedId(trackIds.length === 1 ? (trackIds[0] ?? null) : null);
+    setSelectedId(recordingId);
     setReload((value) => value + 1);
   }, uploadLimitMb);
   const { uploading } = uploadState;
@@ -84,7 +84,11 @@ export default function App() {
         <OriginalArchive reload={reload} onRemoved={removed} />
       ) : (
         <>
-          <TravelScope country={country} count={tracks.length} clearCountry={() => explore(null)}>
+          <TravelScope
+            country={country}
+            count={tracks.filter((item) => item.kind !== 'history').length}
+            clearCountry={() => explore(null)}
+          >
             <DateFilter range={range} years={years} apply={filter} />
             {settings && (
               <GapSettings
@@ -210,15 +214,16 @@ function AppHeader({
           disabled={uploading}
           onClick={() => fileInput.current?.click()}
         >
-          {uploading ? 'Importing GPX…' : 'Upload GPX'}
+          {uploading ? 'Importing…' : 'Upload GPX / Takeout'}
         </button>
         <input
           ref={fileInput}
           className="file-input"
           type="file"
           multiple
-          accept=".gpx,application/gpx+xml,application/xml,text/xml"
-          aria-label="Choose GPX file"
+          accept=".gpx,.zip,.tgz,.tar.gz,application/gpx+xml,application/xml,text/xml,application/zip,application/gzip"
+          aria-label="Choose GPX or Takeout"
+          title="GPX files or Google Takeout ZIP or TGZ archives"
           disabled={uploading}
           onChange={(event) => {
             void upload(Array.from(event.target.files ?? []));

@@ -35,7 +35,7 @@ test('download, cancel and confirm track and whole-file removal with shared sour
   const paths = page.locator('.leaflet-overlay-pane path');
   await expect(page.getByRole('region', { name: 'Recorded travel map' })).toBeVisible();
   await expect(page.getByText('Loading your tracks…')).not.toBeVisible();
-  await page.getByLabel('Choose GPX file').setInputFiles([
+  await page.getByLabel('Choose GPX or Takeout').setInputFiles([
     { name: collectionFile, mimeType: 'application/gpx+xml', buffer: collection },
     { name: individualFile, mimeType: 'application/gpx+xml', buffer: individual },
   ]);

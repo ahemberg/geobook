@@ -27,14 +27,17 @@ export default function RecordingWorkspace({
   close: () => void;
 }) {
   const [pointIndex, setPointIndex] = useState(0);
-  const { detail, detailError } = useRecording(selectedId, reload);
+  const recordingId = tracks.some((item) => item.id === selectedId && item.kind === 'history')
+    ? null
+    : selectedId;
+  const { detail, detailError } = useRecording(recordingId, reload);
   const { mapTracks, marker, displayedDetail } = useMapRecording(tracks, detail, pointIndex);
   return (
     <div className="map-workspace">
       {config ? (
         <TrackMap
           tracks={mapTracks}
-          selectedId={selectedId}
+          selectedId={recordingId}
           importedIds={importedIds}
           config={config}
           position={marker}
@@ -43,7 +46,7 @@ export default function RecordingWorkspace({
       ) : (
         <div className="map-placeholder">{loadError ? 'Map unavailable' : 'Loading map…'}</div>
       )}
-      {selectedId !== null && (
+      {recordingId !== null && (
         <SelectedRecording
           key={selectedId}
           detail={displayedDetail}

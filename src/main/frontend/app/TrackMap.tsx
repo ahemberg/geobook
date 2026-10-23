@@ -30,6 +30,7 @@ export default function TrackMap({
     if (!container.current) return;
     const map = L.map(container.current, { preferCanvas: false }).setView([25, 10], 2);
     mapRef.current = map;
+    map.createPane('history').style.zIndex = '350';
     const credit = document.createElement('a');
     credit.textContent = attribution;
     credit.href = /^https?:\/\//.test(attributionUrl)
@@ -69,13 +70,18 @@ export default function TrackMap({
       map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16, animate: false });
       fitted.current = fitKey;
     }
-    return repeatWorlds(map, trackBounds(tracks, longitude), (layer, offset) => {
+    const historyRenderer = L.canvas({ pane: 'history' });
+    const removeWorlds = repeatWorlds(map, trackBounds(tracks, longitude), (layer, offset) => {
       for (const track of tracks.filter((track) => track.visible)) {
         const origin = longitude ?? track.geometry[0]?.[0]?.[1] ?? 0;
-        drawTrack(track, selectedId, layer, origin + offset);
-        drawGaps(track, layer, origin + offset);
+        drawTrack(track, selectedId, layer, origin + offset, historyRenderer);
+        if (track.kind !== 'history') drawGaps(track, layer, origin + offset);
       }
     });
+    return () => {
+      removeWorlds();
+      historyRenderer.remove();
+    };
   }, [tracks, selectedId, importedIds, config, country]);
 
   useEffect(() => {
@@ -103,14 +109,17 @@ export default function TrackMap({
   function fitAll() {
     mapRef.current?.invalidateSize();
     const longitude = country ? (country.bounds[0][1] + country.bounds[1][1]) / 2 : undefined;
-    const bounds = trackBounds(tracks, longitude);
+    const bounds = trackBounds(
+      tracks.filter((item) => item.kind !== 'history'),
+      longitude,
+    );
     if (bounds.isValid()) mapRef.current?.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
   }
 
   return (
     <section className="map-panel" aria-label="Recorded travel map">
       <div ref={container} className="map" aria-label="Interactive map" />
-      {tracks.length > 0 && (
+      {tracks.some((item) => item.kind !== 'history') && (
         <button className="fit-map" onClick={fitAll}>
           Fit all tracks
         </button>
@@ -169,16 +178,29 @@ function drawTrack(
   selectedId: number | null,
   layer: L.FeatureGroup,
   longitude?: number,
+  historyRenderer?: L.Renderer,
 ) {
-  for (const line of mapGeometry(track.geometry, longitude)) {
-    if (line.length === 1 && line[0]) {
-      L.circleMarker(line[0], { radius: 4, color: track.colour, fillOpacity: 1 }).addTo(layer);
-    } else {
-      L.polyline(line, {
+  const history = track.kind === 'history';
+  const style: L.PathOptions = history
+    ? {
+        pane: 'history',
+        renderer: historyRenderer,
+        color: track.colour,
+        weight: 2,
+        opacity: 0.4,
+        fillOpacity: 0.4,
+        interactive: false,
+      }
+    : {
         color: track.colour,
         weight: track.id === selectedId ? 5 : 3,
         opacity: selectedId === null || track.id === selectedId ? 1 : 0.5,
-      }).addTo(layer);
+      };
+  for (const line of mapGeometry(track.geometry, longitude)) {
+    if (line.length === 1 && line[0]) {
+      L.circleMarker(line[0], { radius: history ? 2 : 4, fillOpacity: 1, ...style }).addTo(layer);
+    } else {
+      L.polyline(line, style).addTo(layer);
     }
   }
 }
@@ -208,5 +230,7 @@ function trackBounds(tracks: MapTrack[], longitude?: number) {
 
 function fittedTracks(tracks: MapTrack[], selectedId: number | null, importedIds: number[]) {
   if (importedIds.length) return tracks.filter((track) => importedIds.includes(track.id));
-  return selectedId === null ? tracks : tracks.filter((track) => track.id === selectedId);
+  return selectedId === null
+    ? tracks.filter((item) => item.kind !== 'history')
+    : tracks.filter((track) => track.id === selectedId);
 }

@@ -42,7 +42,7 @@ test('saved controls and reviewed days survive reimport and removal of overlappi
   await page.getByLabel('To', { exact: true }).fill('1999-01-01');
   await page.getByRole('button', { name: 'Apply dates' }).click();
   await expect(page.getByText('1999-01-01 to 1999-01-01')).toBeVisible();
-  await page.getByLabel('Choose GPX file').setInputFiles(files);
+  await page.getByLabel('Choose GPX or Takeout').setInputFiles(files);
   await expect(
     page.getByRole('status').filter({ hasText: '3 imported · 1 duplicate' }),
   ).toBeVisible();
@@ -89,7 +89,7 @@ test('saved controls and reviewed days survive reimport and removal of overlappi
   await page.getByRole('checkbox', { name: `Select Germany ${year}-06-19` }).check();
   await page.getByRole('button', { name: 'Exclude selected (1)' }).click();
   await expect(page.getByText('No pending country days in these dates.')).toBeVisible();
-  await page.getByLabel('Choose GPX file').setInputFiles(files);
+  await page.getByLabel('Choose GPX or Takeout').setInputFiles(files);
   await expect(
     page.getByRole('status').filter({ hasText: '0 imported · 4 duplicate' }),
   ).toBeVisible();

@@ -8,7 +8,22 @@ import java.util.List;
 
 // IDs use the same name throughout storage and the public track representation.
 @SuppressWarnings("PMD.ShortVariable")
-public record Track(long id, String name, String colour, boolean visible, String identity) {
+public record Track(
+    long id,
+    String name,
+    String colour,
+    boolean visible,
+    String identity,
+    String kind,
+    String historyDate) {
+  public boolean isHistory() {
+    return "history".equals(kind);
+  }
+
+  public PlaybackSettings geometrySettings(PlaybackSettings settings) {
+    return isHistory() ? HistoryDay.GEOMETRY : settings;
+  }
+
   public String revision() {
     String state =
         id

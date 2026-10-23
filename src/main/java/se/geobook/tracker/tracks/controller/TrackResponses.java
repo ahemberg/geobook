@@ -29,6 +29,8 @@ final class TrackResponses {
       String colour,
       boolean visible,
       String revision,
+      String kind,
+      String historyDate,
       Instant startTime,
       int pointCount,
       int unknownDateCount,
@@ -53,6 +55,8 @@ final class TrackResponses {
       String name,
       String colour,
       boolean visible,
+      String kind,
+      String historyDate,
       int segmentCount,
       List<Point> points,
       List<List<List<BigDecimal>>> geometry,
@@ -67,7 +71,8 @@ final class TrackResponses {
       Long trackId,
       Long originalId,
       List<String> warnings,
-      String message) {}
+      String message,
+      String kind) {}
 
   record Original(long id, String filename, long byteCount, List<AffectedTrack> tracks) {}
 
@@ -100,6 +105,8 @@ final class TrackResponses {
         track.colour(),
         track.visible(),
         track.revision(),
+        track.kind(),
+        track.historyDate(),
         overview.startTime(),
         overview.pointCount(),
         overview.unknownDateCount(),
@@ -131,8 +138,10 @@ final class TrackResponses {
         track.name(),
         track.colour(),
         track.visible(),
+        track.kind(),
+        track.historyDate(),
         detail.segmentCount(),
-        detail.points().stream().map(TrackResponses::from).toList(),
+        track.isHistory() ? List.of() : detail.points().stream().map(TrackResponses::from).toList(),
         detail.geometry(),
         detail.gaps(),
         detail.originalIds());
@@ -147,7 +156,8 @@ final class TrackResponses {
         event.trackId(),
         event.originalId(),
         event.warnings(),
-        event.message());
+        event.message(),
+        event.kind());
   }
 
   static Removal removal(OriginalExport original) {
