@@ -6,16 +6,22 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import os from "node:os";
 
-const [url, manifestPath, runs = "5"] = process.argv.slice(2);
+const [url, manifestPath, runs = "5", historyPath] = process.argv.slice(2);
 assert(
   url && manifestPath,
-  "Usage: node benchmarks/browser.mjs URL MANIFEST [RUNS]",
+  "Usage: node benchmarks/browser.mjs URL MANIFEST [RUNS] [TAKEOUT_MANIFEST]",
 );
 assert(
   Number.isInteger(Number(runs)) && Number(runs) > 0,
   "RUNS must be a positive integer",
 );
 const workload = JSON.parse(readFileSync(manifestPath, "utf8"));
+const history = historyPath
+  ? JSON.parse(readFileSync(historyPath, "utf8"))
+  : null;
+assert(!history || history.historyDays > 0, "Import the Takeout first");
+const historyYear = history?.years[1];
+const isHistory = (track) => track.kind === "history";
 const browser = await chromium.launch({ headless: true });
 const results = [];
 try {
@@ -44,7 +50,7 @@ try {
         ),
       }),
     );
-    async function painted(trackCount) {
+    async function painted(trackCount, historyYears = history?.years.length) {
       await expect(page.locator(".track-count")).toHaveText(
         `Tracks: ${trackCount}`,
         { timeout: 120000 },
@@ -53,12 +59,20 @@ try {
         trackCount * 3,
         { timeout: 120000 },
       );
-      await expect(
-        page.locator(".leaflet-overlay-pane path").first(),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: "Fit all tracks" }),
-      ).toBeEnabled();
+      if (trackCount > 0) {
+        await expect(
+          page.locator(".leaflet-overlay-pane path").first(),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("button", { name: "Fit all tracks" }),
+        ).toBeEnabled();
+      }
+      if (historyYears) {
+        await expect(page.locator(".history-year")).toHaveCount(historyYears, {
+          timeout: 120000,
+        });
+        await expect(page.locator(".leaflet-history-pane canvas")).toHaveCount(1);
+      }
       await page.evaluate(
         () =>
           new Promise((resolve) =>
@@ -86,7 +100,7 @@ try {
     });
     const filterStarted = performance.now();
     await page.getByRole("button", { name: "Apply dates" }).click();
-    await painted(workload.filteredTracks);
+    await painted(workload.filteredTracks, 0);
     const filterMs = performance.now() - filterStarted;
     const row = page.getByRole("button", {
       name: new RegExp(`^${workload.filteredName} `),
@@ -99,6 +113,28 @@ try {
       filtered.reduce((count, track) => count + track.pointCount, 0),
       workload.filteredPoints,
     );
+    let historyFilterMs = null;
+    if (history) {
+      await page.getByRole("button", { name: /^Date filters:/ }).click();
+      await page.getByLabel("From", { exact: true }).fill(`${historyYear}-01-01`);
+      await page.getByLabel("To", { exact: true }).fill(`${historyYear}-12-31`);
+      const yearResponse = page.waitForResponse((response) => {
+        const address = new URL(response.url());
+        return (
+          address.pathname === "/api/tracks" &&
+          address.searchParams.get("from") === `${historyYear}-01-01`
+        );
+      });
+      const yearStarted = performance.now();
+      await page.getByRole("button", { name: "Apply dates" }).click();
+      const days = (await (await yearResponse).json()).filter(isHistory);
+      assert(days.length > 0, "The history year filter found no days");
+      await painted(0, 1);
+      await expect(
+        page.locator(".history-year summary").first(),
+      ).toContainText(`${historyYear} ${days.length} days`);
+      historyFilterMs = performance.now() - yearStarted;
+    }
     await page.getByRole("button", { name: /^Date filters:/ }).click();
     const allStarted = performance.now();
     await page.getByRole("button", { name: "All time", exact: true }).click();
@@ -106,7 +142,10 @@ try {
     const allTimeMs = performance.now() - allStarted;
     const response = await context.request.get(url + "/api/tracks");
     const body = await response.body();
-    const tracks = JSON.parse(body);
+    const items = JSON.parse(body);
+    const tracks = items.filter((track) => !isHistory(track));
+    const days = items.filter(isHistory);
+    if (history) assert.equal(days.length, history.historyDays);
     assert.equal(
       tracks.reduce((count, track) => count + track.pointCount, 0),
       workload.points,
@@ -118,9 +157,19 @@ try {
       filterMs,
       allTimeMs,
       overviewBytes: body.length,
-      withinTargets: overviewMs < 5000 && filterMs < 2000 && allTimeMs < 2000,
+      historyFilterMs,
+      withinTargets:
+        overviewMs < 5000 &&
+        filterMs < 2000 &&
+        allTimeMs < 2000 &&
+        (historyFilterMs ?? 0) < 2000,
       overviewVertices: tracks.reduce(
         (count, track) => count + track.geometry.flat().length,
+        0,
+      ),
+      historyDays: days.length,
+      historyVertices: days.reduce(
+        (count, day) => count + day.geometry.flat().length,
         0,
       ),
     };
@@ -143,6 +192,7 @@ try {
     JSON.stringify({
       url,
       workload,
+      history,
       client: {
         platform: os.platform(),
         arch: os.arch(),
