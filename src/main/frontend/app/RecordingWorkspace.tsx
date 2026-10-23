@@ -7,6 +7,7 @@ import { mapGeometry } from './mapGeometry';
 
 export default function RecordingWorkspace({
   tracks,
+  history,
   country,
   config,
   selectedId,
@@ -17,6 +18,7 @@ export default function RecordingWorkspace({
   close,
 }: {
   tracks: Overview[];
+  history: Overview[];
   country: Country | null;
   config: MapConfig | null;
   selectedId: number | null;
@@ -34,6 +36,7 @@ export default function RecordingWorkspace({
       {config ? (
         <TrackMap
           tracks={mapTracks}
+          history={history}
           selectedId={selectedId}
           importedIds={importedIds}
           config={config}

@@ -25,13 +25,15 @@ test('upload, select, reopen and download a recording on the packaged map', asyn
       </trkseg><trkseg><trkpt lat="59.35" lon="18.10"/></trkseg></trk>
     </gpx>`);
   const existingResponse = await page.request.get('/api/tracks');
-  const existing: { geometry: unknown[][]; visible: boolean }[] =
+  const existing: { geometry: unknown[][]; visible: boolean; kind: string }[] =
     (await existingResponse.json()) as {
       geometry: unknown[][];
       visible: boolean;
+      kind: string;
     }[];
+  // History days draw on their own canvas, not as overlay paths.
   const previousPaths = existing
-    .filter((track) => track.visible)
+    .filter((track) => track.visible && track.kind !== 'history')
     .reduce((count, track) => count + track.geometry.length, 0);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Recorded travel' })).toBeVisible();

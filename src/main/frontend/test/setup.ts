@@ -11,3 +11,8 @@ HTMLDialogElement.prototype.showModal = function () {
 HTMLDialogElement.prototype.close = function () {
   this.removeAttribute('open');
 };
+
+// jsdom has no canvas; accept Leaflet's canvas drawing calls without rendering.
+HTMLCanvasElement.prototype.getContext = function () {
+  return new Proxy({}, { get: () => () => undefined });
+} as unknown as typeof HTMLCanvasElement.prototype.getContext;

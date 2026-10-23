@@ -6,6 +6,8 @@ export type Overview = {
   colour: string;
   visible: boolean;
   revision: string;
+  kind: 'recording' | 'history';
+  historyDate: string | null;
   startTime: string | null;
   pointCount: number;
   unknownDateCount: number;
@@ -34,6 +36,10 @@ export type Detail = {
     timeStatus: 'resolved' | 'untimed' | 'unresolved';
   }[];
 };
+
+export function isHistory(track: Pick<Overview, 'kind'>) {
+  return track.kind === 'history';
+}
 
 export type MapConfig = { url: string; attribution: string; attributionUrl: string };
 

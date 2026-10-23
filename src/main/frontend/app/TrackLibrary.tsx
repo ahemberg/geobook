@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { request } from './api';
+import { isHistory, request } from './api';
 import RemovalDialog from './RemovalDialog';
 import type { Controls, Overview } from './api';
 import { trackDateLabel } from './trackDateLabel';
 
 export default function TrackLibrary({
-  tracks,
+  tracks: all,
   filtered,
   selectedId,
   select,
@@ -41,9 +41,8 @@ export default function TrackLibrary({
     if (!controls.name.toLowerCase().includes(search.trim().toLowerCase()))
       searchInput.current?.focus();
   }
-  const matches = tracks.filter((track) =>
-    track.name.toLowerCase().includes(search.trim().toLowerCase()),
-  );
+  const tracks = all.filter((track) => !isHistory(track));
+  const matches = tracks.filter((track) => matchesSearch(track, search));
   return (
     <aside className={`library ${libraryOpen ? 'expanded' : ''}`} id="tracks" tabIndex={-1}>
       <div className="library-heading">
@@ -93,8 +92,36 @@ export default function TrackLibrary({
             />
           ))}
         </ul>
+        <HistorySection history={all.filter(isHistory)} search={search} />
       </div>
     </aside>
+  );
+}
+
+function matchesSearch(track: Overview, search: string) {
+  return track.name.toLowerCase().includes(search.trim().toLowerCase());
+}
+
+function HistorySection({ history, search }: { history: Overview[]; search: string }) {
+  if (history.length === 0) return null;
+  const days = history.filter((day) => matchesSearch(day, search));
+  return (
+    <section className="history-section" aria-labelledby="history-heading">
+      <div className="history-section-heading">
+        <h3 id="history-heading">Google history</h3>
+        <span className="history-badge">Inferred</span>
+      </div>
+      <ul className="history-list">
+        {days.map((day) => (
+          <li key={day.id} className="history-day">
+            <span className="swatch history-swatch" style={{ backgroundColor: day.colour }} />
+            <span className="track-label">
+              <strong>{day.name}</strong>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

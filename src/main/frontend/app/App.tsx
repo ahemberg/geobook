@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { request } from './api';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { isHistory, request } from './api';
 import type { Controls, Country, DateRange, MapConfig, Overview, PlaybackSettings } from './api';
 import RecordingWorkspace from './RecordingWorkspace';
 import GapSettings from './GapSettings';
@@ -23,6 +23,8 @@ export default function App() {
 
   const {
     tracks,
+    recordings,
+    history,
     years,
     config,
     loading,
@@ -57,13 +59,14 @@ export default function App() {
     setSelectedId(id);
   }
 
-  const uploadState = useUpload((trackIds) => {
+  const uploadState = useUpload((imported) => {
     setCountry(null);
     setView('map');
     setRange(null);
     clear();
-    setImportedIds(trackIds);
-    setSelectedId(trackIds.length === 1 ? (trackIds[0] ?? null) : null);
+    setImportedIds(imported.map((item) => item.id));
+    const only = imported.length === 1 ? imported[0] : undefined;
+    setSelectedId(only?.kind === 'history' ? null : (only?.id ?? null));
     setReload((value) => value + 1);
   });
   const { uploading } = uploadState;
@@ -83,7 +86,11 @@ export default function App() {
         <OriginalArchive reload={reload} onRemoved={removed} />
       ) : (
         <>
-          <TravelScope country={country} count={tracks.length} clearCountry={() => explore(null)}>
+          <TravelScope
+            country={country}
+            count={recordings.length}
+            clearCountry={() => explore(null)}
+          >
             <DateFilter range={range} years={years} apply={filter} />
             {settings && (
               <GapSettings
@@ -126,7 +133,8 @@ export default function App() {
               chooseFile={() => fileInput.current?.click()}
             />
             <RecordingWorkspace
-              tracks={tracks}
+              tracks={recordings}
+              history={history}
               config={config}
               selectedId={selectedId}
               importedIds={importedIds}
@@ -215,7 +223,7 @@ function AppHeader({
           className="file-input"
           type="file"
           multiple
-          accept=".gpx,application/gpx+xml,application/xml,text/xml"
+          accept=".gpx,.zip,.tgz,application/gpx+xml,application/xml,text/xml,application/zip,application/gzip"
           aria-label="Choose GPX file"
           disabled={uploading}
           onChange={(event) => {
@@ -273,8 +281,12 @@ function useOverview(range: DateRange, reload: number, country: Country | null) 
     return () => controller.abort();
   }, [range, reload, country]);
 
+  const recordings = useMemo(() => tracks.filter((track) => !isHistory(track)), [tracks]);
+  const history = useMemo(() => tracks.filter(isHistory), [tracks]);
   return {
     tracks,
+    recordings,
+    history,
     settings,
     setSettings,
     onSaved,

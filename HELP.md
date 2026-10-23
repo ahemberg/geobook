@@ -92,6 +92,14 @@ keeps the existing track and its saved controls, and links every distinct origin
 Identical upload bytes reuse the original. Original downloads are byte-for-byte unchanged.
 Upgrades index existing recordings without merging or deleting duplicates created by older releases.
 
+A Google Takeout `.zip` or `.tgz` uploads through the same control. Geobook recognises it by
+content: any JSON file whose first key is `locations` is the raw records file, whatever its
+folder is called, and it is read as a stream. Each local date with fixes becomes one history
+day, listed under "Google history" and drawn under the tracks in one muted colour. An archive
+without location records is rejected and nothing is stored. Import events for days carry
+`"kind":"history"`, and `GET /api/tracks` gives every item a `kind` and, for history days, a
+`historyDate`. History days don't create country-visit suggestions yet.
+
 `POST /api/imports` accepts repeated multipart `file` parts, with the configured total request limit,
 and streams newline-delimited JSON. Events report `progress`, `imported`, `duplicate`, `failed`
 and `complete`, with completed/total track counts, track/original IDs and warnings. Each file

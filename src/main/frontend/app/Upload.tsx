@@ -9,10 +9,12 @@ type ImportEvent = {
   originalId: number | null;
   warnings: string[];
   message: string | null;
+  kind?: 'recording' | 'history' | null;
 };
+type Imported = { id: number; kind: ImportEvent['kind'] };
 type Result = ImportEvent & { filename: string };
 
-export function useUpload(onImported: (trackIds: number[]) => void) {
+export function useUpload(onImported: (imported: Imported[]) => void) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState('');
   const [results, setResults] = useState<Result[]>([]);
@@ -23,7 +25,7 @@ export function useUpload(onImported: (trackIds: number[]) => void) {
     setResults([]);
     setFinished(false);
     setUploading(true);
-    const imported: number[] = [];
+    const imported: Imported[] = [];
     for (const [index, file] of files.entries()) {
       const label = `File ${index + 1} of ${files.length}: ${file.name}`;
       setProgress(`${label}. Uploading and reading GPX…`);
@@ -33,7 +35,7 @@ export function useUpload(onImported: (trackIds: number[]) => void) {
           if (event.status === 'progress' || event.status === 'complete') return;
           setResults((previous) => [...previous, { ...event, filename: file.name }]);
           if (event.status === 'imported' && event.trackId !== null) {
-            imported.push(event.trackId);
+            imported.push({ id: event.trackId, kind: event.kind });
             onImported([...imported]);
           }
         });
