@@ -77,10 +77,8 @@ public class TrackService {
         recording.points().stream()
             .map(
                 point ->
-                    historyDate == null
-                        ? PointCountry.resolve(
-                            point.latitude().doubleValue(), point.longitude().doubleValue())
-                        : null)
+                    PointCountry.resolve(
+                        point.latitude().doubleValue(), point.longitude().doubleValue()))
             .toList();
     Track.Prepared prepared =
         new Track.Prepared(

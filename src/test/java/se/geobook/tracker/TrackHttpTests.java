@@ -1699,6 +1699,109 @@ class TrackHttpTests {
   }
 
   @Test
+  void historyDaysSuggestCountryVisitsFromKeptFixesAndCountInSummaries()
+      throws IOException, InterruptedException {
+    byte[] archive =
+        takeout(
+            """
+            {"locations":[
+              {"latitudeE7":525200000,"longitudeE7":134050000,"timestamp":"2014-06-18T10:00:00Z","accuracy":10,"deviceTag":1},
+              {"latitudeE7":488566000,"longitudeE7":23522000,"timestamp":"2014-06-18T10:02:00Z","accuracy":900,"deviceTag":1},
+              {"latitudeE7":525210000,"longitudeE7":134060000,"timestamp":"2014-06-18T10:05:00Z","accuracy":10,"deviceTag":1},
+              {"latitudeE7":599139000,"longitudeE7":107522000,"timestamp":"2014-06-18T12:00:00Z","accuracy":10,"deviceTag":2},
+              {"latitudeE7":525200000,"longitudeE7":134050000,"timestamp":"2014-06-22T10:00:00Z","accuracy":10,"deviceTag":1},
+              {"latitudeE7":556761000,"longitudeE7":125683000,"timestamp":"2014-06-25T10:00:00Z","accuracy":900,"deviceTag":1}
+            ]}
+            """,
+            false);
+    byte[] track =
+        gpx(
+            "<trk><name>Berlin walk</name><trkseg><trkpt lat='52.53' lon='13.41'>"
+                + "<time>2014-06-18T15:00:00Z</time></trkpt></trkseg></trk>");
+    JsonMapper mapper = JsonMapper.builder().build();
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(
+              new String(
+                  upload(client, base(app), archive, "/api/imports").body(),
+                  StandardCharsets.UTF_8))
+          .contains("\"status\":\"imported\"");
+      assertThat(upload(client, base(app), track).statusCode()).isEqualTo(201);
+      JsonNode review = mapper.readTree(get(client, base(app) + "/api/visits").body());
+      assertThat(review.get("unresolvedPoints").asInt()).isZero();
+      JsonNode candidates = review.get("candidates");
+      assertThat(candidates.size()).isEqualTo(2);
+      assertThat(candidates.toString()).doesNotContain("FRA", "NOR", "DNK");
+      JsonNode later = candidates.get(0);
+      assertThat(later.get("country").asText()).isEqualTo("DEU");
+      assertThat(later.get("date").asText()).isEqualTo("2014-06-22");
+      assertThat(later.get("state").asText()).isEqualTo("pending");
+      assertThat(later.get("tracks").size()).isEqualTo(1);
+      assertThat(later.get("tracks").get(0).get("kind").asText()).isEqualTo("history");
+      assertThat(later.get("tracks").get(0).get("name").asText()).isEqualTo("2014-06-22");
+      JsonNode shared = candidates.get(1);
+      assertThat(shared.get("date").asText()).isEqualTo("2014-06-18");
+      assertThat(shared.get("tracks").size()).isEqualTo(2);
+      assertThat(shared.get("tracks").findValuesAsString("kind"))
+          .containsExactlyInAnyOrder("history", "recording");
+      assertThat(shared.get("tracks").findValuesAsString("name")).contains("Berlin walk");
+      assertThat(
+              patch(
+                      client,
+                      base(app) + "/api/visits/review",
+                      """
+                      {"state":"confirmed","visits":[{"country":"DEU","date":"2014-06-18"},{"country":"DEU","date":"2014-06-22"}]}
+                      """)
+                  .statusCode())
+          .isEqualTo(200);
+      JsonNode summary = mapper.readTree(get(client, base(app) + "/api/countries").body());
+      assertThat(summary.size()).isEqualTo(1);
+      assertThat(summary.get(0).get("country").asText()).isEqualTo("DEU");
+      assertThat(summary.get(0).get("firstVisit").asText()).isEqualTo("2014-06-18");
+      assertThat(summary.get(0).get("latestVisit").asText()).isEqualTo("2014-06-22");
+      assertThat(summary.get(0).get("recordedDays").asInt()).isEqualTo(2);
+      long laterDay = later.get("tracks").get(0).get("trackId").asLong();
+      assertThat(
+              delete(
+                      client,
+                      base(app) + "/api/tracks/" + laterDay,
+                      trackRevision(client, base(app), laterDay))
+                  .statusCode())
+          .isEqualTo(200);
+      summary = mapper.readTree(get(client, base(app) + "/api/countries").body());
+      assertThat(summary.get(0).get("latestVisit").asText()).isEqualTo("2014-06-18");
+      assertThat(summary.get(0).get("recordedDays").asInt()).isEqualTo(1);
+      assertThat(
+              delete(
+                      client,
+                      base(app) + "/api/originals/1",
+                      preview(client, base(app), 1).get("revision").asText())
+                  .statusCode())
+          .isEqualTo(200);
+      candidates = mapper.readTree(get(client, base(app) + "/api/visits").body()).get("candidates");
+      assertThat(candidates.size()).isEqualTo(1);
+      assertThat(candidates.get(0).get("tracks").findValuesAsString("kind"))
+          .containsExactly("recording");
+      assertThat(
+              mapper
+                  .readTree(get(client, base(app) + "/api/countries").body())
+                  .get(0)
+                  .get("recordedDays")
+                  .asInt())
+          .isEqualTo(1);
+      assertThat(
+              delete(
+                      client,
+                      base(app) + "/api/originals/2",
+                      preview(client, base(app), 2).get("revision").asText())
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(mapper.readTree(get(client, base(app) + "/api/countries").body()).isEmpty())
+          .isTrue();
+    }
+  }
+
+  @Test
   void removalRecomputesCountryEvidenceWithoutLosingReviewDecisions()
       throws IOException, InterruptedException {
     try (HttpClient client = HttpClient.newHttpClient();

@@ -169,3 +169,58 @@ test('review confirms selected days, excludes a flyover and explores a country w
   expect(await screen.findByRole('button', { name: /^Flyover.*/ })).toBeVisible();
   expect(screen.getByText('History Berlin')).toBeVisible();
 });
+
+test('history days appear as inferred candidate sources next to recordings', async () => {
+  const candidates = [
+    {
+      country: 'DEU',
+      name: 'Germany',
+      date: '2014-06-18',
+      state: 'pending',
+      tracks: [
+        { trackId: 1, name: '18 Jun 2014', kind: 'history' },
+        { trackId: 2, name: 'Berlin walk', kind: 'recording' },
+      ],
+    },
+  ];
+  const fetch = vi.fn((url: string) => {
+    if (url === '/api/playback-settings')
+      return Promise.resolve(Response.json({ gapSeconds: 300, showGapConnections: false }));
+    if (url === '/api/map-config')
+      return Promise.resolve(
+        Response.json({
+          url: '/tiles/{z}/{x}/{y}',
+          attribution: 'Map',
+          attributionUrl: 'https://example.com',
+          uploadLimitMb: 512,
+        }),
+      );
+    if (url === '/api/tracks/years') return Promise.resolve(Response.json([2014]));
+    if (url.startsWith('/api/visits'))
+      return Promise.resolve(Response.json({ candidates, unresolvedPoints: 0 }));
+    if (url.startsWith('/api/countries')) return Promise.resolve(Response.json([]));
+    return Promise.resolve(
+      Response.json([
+        {
+          id: 1,
+          name: '18 Jun 2014',
+          kind: 'history',
+          historyDate: '2014-06-18',
+          visible: true,
+          colour: '#738a91',
+          pointCount: 2,
+          geometry: [[[52.52, 13.405]]],
+        },
+      ]),
+    );
+  });
+  vi.stubGlobal('fetch', fetch);
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(screen.getByRole('button', { name: 'Countries' }));
+  const row = await screen.findByRole('group', { name: 'Germany 2014-06-18' });
+  expect(within(row).getByRole('button', { name: '18 Jun 2014 Google history' })).toBeVisible();
+  expect(within(row).getByRole('button', { name: 'Berlin walk' })).toBeVisible();
+  await user.click(within(row).getByRole('button', { name: '18 Jun 2014 Google history' }));
+  expect(screen.queryByRole('main', { name: 'Country visits' })).not.toBeInTheDocument();
+});
