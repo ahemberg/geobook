@@ -80,7 +80,9 @@ public class TrackService {
     Track.Prepared prepared =
         new Track.Prepared(
             recording,
-            ContentIdentity.recording(recording),
+            historyDay == null
+                ? ContentIdentity.recording(recording)
+                : ContentIdentity.history(historyDay),
             TrackColours.Bounds.enclosing(recording.points()),
             local,
             countries,
@@ -97,9 +99,7 @@ public class TrackService {
                   ? repository.findByIdentity(prepared.identity())
                   : repository.findHistoryDate(historyDate);
           if (existing.isPresent()) {
-            long trackId = existing.orElseThrow();
-            repository.linkOriginal(trackId, originalId);
-            return new Track.Imported(trackId, originalId, true);
+            return saveExisting(source, prepared, historyDay, existing.orElseThrow());
           }
           if (historyDate != null) {
             return new Track.Imported(
@@ -116,6 +116,35 @@ public class TrackService {
           return new Track.Imported(
               repository.insert(originalId, prepared, colour), originalId, false);
         });
+  }
+
+  private Track.Imported saveExisting(
+      OriginalExport.Source source, Track.Prepared prepared, HistoryDay day, long trackId) {
+    if (day != null) {
+      return replaceHistory(source, prepared, day, trackId);
+    }
+    repository.linkOriginal(trackId, source.id());
+    return new Track.Imported(trackId, source.id(), true);
+  }
+
+  private Track.Imported replaceHistory(
+      OriginalExport.Source source, Track.Prepared prepared, HistoryDay day, long trackId) {
+    // Retrying an older original must not roll back a day updated by a later import.
+    if (repository.originalIds(trackId).contains(source.id())) {
+      return new Track.Imported(trackId, source.id(), true);
+    }
+    Track stored = find(trackId);
+    boolean unchanged =
+        stored.identity().equals(prepared.identity())
+            || (stored.identity().equals(ContentIdentity.recording(prepared.recording()))
+                && repository
+                    .fixCounts(trackId)
+                    .equals(new HistoryDay.FixCounts(day.keptFixCount(), day.droppedFixCount())));
+    if (!unchanged) {
+      repository.replaceHistory(trackId, prepared, day);
+    }
+    repository.linkOriginal(trackId, source.id());
+    return new Track.Imported(trackId, source.id(), unchanged ? "unchanged" : "updated");
   }
 
   Track.Imported saveHistoryDay(OriginalExport.Source source, HistoryDay day) {

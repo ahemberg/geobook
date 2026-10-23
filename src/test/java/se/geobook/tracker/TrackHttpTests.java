@@ -120,7 +120,7 @@ class TrackHttpTests {
           assertThat(events)
               .contains("\"status\":\"progress\"", "\"total\":2", "\"status\":\"complete\"");
           assertThat(events)
-              .contains(zipped ? "\"status\":\"imported\"" : "\"status\":\"duplicate\"");
+              .contains(zipped ? "\"status\":\"imported\"" : "\"status\":\"unchanged\"");
           assertThat(events).doesNotContain("\"status\":\"failed\"");
           JsonNode originals = mapper.readTree(get(client, base(app) + "/api/originals").body());
           long originalId = originals.get(0).get("id").asLong();
@@ -266,6 +266,256 @@ class TrackHttpTests {
         }
       }
     }
+  }
+
+  @Test
+  void newerTakeoutReplacesDaysPreservesChoicesAndRestoresDeletedDates()
+      throws IOException, InterruptedException {
+    String unchanged = historyFix("2014-06-19T10:00:00Z", 593_200_000, 20);
+    byte[] first =
+        historyArchive(
+            true,
+            historyFix("2014-06-18T10:00:00Z", 593_200_000, 20),
+            unchanged,
+            historyFix("2014-06-20T10:00:00Z", 593_200_000, 20));
+    byte[] newer =
+        historyArchive(
+            false,
+            historyFix("2014-06-18T10:00:00Z", 593_300_000, 20),
+            historyFix("2014-06-18T11:00:00Z", 593_400_000, 20),
+            unchanged,
+            historyFix("2014-06-21T10:00:00Z", 593_200_000, 20));
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      try (ConfigurableApplicationContext app = start()) {
+        JsonMapper mapper = JsonMapper.builder().build();
+        assertThat(historyEvents(client, base(app), first).getLast().get("summary").toString())
+            .isEqualTo("{\"created\":3,\"updated\":0,\"unchanged\":0}");
+        assertThat(
+                patch(
+                        client,
+                        base(app) + "/api/tracks/1",
+                        "{\"name\":\"Saved day\",\"colour\":\"#123abc\",\"visible\":false}")
+                    .statusCode())
+            .isEqualTo(200);
+        assertThat(
+                patch(
+                        client,
+                        base(app) + "/api/tracks/2",
+                        "{\"name\":\"Unchanged saved day\",\"visible\":false}")
+                    .statusCode())
+            .isEqualTo(200);
+        String stale = preview(client, base(app), 1).get("revision").asText();
+        String oldRevision = trackRevision(client, base(app), 1);
+        java.util.List<JsonNode> events = historyEvents(client, base(app), newer);
+        assertThat(events.stream().map(event -> event.get("status").asText()).toList())
+            .containsExactly("progress", "updated", "unchanged", "imported", "complete");
+        assertThat(events.getLast().get("summary").toString())
+            .isEqualTo("{\"created\":1,\"updated\":1,\"unchanged\":1}");
+        assertThat(delete(client, base(app) + "/api/originals/1", stale).statusCode())
+            .isEqualTo(412);
+        assertThat(delete(client, base(app) + "/api/tracks/1", oldRevision).statusCode())
+            .isEqualTo(412);
+        JsonNode saved = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+        assertThat(saved.get("name").asText()).isEqualTo("Saved day");
+        assertThat(saved.get("colour").asText()).isEqualTo("#123abc");
+        assertThat(saved.get("visible").asBoolean()).isFalse();
+        assertThat(saved.get("originalIds").toString()).isEqualTo("[1,2]");
+        assertThat(saved.get("keptFixCount").asInt()).isEqualTo(2);
+        assertThat(saved.get("droppedFixCount").asInt()).isZero();
+        assertThat(saved.get("segmentCount").asInt()).isEqualTo(2);
+        assertThat(saved.get("geometry").toString()).isEqualTo("[[[59.33,18.07]],[[59.34,18.07]]]");
+        JsonNode same = mapper.readTree(get(client, base(app) + "/api/tracks/2").body());
+        assertThat(same.get("name").asText()).isEqualTo("Unchanged saved day");
+        assertThat(same.get("visible").asBoolean()).isFalse();
+        assertThat(same.get("originalIds").toString()).isEqualTo("[1,2]");
+        assertThat(mapper.readTree(get(client, base(app) + "/api/tracks").body()).size())
+            .isEqualTo(4);
+        assertThat(
+                historyEvents(client, base(app), first)
+                    .getLast()
+                    .get("summary")
+                    .get("unchanged")
+                    .asInt())
+            .isEqualTo(3);
+        assertThat(mapper.readTree(get(client, base(app) + "/api/tracks/1").body()))
+            .isEqualTo(saved);
+        assertThat(historyEvents(client, base(app), newer).get(1).get("status").asText())
+            .isEqualTo("duplicate");
+        assertThat(mapper.readTree(get(client, base(app) + "/api/originals").body()).size())
+            .isEqualTo(2);
+        assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(first);
+        assertThat(get(client, base(app) + "/api/originals/2").body()).isEqualTo(newer);
+        assertThat(
+                delete(client, base(app) + "/api/tracks/1", trackRevision(client, base(app), 1))
+                    .statusCode())
+            .isEqualTo(200);
+        assertThat(historyEvents(client, base(app), newer).getLast().get("summary").toString())
+            .isEqualTo("{\"created\":1,\"updated\":0,\"unchanged\":2}");
+      }
+      try (ConfigurableApplicationContext app = start()) {
+        JsonMapper mapper = JsonMapper.builder().build();
+        JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body());
+        assertThat(overview.size()).isEqualTo(4);
+        JsonNode restored = null;
+        String restoredDate = "2014-06-18";
+        for (JsonNode day : overview) {
+          if (restoredDate.equals(day.get("historyDate").asText())) {
+            restored = day;
+          }
+        }
+        assertThat(restored).isNotNull();
+        assertThat(restored.get("visible").asBoolean()).isTrue();
+        assertThat(restored.get("name").asText()).isEqualTo("2014-06-18");
+        assertThat(restored.get("pointCount").asInt()).isEqualTo(2);
+      }
+    }
+  }
+
+  @Test
+  void historyCountOnlyUpdatesInvalidateRemovalPreviewsAndSharedOriginalsSurvive()
+      throws IOException, InterruptedException {
+    String kept = historyFix("2014-06-18T10:00:00Z", 593_200_000, 20);
+    String other = historyFix("2014-06-19T10:00:00Z", 593_200_000, 20);
+    byte[] first = historyArchive(false, kept, other);
+    byte[] newer =
+        historyArchive(
+            true,
+            kept,
+            historyFix("2014-06-18T10:01:00Z", 593_200_000, 201),
+            other,
+            historyFix("2014-06-20T10:00:00Z", 593_200_000, 20));
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      historyEvents(client, base(app), first);
+      JsonNode before = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      String beforeRevision = trackRevision(client, base(app), 1);
+      java.util.List<JsonNode> events = historyEvents(client, base(app), newer);
+      assertThat(events.getLast().get("summary").toString())
+          .isEqualTo("{\"created\":1,\"updated\":1,\"unchanged\":1}");
+      JsonNode after = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(after.get("geometry")).isEqualTo(before.get("geometry"));
+      assertThat(after.get("keptFixCount").asInt()).isEqualTo(1);
+      assertThat(after.get("droppedFixCount").asInt()).isEqualTo(1);
+      assertThat(trackRevision(client, base(app), 1)).isNotEqualTo(beforeRevision);
+      JsonNode removal = preview(client, base(app), 2);
+      assertThat(removal.get("tracks").size()).isEqualTo(3);
+      assertThat(removal.get("tracks").get(0).get("retained").asBoolean()).isTrue();
+      assertThat(removal.get("tracks").get(1).get("retained").asBoolean()).isTrue();
+      assertThat(removal.get("tracks").get(2).get("retained").asBoolean()).isFalse();
+      assertThat(delete(client, base(app) + "/api/originals/2", null).statusCode()).isEqualTo(400);
+      assertThat(
+              delete(client, base(app) + "/api/originals/2", removal.get("revision").asText())
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(get(client, base(app) + "/api/tracks/3").statusCode()).isEqualTo(404);
+      JsonNode retained = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(retained.get("droppedFixCount").asInt()).isEqualTo(1);
+      assertThat(retained.get("originalIds").toString()).isEqualTo("[1]");
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(first);
+      JsonNode last = preview(client, base(app), 1);
+      assertThat(last.get("tracks").get(0).get("retained").asBoolean()).isFalse();
+      assertThat(last.get("tracks").get(1).get("retained").asBoolean()).isFalse();
+      assertThat(
+              delete(client, base(app) + "/api/originals/1", last.get("revision").asText())
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks").body()).isEmpty()).isTrue();
+      assertThat(mapper.readTree(get(client, base(app) + "/api/originals").body()).isEmpty())
+          .isTrue();
+    }
+  }
+
+  @Test
+  void failedHistoryReplacementRollsBackAndRetryPreservesCountryReview()
+      throws IOException, InterruptedException {
+    byte[] first = historyArchive(true, historyFix("2014-06-18T10:00:00Z", 593_200_000, 20));
+    byte[] newer = historyArchive(false, historyFix("2014-06-18T10:00:00Z", 593_300_000, 20));
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final JsonMapper mapper = JsonMapper.builder().build();
+      historyEvents(client, base(app), first);
+      // Recording evidence makes the existing review API usable before history country attribution.
+      assertThat(
+              upload(
+                      client,
+                      base(app),
+                      gpx(
+                          """
+                          <trk><trkseg>
+                          <trkpt lat='59.32' lon='18.07'><time>2014-06-18T10:00:00Z</time></trkpt>
+                          <trkpt lat='59.32' lon='18.07'><time>2014-06-19T10:00:00Z</time></trkpt>
+                          </trkseg></trk>
+                          """))
+                  .statusCode())
+          .isEqualTo(201);
+      assertThat(
+              patch(
+                      client,
+                      base(app) + "/api/visits/review",
+                      """
+                      {"state":"confirmed","visits":[{"country":"SWE","date":"2014-06-18"}]}
+                      """)
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(
+              patch(
+                      client,
+                      base(app) + "/api/visits/review",
+                      """
+                      {"state":"excluded","visits":[{"country":"SWE","date":"2014-06-19"}]}
+                      """)
+                  .statusCode())
+          .isEqualTo(200);
+      final JsonNode reviewed =
+          mapper.readTree(get(client, base(app) + "/api/visits").body()).get("candidates");
+      JsonNode saved = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      org.springframework.jdbc.core.JdbcTemplate jdbc =
+          app.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+      jdbc.execute(
+          "CREATE TRIGGER fail_history BEFORE INSERT ON track_point WHEN NEW.track_id = 1 BEGIN"
+              + " SELECT RAISE(ABORT, 'synthetic storage failure'); END");
+      String failed =
+          new String(
+              upload(client, base(app), newer, "/api/imports").body(), StandardCharsets.UTF_8);
+      assertThat(failed)
+          .contains(
+              "\"status\":\"failed\"", "\"summary\":{\"created\":0,\"updated\":0,\"unchanged\":0}");
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks/1").body())).isEqualTo(saved);
+      jdbc.execute("DROP TRIGGER fail_history");
+      java.util.List<JsonNode> events = historyEvents(client, base(app), newer);
+      assertThat(events.get(1).get("status").asText()).isEqualTo("updated");
+      JsonNode updated = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(updated.get("geometry").toString()).isEqualTo("[[[59.33,18.07]]]");
+      assertThat(updated.get("originalIds").toString()).isEqualTo("[1,3]");
+      assertThat(mapper.readTree(get(client, base(app) + "/api/visits").body()).get("candidates"))
+          .isEqualTo(reviewed);
+    }
+  }
+
+  private static String historyFix(String time, int latitude, int accuracy) {
+    return "{\"timestamp\":\""
+        + time
+        + "\",\"latitudeE7\":"
+        + latitude
+        + ",\"longitudeE7\":180700000,\"accuracy\":"
+        + accuracy
+        + "}";
+  }
+
+  private static byte[] historyArchive(boolean zipped, String... fixes) throws IOException {
+    return takeout("{\"locations\":[" + String.join(",", fixes) + "]}", zipped);
+  }
+
+  private static java.util.List<JsonNode> historyEvents(
+      HttpClient client, String base, byte[] bytes) throws IOException, InterruptedException {
+    HttpResponse<byte[]> response = upload(client, base, bytes, "/api/imports");
+    assertThat(response.statusCode()).isEqualTo(200);
+    JsonMapper mapper = JsonMapper.builder().build();
+    java.util.List<JsonNode> events =
+        new String(response.body(), StandardCharsets.UTF_8).lines().map(mapper::readTree).toList();
+    assertThat(events.stream().map(event -> event.get("status").asText())).doesNotContain("failed");
+    return events;
   }
 
   private static byte[] takeout(String records, boolean zipped) throws IOException {

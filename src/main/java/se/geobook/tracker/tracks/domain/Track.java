@@ -38,7 +38,15 @@ public record Track(
     return "\"" + ContentIdentity.original(state.getBytes(StandardCharsets.UTF_8)) + "\"";
   }
 
-  public record Imported(long trackId, long originalId, boolean duplicate) {}
+  public record Imported(long trackId, long originalId, String status) {
+    public Imported(long trackId, long originalId, boolean duplicate) {
+      this(trackId, originalId, duplicate ? "duplicate" : "imported");
+    }
+
+    public boolean duplicate() {
+      return "duplicate".equals(status);
+    }
+  }
 
   public record Overview(
       Track track,

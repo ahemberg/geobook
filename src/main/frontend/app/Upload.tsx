@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 type ImportEvent = {
   kind?: 'recording' | 'history';
-  status: 'progress' | 'imported' | 'duplicate' | 'failed' | 'complete';
+  status: 'progress' | 'imported' | 'updated' | 'unchanged' | 'duplicate' | 'failed' | 'complete';
   completed: number;
   total: number;
   name: string;
@@ -39,7 +39,10 @@ export function useUpload(
           setProgress(`${label}. ${event.completed} of ${event.total} items processed.`);
           if (event.status === 'progress' || event.status === 'complete') return;
           setResults((previous) => [...previous, { ...event, filename: file.name }]);
-          if (event.status === 'imported' && event.trackId !== null) {
+          if (
+            (event.status === 'imported' || event.status === 'updated') &&
+            event.trackId !== null
+          ) {
             imported.push(event.trackId);
             recordingId = imported.length === 1 && event.kind !== 'history' ? event.trackId : null;
             onImported([...imported], recordingId);
@@ -125,6 +128,16 @@ export function UploadFeedback({
 }) {
   if (!uploading && !finished) return null;
   const imported = results.filter((result) => result.status === 'imported').length;
+  const history = results.filter((result) => result.kind === 'history');
+  const created = history.filter((result) => result.status === 'imported').length;
+  const updated = history.filter((result) => result.status === 'updated').length;
+  const unchanged = history.filter(
+    (result) => result.status === 'unchanged' || result.status === 'duplicate',
+  ).length;
+  const recordings = imported > created ? ` · ${imported - created} recordings imported` : '';
+  const summary = history.length
+    ? `Google history: ${created} created · ${updated} updated · ${unchanged} unchanged${recordings}`
+    : `${imported} imported`;
   const duplicates = results.filter((result) => result.status === 'duplicate').length;
   const failures = results.filter((result) => result.status === 'failed').length;
   const warnings = results.filter((result) => result.warnings.length > 0).length;
@@ -138,7 +151,7 @@ export function UploadFeedback({
       <div className="notice" role="status">
         {uploading
           ? progress
-          : `${imported} imported · ${duplicates} duplicate · ${failures} failed · ${warnings} with warnings`}
+          : `${summary} · ${duplicates} duplicate · ${failures} failed · ${warnings} with warnings`}
       </div>
       {results.length > 0 && (
         <details className="import-details" open={failures > 0}>
@@ -160,10 +173,16 @@ export function UploadFeedback({
                   >
                     {result.filename} · {result.name}:{' '}
                     {result.status === 'imported'
-                      ? 'Imported'
-                      : result.status === 'duplicate'
-                        ? 'Duplicate'
-                        : 'Failed'}
+                      ? result.kind === 'history'
+                        ? 'Created'
+                        : 'Imported'
+                      : result.status === 'updated'
+                        ? 'Updated'
+                        : result.status === 'unchanged'
+                          ? 'Unchanged'
+                          : result.status === 'duplicate'
+                            ? 'Duplicate'
+                            : 'Failed'}
                     {result.message && `. ${result.message}`}
                   </p>
                   {result.warnings.map((warning) => (
