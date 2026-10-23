@@ -154,14 +154,7 @@ public class TrackService {
     if (repository.originalIds(trackId).contains(source.id())) {
       return new Track.Imported(trackId, source.id(), true);
     }
-    Track stored = find(trackId);
-    boolean unchanged =
-        stored.identity().equals(prepared.identity())
-            || (stored.identity().equals(ContentIdentity.recording(prepared.recording()))
-                && repository
-                    .fixCounts(trackId)
-                    .equals(new HistoryDay.FixCounts(day.keptFixCount(), day.droppedFixCount()))
-                && repository.placeVisits(trackId).equals(day.placeVisits()));
+    boolean unchanged = find(trackId).identity().equals(prepared.identity());
     if (!unchanged) {
       repository.replaceHistory(trackId, prepared, day);
     }

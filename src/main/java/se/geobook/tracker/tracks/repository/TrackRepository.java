@@ -172,11 +172,16 @@ public class TrackRepository {
     return trackId;
   }
 
+  // A name still equal to the previous default was never chosen by the owner.
   public void replaceHistory(long trackId, Track.Prepared prepared, HistoryDay day) {
     TrackColours.Bounds bounds = prepared.bounds();
+    String previousDefault = new HistoryDay(day.date(), List.of(), 0, placeVisits(trackId)).name();
     jdbc.update(
-        "UPDATE track SET content_hash = ?, south = ?, north = ?, west = ?, east = ?,"
-            + " kept_fix_count = ?, dropped_fix_count = ? WHERE id = ? AND kind = 'history'",
+        "UPDATE track SET name = CASE WHEN name = ? THEN ? ELSE name END, content_hash = ?,"
+            + " south = ?, north = ?, west = ?, east = ?, kept_fix_count = ?,"
+            + " dropped_fix_count = ? WHERE id = ? AND kind = 'history'",
+        previousDefault,
+        day.name(),
         prepared.identity(),
         bounds.south(),
         bounds.north(),

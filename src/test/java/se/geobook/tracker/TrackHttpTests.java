@@ -551,10 +551,50 @@ class TrackHttpTests {
       assertThat(after.get("placeVisits").get(0).get("name").asText()).isEqualTo("New cafe");
       assertThat(mapper.readTree(get(client, base(app) + "/api/tracks?search=New").body()).size())
           .isEqualTo(1);
-      assertThat(after.get("name")).isEqualTo(before.get("name"));
+      assertThat(before.get("name").asText()).isEqualTo("18 Jun 2014 · Old cafe");
+      assertThat(after.get("name").asText()).isEqualTo("18 Jun 2014 · New cafe");
       byte[] repeated = takeout(java.util.List.of(semanticVisit("New cafe"), fixes), true);
       assertThat(historyEvents(client, base(app), repeated).getLast().get("summary").toString())
           .isEqualTo("{\"created\":0,\"updated\":0,\"unchanged\":1}");
+    }
+  }
+
+  @Test
+  void reimportKeepsOwnerRenamesAndRefreshesStartTimes() throws IOException, InterruptedException {
+    String visit = semanticVisit("Old cafe");
+    byte[] first =
+        takeout(
+            java.util.List.of(
+                visit,
+                "{\"locations\":["
+                    + historyFix("2014-06-18T10:00:00Z", 593_200_000, 20)
+                    + ","
+                    + historyFix("2014-06-19T10:00:00Z", 593_200_000, 20)
+                    + "]}"),
+            true);
+    byte[] newer =
+        takeout(
+            java.util.List.of(
+                semanticVisit("New cafe"),
+                "{\"locations\":["
+                    + historyFix("2014-06-18T08:00:00Z", 593_200_000, 20)
+                    + ","
+                    + historyFix("2014-06-19T07:00:00Z", 593_200_000, 20)
+                    + "]}"),
+            false);
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final JsonMapper mapper = JsonMapper.builder().build();
+      historyEvents(client, base(app), first);
+      assertThat(patch(client, base(app) + "/api/tracks/1", "{\"name\":\"Cafe day\"}").statusCode())
+          .isEqualTo(200);
+      assertThat(historyEvents(client, base(app), newer).getLast().get("summary").toString())
+          .isEqualTo("{\"created\":0,\"updated\":2,\"unchanged\":0}");
+      JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body());
+      assertThat(overview.get(0).get("name").asText()).isEqualTo("19 Jun 2014");
+      assertThat(overview.get(0).get("startTime").asText()).isEqualTo("2014-06-19T07:00:00Z");
+      assertThat(overview.get(1).get("name").asText()).isEqualTo("Cafe day");
+      assertThat(overview.get(1).get("startTime").asText()).isEqualTo("2014-06-18T08:00:00Z");
     }
   }
 
