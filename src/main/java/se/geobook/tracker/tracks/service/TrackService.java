@@ -57,7 +57,8 @@ public class TrackService {
   }
 
   private Track.Imported save(
-      OriginalExport.Source source, Recording recording, String historyDate) {
+      OriginalExport.Source source, Recording recording, HistoryDay historyDay) {
+    String historyDate = historyDay == null ? null : historyDay.date();
     List<PointLocalTime.Attribution> local =
         recording.points().stream()
             .map(
@@ -102,7 +103,7 @@ public class TrackService {
           }
           if (historyDate != null) {
             return new Track.Imported(
-                repository.insert(originalId, prepared, HistoryDay.COLOUR, historyDate),
+                repository.insert(originalId, prepared, HistoryDay.COLOUR, historyDay),
                 originalId,
                 false);
           }
@@ -118,7 +119,7 @@ public class TrackService {
   }
 
   Track.Imported saveHistoryDay(OriginalExport.Source source, HistoryDay day) {
-    return save(source, day.recording(), day.date());
+    return save(source, day.recording(), day);
   }
 
   public List<Track.Overview> overview(DateRange range, String search, String country) {
@@ -151,7 +152,8 @@ public class TrackService {
         points,
         TrackGeometry.lines(points, settings.gapSeconds()),
         TrackGeometry.gaps(points, settings),
-        repository.originalIds(id));
+        repository.originalIds(id),
+        track.isHistory() ? repository.fixCounts(id) : null);
   }
 
   public PlaybackSettings playbackSettings() {

@@ -110,7 +110,8 @@ public record Track(
       List<Point> points,
       List<List<List<BigDecimal>>> geometry,
       List<List<List<BigDecimal>>> gaps,
-      List<Long> originalIds) {
+      List<Long> originalIds,
+      HistoryDay.FixCounts fixCounts) {
     public Detail {
       points = List.copyOf(points);
       geometry = List.copyOf(TrackGeometry.copy(geometry));
