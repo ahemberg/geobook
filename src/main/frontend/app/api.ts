@@ -73,7 +73,7 @@ export type VisitCandidate = {
   name: string;
   date: string;
   state: 'pending' | 'confirmed' | 'excluded';
-  tracks: { trackId: number; name: string }[];
+  tracks: { trackId: number; name: string; kind?: 'recording' | 'history' }[];
 };
 
 export type DateRange = { from: string; to: string } | null;

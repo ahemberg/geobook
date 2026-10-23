@@ -24,7 +24,7 @@ public class VisitRepository {
     Map<Visit.Key, String> states = new LinkedHashMap<>();
     jdbc.query(
         """
-        SELECT DISTINCT p.country_code, p.local_date, t.id, t.name, COALESCE(r.state, 'pending') AS state
+        SELECT DISTINCT p.country_code, p.local_date, t.id, t.name, t.kind, COALESCE(r.state, 'pending') AS state
         FROM overview_run p JOIN track t ON t.id = p.track_id
         LEFT JOIN visit_review r ON r.country_code = p.country_code AND r.local_date = p.local_date
         WHERE p.country_code IS NOT NULL AND p.local_date IS NOT NULL
@@ -35,7 +35,9 @@ public class VisitRepository {
           Visit.Key key = new Visit.Key(row.getString("country_code"), row.getString("local_date"));
           evidence
               .computeIfAbsent(key, ignored -> new ArrayList<>())
-              .add(new Visit.Evidence(row.getLong("id"), row.getString("name")));
+              .add(
+                  new Visit.Evidence(
+                      row.getLong("id"), row.getString("name"), row.getString("kind")));
           states.put(key, row.getString("state"));
         },
         range.from(),

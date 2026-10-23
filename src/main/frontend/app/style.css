@@ -747,6 +747,10 @@ select {
   text-align: left;
   overflow-wrap: anywhere;
 }
+.evidence-link .inferred-badge {
+  display: inline-block;
+  margin-left: 0.375rem;
+}
 .visit-limitation {
   background: #fff7e3;
   color: #614511;
