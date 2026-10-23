@@ -39,6 +39,7 @@ function renderMap(props: Partial<ComponentProps<typeof TrackMap>> = {}) {
           ],
         },
       ]}
+      historyDisplay={{ showHistory: true, hiddenYears: [] }}
       selectedId={null}
       importedIds={[]}
       config={{
@@ -208,3 +209,51 @@ test('history draws beneath recordings and Fit all tracks excludes its extent', 
   expect(map.getCenter().lat).toBeCloseTo(0.5, 0);
   expect(map.getCenter().lng).toBeCloseTo(0.5, 0);
 });
+
+test.each([
+  { display: { showHistory: false, hiddenYears: [] }, visible: true, drawn: false },
+  { display: { showHistory: true, hiddenYears: [2014] }, visible: true, drawn: false },
+  { display: { showHistory: true, hiddenYears: [] }, visible: false, drawn: false },
+  { display: { showHistory: true, hiddenYears: [] }, visible: true, drawn: true },
+])(
+  'history drawing combines saved global, year and day choices: %j',
+  ({ display, visible, drawn }) => {
+    vi.spyOn(L, 'canvas').mockImplementation((options) => L.svg(options));
+    const { container, map } = renderMap({
+      historyDisplay: display,
+      tracks: [
+        {
+          id: 1,
+          kind: 'recording',
+          colour: '#123456',
+          visible: true,
+          geometry: [
+            [
+              [0, 0],
+              [1, 1],
+            ],
+          ],
+          gaps: [],
+        },
+        {
+          id: 2,
+          kind: 'history',
+          historyDate: '2014-06-18',
+          colour: '#738a91',
+          visible,
+          geometry: [
+            [
+              [0, 0],
+              [1, 1],
+            ],
+          ],
+          gaps: [],
+        },
+      ],
+      position: null,
+    });
+    map.setView([0, 0], 2, { animate: false });
+    expect(container.querySelectorAll('.leaflet-history-pane path')).toHaveLength(drawn ? 1 : 0);
+    expect(container.querySelectorAll('.leaflet-overlay-pane path')).toHaveLength(1);
+  },
+);

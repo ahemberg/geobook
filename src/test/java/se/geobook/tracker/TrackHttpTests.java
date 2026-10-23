@@ -98,6 +98,104 @@ class TrackHttpTests {
   }
 
   @Test
+  void historyDisplayPersistsWithoutChangingDayOrRecordingControls()
+      throws IOException, InterruptedException {
+    String records =
+        """
+        {"locations":[
+          {"latitudeE7":593200000,"longitudeE7":180700000,"timestamp":"2014-06-18T10:00:00Z"},
+          {"latitudeE7":593210000,"longitudeE7":180710000,"timestamp":"2015-06-18T10:00:00Z"}
+        ]}
+        """;
+    JsonMapper mapper = JsonMapper.builder().build();
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      try (ConfigurableApplicationContext app = start()) {
+        String root = base(app);
+        assertThat(mapper.readTree(get(client, root + "/api/history-display").body()).toString())
+            .isEqualTo("{\"showHistory\":true,\"hiddenYears\":[]}");
+        upload(client, root, takeout(records, true), "/api/imports");
+        upload(
+            client,
+            root,
+            gpx("<trk><name>Recording</name><trkseg><trkpt lat='1' lon='2'/></trkseg></trk>"));
+        assertThat(
+                patch(
+                        client,
+                        root + "/api/tracks/1",
+                        "{\"name\":\"Saved history"
+                            + " name\",\"colour\":\"#123abc\",\"visible\":false}")
+                    .statusCode())
+            .isEqualTo(200);
+        patch(client, root + "/api/history-display", "{\"showHistory\":false}");
+        JsonNode hidden =
+            mapper.readTree(
+                patch(client, root + "/api/history-display", "{\"year\":2014,\"visible\":false}")
+                    .body());
+        assertThat(hidden.get("showHistory").asBoolean()).isFalse();
+        assertThat(hidden.get("hiddenYears").toString()).isEqualTo("[2014]");
+        patch(client, root + "/api/history-display", "{\"year\":2015,\"visible\":false}");
+        patch(client, root + "/api/history-display", "{\"year\":2014,\"visible\":true}");
+        JsonNode restored =
+            mapper.readTree(
+                patch(client, root + "/api/history-display", "{\"showHistory\":true}").body());
+        assertThat(restored.get("hiddenYears").toString()).isEqualTo("[2015]");
+        assertThat(
+                mapper
+                    .readTree(get(client, root + "/api/tracks/1").body())
+                    .get("visible")
+                    .asBoolean())
+            .isFalse();
+        assertThat(
+                mapper
+                    .readTree(get(client, root + "/api/tracks/2").body())
+                    .get("visible")
+                    .asBoolean())
+            .isTrue();
+        assertThat(
+                mapper
+                    .readTree(get(client, root + "/api/tracks/3").body())
+                    .get("visible")
+                    .asBoolean())
+            .isTrue();
+        assertThat(
+                mapper
+                    .readTree(
+                        get(client, root + "/api/tracks?from=2014-06-18&to=2014-06-18").body())
+                    .size())
+            .isEqualTo(1);
+        for (String invalid :
+            java.util.List.of(
+                "{}",
+                "null",
+                "[]",
+                "{\"showHistory\":1}",
+                "{\"year\":2014,\"visible\":null}",
+                "{\"year\":2014.5,\"visible\":false}",
+                "{\"year\":0,\"visible\":false}",
+                "{\"year\":10000,\"visible\":false}",
+                "{\"year\":2147483648,\"visible\":false}",
+                "{\"showHistory\":false,\"unknown\":true}")) {
+          assertThat(patch(client, root + "/api/history-display", invalid).statusCode())
+              .isEqualTo(400);
+        }
+        try (HttpClient otherDevice = HttpClient.newHttpClient()) {
+          assertThat(mapper.readTree(get(otherDevice, root + "/api/history-display").body()))
+              .isEqualTo(restored);
+        }
+      }
+      try (ConfigurableApplicationContext app = start()) {
+        assertThat(
+                mapper.readTree(get(client, base(app) + "/api/history-display").body()).toString())
+            .isEqualTo("{\"showHistory\":true,\"hiddenYears\":[2015]}");
+        JsonNode day = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+        assertThat(day.get("name").asText()).isEqualTo("Saved history name");
+        assertThat(day.get("colour").asText()).isEqualTo("#123abc");
+        assertThat(day.get("visible").asBoolean()).isFalse();
+      }
+    }
+  }
+
+  @Test
   @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
   void takeoutArchivesBecomeLocalHistoryDaysAndKeepTheirOriginals()
       throws IOException, InterruptedException {
@@ -1158,6 +1256,12 @@ class TrackHttpTests {
       assertThat(detail.get("name").asText()).isEqualTo("Saved display name");
       assertThat(detail.get("keptFixCount").isNull()).isTrue();
       assertThat(detail.get("droppedFixCount").isNull()).isTrue();
+      assertThat(
+              JsonMapper.builder()
+                  .build()
+                  .readTree(get(client, base(app) + "/api/history-display").body())
+                  .toString())
+          .isEqualTo("{\"showHistory\":true,\"hiddenYears\":[]}");
       assertThat(detail.get("colour").asText()).isEqualTo("#123456");
       assertThat(detail.get("visible").asBoolean()).isTrue();
       assertThat(get(client, base(app) + "/api/originals/7").body()).isEqualTo(original);

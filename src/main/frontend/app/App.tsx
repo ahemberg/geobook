@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { request } from './api';
-import type { Controls, Country, DateRange, MapConfig, Overview, PlaybackSettings } from './api';
+import type {
+  Controls,
+  Country,
+  DateRange,
+  HistoryDisplay,
+  MapConfig,
+  Overview,
+  PlaybackSettings,
+} from './api';
 import RecordingWorkspace from './RecordingWorkspace';
 import GapSettings from './GapSettings';
 import DateFilter from './DateFilter';
@@ -33,6 +41,8 @@ export default function App() {
     onSaved,
     settings,
     setSettings,
+    historyDisplay,
+    setHistoryDisplay,
   } = useOverview(range, reload + settingsReload, country);
 
   function removed() {
@@ -120,9 +130,9 @@ export default function App() {
           <main className="workspace" hidden={view !== 'map'}>
             <TrackLibrary
               tracks={tracks}
+              historyDisplay={historyDisplay}
               filtered={range !== null || country !== null}
-              onSaved={onSaved}
-              onRemoved={removed}
+              actions={{ onSaved, onRemoved: removed, onDisplaySaved: setHistoryDisplay }}
               selectedId={selectedId}
               select={select}
               loading={loading}
@@ -134,6 +144,7 @@ export default function App() {
             <RecordingWorkspace
               tracks={tracks}
               config={config}
+              historyDisplay={historyDisplay}
               selectedId={selectedId}
               importedIds={importedIds}
               country={country}
@@ -236,6 +247,7 @@ function AppHeader({
 }
 
 function useOverview(range: DateRange, reload: number, country: Country | null) {
+  const [historyDisplay, setHistoryDisplay] = useState<HistoryDisplay | null>(null);
   const [settings, setSettings] = useState<PlaybackSettings | null>(null);
   const [tracks, setTracks] = useState<Overview[]>([]);
   const [config, setConfig] = useState<MapConfig | null>(null);
@@ -261,13 +273,15 @@ function useOverview(range: DateRange, reload: number, country: Country | null) 
       request<number[]>('/api/tracks/years', { signal: controller.signal }),
       request<MapConfig>('/api/map-config', { signal: controller.signal }),
       request<PlaybackSettings>('/api/playback-settings', { signal: controller.signal }),
+      request<HistoryDisplay>('/api/history-display', { signal: controller.signal }),
     ])
-      .then(([saved, savedYears, mapConfig, playbackSettings]) => {
+      .then(([saved, savedYears, mapConfig, playbackSettings, display]) => {
         if (controller.signal.aborted) return;
         setTracks(saved.map((track) => ({ ...track, ...savedControls.current.get(track.id) })));
         setYears(savedYears);
         setConfig(mapConfig);
         setSettings(playbackSettings);
+        setHistoryDisplay(display);
         setLoadError('');
         setLoading(false);
       })
@@ -284,6 +298,8 @@ function useOverview(range: DateRange, reload: number, country: Country | null) 
     tracks,
     settings,
     setSettings,
+    historyDisplay,
+    setHistoryDisplay,
     onSaved,
     years,
     config,

@@ -48,6 +48,7 @@ test('Takeout appears as inferred history below tracks on desktop and mobile', a
 }, info) => {
   await page.route('https://tile.openstreetmap.org/**', (route) => route.fulfill({ status: 204 }));
   const date = info.project.name === 'mobile' ? '2012-06-18' : '2013-06-18';
+  const year = Number(date.slice(0, 4));
   const original = takeout(date);
   const name = `18 Jun ${date.slice(0, 4)} · Synthetic station`;
   await page.request.post('/api/imports', {
@@ -79,15 +80,28 @@ test('Takeout appears as inferred history below tracks on desktop and mobile', a
   const history = page.getByRole('region', { name: 'Google history' });
   await expect(history.getByRole('heading', { name: 'Google history' })).toBeVisible();
   await expect(history.getByText('Inferred')).toBeVisible();
-  await expect(history.getByText(name, { exact: true })).toBeVisible();
+  const yearGroup = history.getByRole('group', { name: `${year} history days` });
+  if ((await yearGroup.getAttribute('open')) === null) await yearGroup.locator('summary').click();
+  await expect(history.getByTitle(name)).toBeVisible();
+  await expect(history.getByTitle(name)).toContainText('Synthetic station');
+  await expect(history.getByTitle(name)).toContainText(date);
   const search = page.getByRole('searchbox', { name: 'Search tracks' });
   await search.fill('station');
-  await expect(history.getByText(name, { exact: true })).toBeVisible();
+  await expect(history.getByTitle(name)).toBeVisible();
   await search.fill(date);
-  await expect(history.getByText(name, { exact: true })).toBeVisible();
+  await expect(history.getByTitle(name)).toBeVisible();
   await search.clear();
+  const allHistory = history.getByRole('switch', { name: 'Show Google history on map' });
+  const yearGate = history.getByRole('checkbox', { name: `Show ${year} history on map` });
+  const dayGate = history.getByRole('checkbox', { name: `Show ${name} on map` });
+  await dayGate.click();
+  await expect(dayGate).not.toBeChecked();
+  await yearGate.click();
+  await expect(yearGate).not.toBeChecked();
+  await allHistory.click();
+  await expect(allHistory).not.toBeChecked();
   await expect(page.getByRole('region', { name: 'Complete recording' })).toHaveCount(0);
-  await expect(page.locator('.leaflet-history-pane canvas')).toBeAttached();
+
   expect(
     await page
       .locator('.leaflet-history-pane')
@@ -101,9 +115,32 @@ test('Takeout appears as inferred history below tracks on desktop and mobile', a
   await page.getByText('Review import results').click();
   await page.reload();
   await openLibrary(page);
+  const reloadedHistory = page.getByRole('region', { name: 'Google history' });
+  const reloadedGroup = reloadedHistory.getByRole('group', { name: `${year} history days` });
+  if ((await reloadedGroup.getAttribute('open')) === null)
+    await reloadedGroup.locator('summary').click();
+  await expect(reloadedHistory.getByRole('switch')).not.toBeChecked();
   await expect(
-    page.getByRole('region', { name: 'Google history' }).getByText(name, { exact: true }),
-  ).toBeVisible();
+    reloadedHistory.getByRole('checkbox', { name: `Show ${year} history on map` }),
+  ).not.toBeChecked();
+  await expect(
+    reloadedHistory.getByRole('checkbox', { name: `Show ${name} on map` }),
+  ).not.toBeChecked();
+  await reloadedHistory.getByRole('switch').click();
+  await expect(reloadedHistory.getByRole('switch')).toBeChecked();
+  await reloadedHistory.getByRole('checkbox', { name: `Show ${year} history on map` }).click();
+  await expect(
+    reloadedHistory.getByRole('checkbox', { name: `Show ${year} history on map` }),
+  ).toBeChecked();
+  await expect(
+    reloadedHistory.getByRole('checkbox', { name: `Show ${name} on map` }),
+  ).not.toBeChecked();
+  await reloadedHistory.getByRole('checkbox', { name: `Show ${name} on map` }).click();
+  await expect(
+    reloadedHistory.getByRole('checkbox', { name: `Show ${name} on map` }),
+  ).toBeChecked();
+  await expect(page.locator('.leaflet-history-pane canvas')).toBeAttached();
+  await expect(page.getByRole('region', { name: 'Google history' }).getByTitle(name)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath('history.png'), fullPage: true });
 });
