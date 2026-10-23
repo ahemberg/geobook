@@ -40,7 +40,7 @@
 		<google-java-format.version>1.36.1</google-java-format.version>
 		<checkstyle-plugin.version>3.6.0</checkstyle-plugin.version>
 		<checkstyle.version>14.3.0</checkstyle.version>
-		<spotbugs.version>4.10.4.1</spotbugs.version>
+		<spotbugs.version>4.10.5.0</spotbugs.version>
 		<findsecbugs.version>1.14.0</findsecbugs.version>
 		<pmd.version>3.28.0</pmd.version>
 		<pmd-engine.version>7.28.0</pmd-engine.version>
