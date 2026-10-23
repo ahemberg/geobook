@@ -1703,16 +1703,20 @@ class TrackHttpTests {
       throws IOException, InterruptedException {
     byte[] archive =
         takeout(
-            """
-            {"locations":[
-              {"latitudeE7":525200000,"longitudeE7":134050000,"timestamp":"2014-06-18T10:00:00Z","accuracy":10,"deviceTag":1},
-              {"latitudeE7":488566000,"longitudeE7":23522000,"timestamp":"2014-06-18T10:02:00Z","accuracy":900,"deviceTag":1},
-              {"latitudeE7":525210000,"longitudeE7":134060000,"timestamp":"2014-06-18T10:05:00Z","accuracy":10,"deviceTag":1},
-              {"latitudeE7":599139000,"longitudeE7":107522000,"timestamp":"2014-06-18T12:00:00Z","accuracy":10,"deviceTag":2},
-              {"latitudeE7":525200000,"longitudeE7":134050000,"timestamp":"2014-06-22T10:00:00Z","accuracy":10,"deviceTag":1},
-              {"latitudeE7":556761000,"longitudeE7":125683000,"timestamp":"2014-06-25T10:00:00Z","accuracy":900,"deviceTag":1}
-            ]}
-            """,
+            java.util.List.of(
+                """
+                {"timelineObjects":[{"placeVisit":{"location":{"name":"Colosseum","latitudeE7":418902000,"longitudeE7":124922000},"duration":{"startTimestamp":"2014-06-28T10:00:00Z","endTimestamp":"2014-06-28T11:00:00Z"}}}]}
+                """,
+                """
+                {"locations":[
+                  {"latitudeE7":525200000,"longitudeE7":134050000,"timestamp":"2014-06-18T10:00:00Z","accuracy":10,"deviceTag":1},
+                  {"latitudeE7":488566000,"longitudeE7":23522000,"timestamp":"2014-06-18T10:02:00Z","accuracy":900,"deviceTag":1},
+                  {"latitudeE7":525210000,"longitudeE7":134060000,"timestamp":"2014-06-18T10:05:00Z","accuracy":10,"deviceTag":1},
+                  {"latitudeE7":599139000,"longitudeE7":107522000,"timestamp":"2014-06-18T12:00:00Z","accuracy":10,"deviceTag":2},
+                  {"latitudeE7":525200000,"longitudeE7":134050000,"timestamp":"2014-06-22T10:00:00Z","accuracy":10,"deviceTag":1},
+                  {"latitudeE7":556761000,"longitudeE7":125683000,"timestamp":"2014-06-25T10:00:00Z","accuracy":900,"deviceTag":1}
+                ]}
+                """),
             false);
     byte[] track =
         gpx(
@@ -1731,14 +1735,20 @@ class TrackHttpTests {
       assertThat(review.get("unresolvedPoints").asInt()).isZero();
       JsonNode candidates = review.get("candidates");
       assertThat(candidates.size()).isEqualTo(2);
-      assertThat(candidates.toString()).doesNotContain("FRA", "NOR", "DNK");
+      assertThat(candidates.toString()).doesNotContain("FRA", "NOR", "DNK", "ITA", "2014-06-28");
+      JsonNode stopsOnly =
+          mapper.readTree(
+              get(client, base(app) + "/api/tracks?from=2014-06-28&to=2014-06-28").body());
+      assertThat(stopsOnly.size()).isEqualTo(1);
+      assertThat(stopsOnly.get(0).get("name").asText()).isEqualTo("28 Jun 2014 · Colosseum");
+      assertThat(stopsOnly.get(0).get("pointCount").asInt()).isZero();
       JsonNode later = candidates.get(0);
       assertThat(later.get("country").asText()).isEqualTo("DEU");
       assertThat(later.get("date").asText()).isEqualTo("2014-06-22");
       assertThat(later.get("state").asText()).isEqualTo("pending");
       assertThat(later.get("tracks").size()).isEqualTo(1);
       assertThat(later.get("tracks").get(0).get("kind").asText()).isEqualTo("history");
-      assertThat(later.get("tracks").get(0).get("name").asText()).isEqualTo("2014-06-22");
+      assertThat(later.get("tracks").get(0).get("name").asText()).isEqualTo("22 Jun 2014");
       JsonNode shared = candidates.get(1);
       assertThat(shared.get("date").asText()).isEqualTo("2014-06-18");
       assertThat(shared.get("tracks").size()).isEqualTo(2);
