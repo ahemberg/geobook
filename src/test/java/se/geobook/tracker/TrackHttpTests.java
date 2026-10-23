@@ -684,8 +684,14 @@ class TrackHttpTests {
               """
               <trk><name>Country evidence</name><trkseg>
               <trkpt lat="59.34" lon="18.04"><time>2025-06-18T22:30:00Z</time></trkpt>
+              <trkpt lat="59.34" lon="18.04"><time>2025-06-18T22:30:01Z</time></trkpt>
+              <trkpt lat="59.34" lon="18.04"><time>2025-06-18T22:30:02Z</time></trkpt>
               <trkpt lat="52.52" lon="13.405"><time>2025-06-20T10:00:00Z</time></trkpt>
+              <trkpt lat="52.52" lon="13.405"><time>2025-06-20T10:00:01Z</time></trkpt>
+              <trkpt lat="59.34" lon="18.04"/>
+              <trkpt lat="59.34" lon="18.04"/>
               <trkpt lat="0" lon="-30"><time>2025-06-21T10:00:00Z</time></trkpt>
+              <trkpt lat="0" lon="-30"><time>2025-06-21T10:00:01Z</time></trkpt>
               </trkseg></trk>\
               """));
       HttpResponse<byte[]> response = get(client, base(app) + "/api/visits");
@@ -697,7 +703,9 @@ class TrackHttpTests {
           .doesNotContain("Denmark");
       assertThat(visits.get("candidates").get(0).get("tracks").get(0).get("name").asText())
           .isEqualTo("Country evidence");
-      assertThat(visits.get("unresolvedPoints").asInt()).isEqualTo(1);
+      assertThat(visits.get("candidates").get(0).get("tracks").size()).isEqualTo(1);
+      assertThat(visits.get("candidates").get(1).get("tracks").size()).isEqualTo(1);
+      assertThat(visits.get("unresolvedPoints").asInt()).isEqualTo(4);
       assertThat(get(client, base(app) + "/api/countries").body())
           .isEqualTo("[]".getBytes(StandardCharsets.UTF_8));
     }

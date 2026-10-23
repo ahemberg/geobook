@@ -1,0 +1,65 @@
+{
+  "url": "http://192.168.68.70:18085",
+  "workload": {
+    "tracks": 500,
+    "pointsPerTrack": 10000,
+    "points": 5000000,
+    "from": "2024-01-01",
+    "to": "2024-01-01",
+    "filteredTracks": 1,
+    "filteredPoints": 10000,
+    "filteredName": "Benchmark 0000"
+  },
+  "client": {
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz",
+    "memoryBytes": 16626147328,
+    "chromium": "156.0.8078.4",
+    "viewport": "1440x900",
+    "conditions": "Fresh contexts, external tiles stubbed, no CPU/network throttling"
+  },
+  "results": [
+    {
+      "run": 1,
+      "countryLoadMs": 292.8914679999998,
+      "reviewRowsMs": 165.8114029999997,
+      "save500Ms": 839.761493,
+      "exploreCountryMs": 984.4632820000006,
+      "withinTargets": true
+    },
+    {
+      "run": 2,
+      "countryLoadMs": 278.59221699999944,
+      "reviewRowsMs": 149.81192100000044,
+      "save500Ms": 840.1895700000005,
+      "exploreCountryMs": 953.8970330000011,
+      "withinTargets": true
+    },
+    {
+      "run": 3,
+      "countryLoadMs": 245.89539299999888,
+      "reviewRowsMs": 149.91605600000003,
+      "save500Ms": 841.2531920000001,
+      "exploreCountryMs": 909.752034000001,
+      "withinTargets": true
+    },
+    {
+      "run": 4,
+      "countryLoadMs": 279.15112000000045,
+      "reviewRowsMs": 149.6898340000007,
+      "save500Ms": 890.1930979999997,
+      "exploreCountryMs": 465.91636800000197,
+      "withinTargets": true
+    },
+    {
+      "run": 5,
+      "countryLoadMs": 249.9955090000003,
+      "reviewRowsMs": 149.72323299999698,
+      "save500Ms": 836.266007000002,
+      "exploreCountryMs": 863.7516460000006,
+      "withinTargets": true
+    }
+  ],
+  "applicationCommit": "89afe916dd525fe924324e48d4b27920d3802a27"
+}

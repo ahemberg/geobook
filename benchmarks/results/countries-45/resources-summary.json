@@ -1,0 +1,54 @@
+{
+  "samplingIntervalSeconds": 2,
+  "optimizedSampleCount": 180,
+  "peakProcessHighWaterKiB": 1405936,
+  "minimumHostAvailableKiB": 1112512,
+  "maximumProcessSwapKiB": 0,
+  "temperatureRangeC": [
+    44.65,
+    52.35
+  ],
+  "throttledValues": [
+    "throttled=0x0"
+  ],
+  "minimumAvailableSample": {
+    "epoch": 1792620942.3310747,
+    "optimizedVmHWMKiB": 1398384,
+    "optimizedVmRSSKiB": 1398384,
+    "optimizedVmSwapKiB": 0,
+    "availableKiB": 1112512,
+    "loadavg": "1.44 1.17 0.76 8/821 2206789",
+    "temperatureC": 49.05,
+    "throttled": "throttled=0x0"
+  },
+  "peakMemorySample": {
+    "epoch": 1792621030.4477794,
+    "optimizedVmHWMKiB": 1405936,
+    "optimizedVmRSSKiB": 1405936,
+    "optimizedVmSwapKiB": 0,
+    "availableKiB": 1200192,
+    "loadavg": "1.42 1.23 0.82 3/814 2207851",
+    "temperatureC": 49.6,
+    "throttled": "throttled=0x0"
+  },
+  "firstSample": {
+    "epoch": 1792620799.899724,
+    "optimizedVmHWMKiB": 53168,
+    "optimizedVmRSSKiB": 53168,
+    "optimizedVmSwapKiB": 0,
+    "availableKiB": 2615808,
+    "loadavg": "0.64 0.85 0.59 2/790 2205093",
+    "temperatureC": 47.4,
+    "throttled": "throttled=0x0"
+  },
+  "lastSample": {
+    "epoch": 1792621158.6157615,
+    "optimizedVmHWMKiB": 449808,
+    "optimizedVmRSSKiB": 449808,
+    "optimizedVmSwapKiB": 0,
+    "availableKiB": 2220144,
+    "loadavg": "0.41 0.94 0.77 1/804 2209515",
+    "temperatureC": 45.75,
+    "throttled": "throttled=0x0"
+  }
+}

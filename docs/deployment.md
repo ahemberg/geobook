@@ -10,8 +10,11 @@ Do not expose its port to the public internet. Back up before changing releases.
 
 ## First start
 
-Install Docker Engine with the Compose plugin. Build from a reviewed release tag or
-commit, using JDK 27 and the repository's Maven wrapper:
+Install Docker Engine with the Compose plugin. Use a published release image, or
+build one yourself. Published images are at `ghcr.io/ahemberg/geobook:VERSION`,
+for example `ghcr.io/ahemberg/geobook:0.1.0`. See [releasing](releasing.md) for how
+they are built. To build from a reviewed release tag or commit instead, use JDK 27
+and the repository's Maven wrapper:
 
 ```bash
 ./mvnw verify
@@ -21,8 +24,9 @@ cp .env.example .env
 sudo install -d -m 0750 -o 10001 -g 10001 /mnt/ssd/geobook
 ```
 
-Edit `.env`. Set `GEOBOOK_IMAGE` to the exact `geobook:<commit>` tag just built,
-`GEOBOOK_DATA_DIRECTORY` to the absolute SSD directory, and `GEOBOOK_BIND_ADDRESS`
+Edit `.env`. Set `GEOBOOK_IMAGE` to the exact published version or the
+`geobook:<commit>` tag just built, `GEOBOOK_DATA_DIRECTORY` to the absolute SSD
+directory, and `GEOBOOK_BIND_ADDRESS`
 to the host's LAN or VPN address if other devices need access. Keep the directory
 owned by the configured `GEOBOOK_UID` and `GEOBOOK_GID`, both 10001 by default.
 Compose refuses a missing directory, so a mistyped mount cannot quietly create a new collection.
@@ -61,7 +65,8 @@ frontend copyright/licence texts are at `/notices/frontend.txt`. The latter incl
 React, React DOM, Scheduler, Leaflet and Source Sans 3. Refresh these texts when
 updating those packages. Backend notices are at `/notices/backend.txt` and inside
 the nested JARs in `/app/app.jar`. Java notices are under `/opt/java/openjdk/legal`,
-and OS package notices are under `/usr/share/doc` in the image.
+and OS package notices are under `/usr/share/doc` in the image. Geobook's own MIT
+licence is at `/app/LICENSE` in the image and `LICENSE` in the source.
 
 `/` and `/map`, including `/map/`, serve the bundled application. Unknown paths,
 unknown `/api` endpoints and missing assets return errors. Frontend development's
@@ -96,20 +101,11 @@ run an older image against a database migrated by a newer release unless that
 release explicitly supports it. Rollback means restoring the stopped-app backup
 and running its matching image.
 
-For registry distribution, build one manifest with both architectures from the
-same verified JAR. Replace the registry path with your own repository:
-
-```bash
-docker buildx create --name geobook-release --driver docker-container --use
-image="YOUR_REGISTRY/geobook:$version"
-docker buildx build --platform linux/amd64,linux/arm64 --tag "$image" --push .
-```
-
-The Dockerfile only copies the platform-independent JAR onto the matching Java
-runtime, so cross-platform packaging needs no emulated build steps. Log in to your
-registry before pushing. On the target host, set `GEOBOOK_IMAGE` to that explicit
-tag or manifest digest, run `docker compose pull`, then the replacement command.
-Publishing images is a manual release step, not a side effect of PR checks.
+To update from a published image, set `GEOBOOK_IMAGE` to the new exact version,
+such as `ghcr.io/ahemberg/geobook:0.2.0`, or its manifest digest. Run
+`docker compose pull`, then the replacement command. Avoid `latest` in `.env`.
+It moves when a newer stable version is published, so a later pull would upgrade
+without you choosing to. Nothing in Geobook updates an installation automatically.
 
 ## Stopped-app copy and restore
 
