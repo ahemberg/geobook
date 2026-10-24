@@ -27,7 +27,7 @@ test('saved choices are shared with another browser and hidden tracks stay selec
     const name = `Synthetic controls ${testInfo.project.name}`;
     const longitude = testInfo.project.name === 'mobile' ? '18.08' : '18.07';
     await page.goto('/');
-    await page.getByLabel('Choose GPX file').setInputFiles({
+    await page.getByLabel('Choose GPX or Takeout').setInputFiles({
       name: 'controls.gpx',
       mimeType: 'application/gpx+xml',
       buffer:

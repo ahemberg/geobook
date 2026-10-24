@@ -27,11 +27,919 @@ import tools.jackson.databind.json.JsonMapper;
 @SuppressWarnings({
   "PMD.TooManyMethods",
   "PMD.GodClass",
+  "PMD.CyclomaticComplexity",
   "PMD.AvoidDuplicateLiterals",
   "PMD.UnitTestContainsTooManyAsserts"
 })
 class TrackHttpTests {
   @TempDir Path directory;
+
+  @Test
+  void defaultUploadLimitAcceptsAnOriginalLargerThan32Mb()
+      throws IOException, InterruptedException {
+    byte[] original = paddedGpx(33 * 1024 * 1024);
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      assertThat(
+              mapper
+                  .readTree(get(client, base(app) + "/api/map-config").body())
+                  .get("uploadLimitMb")
+                  .asInt())
+          .isEqualTo(512);
+      HttpResponse<byte[]> response = upload(client, base(app), original, "/api/imports");
+      assertThat(response.statusCode()).isEqualTo(200);
+      assertThat(new String(response.body(), StandardCharsets.UTF_8))
+          .contains("\"status\":\"imported\"", "\"status\":\"complete\"");
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks").body()).size())
+          .isEqualTo(1);
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(original);
+    }
+  }
+
+  @Test
+  void configuredUploadLimitRejectsFilesAndBatchesWithoutStoringAnything()
+      throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start("--GEOBOOK_UPLOAD_LIMIT_MB=1")) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      assertThat(
+              mapper
+                  .readTree(get(client, base(app) + "/api/map-config").body())
+                  .get("uploadLimitMb")
+                  .asInt())
+          .isEqualTo(1);
+      for (String endpoint : new String[] {"/api/tracks", "/api/imports"}) {
+        HttpResponse<byte[]> response =
+            upload(client, base(app), paddedGpx(4 * 1024 * 1024), endpoint);
+        assertThat(response.statusCode()).isEqualTo(413);
+        assertThat(mapper.readTree(response.body()).get("message").asText())
+            .isEqualTo("Upload exceeds the 1 MB limit. Choose a smaller file.");
+      }
+      byte[] smaller = paddedGpx(600 * 1024);
+      assertThat(
+              uploadBatch(client, base(app), "/api/imports", java.util.List.of(smaller, smaller))
+                  .statusCode())
+          .isEqualTo(413);
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks").body()).isEmpty()).isTrue();
+      assertThat(mapper.readTree(get(client, base(app) + "/api/originals").body()).isEmpty())
+          .isTrue();
+      assertThat(upload(client, base(app), smaller).statusCode()).isEqualTo(201);
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(smaller);
+    }
+  }
+
+  private static byte[] paddedGpx(int paddingBytes) {
+    return gpx(
+        "<!--"
+            + "x".repeat(paddingBytes)
+            + "--><trk><name>Synthetic upload limit</name><trkseg>"
+            + "<trkpt lat='59.32' lon='18.07'/></trkseg></trk>");
+  }
+
+  @Test
+  void historyDisplayPersistsWithoutChangingDayOrRecordingControls()
+      throws IOException, InterruptedException {
+    String records =
+        """
+        {"locations":[
+          {"latitudeE7":593200000,"longitudeE7":180700000,"timestamp":"2014-06-18T10:00:00Z"},
+          {"latitudeE7":593210000,"longitudeE7":180710000,"timestamp":"2015-06-18T10:00:00Z"}
+        ]}
+        """;
+    JsonMapper mapper = JsonMapper.builder().build();
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      try (ConfigurableApplicationContext app = start()) {
+        String root = base(app);
+        assertThat(mapper.readTree(get(client, root + "/api/history-display").body()).toString())
+            .isEqualTo("{\"showHistory\":true,\"hiddenYears\":[]}");
+        upload(client, root, takeout(records, true), "/api/imports");
+        upload(
+            client,
+            root,
+            gpx("<trk><name>Recording</name><trkseg><trkpt lat='1' lon='2'/></trkseg></trk>"));
+        assertThat(
+                patch(
+                        client,
+                        root + "/api/tracks/1",
+                        "{\"name\":\"Saved history"
+                            + " name\",\"colour\":\"#123abc\",\"visible\":false}")
+                    .statusCode())
+            .isEqualTo(200);
+        patch(client, root + "/api/history-display", "{\"showHistory\":false}");
+        JsonNode hidden =
+            mapper.readTree(
+                patch(client, root + "/api/history-display", "{\"year\":2014,\"visible\":false}")
+                    .body());
+        assertThat(hidden.get("showHistory").asBoolean()).isFalse();
+        assertThat(hidden.get("hiddenYears").toString()).isEqualTo("[2014]");
+        patch(client, root + "/api/history-display", "{\"year\":2015,\"visible\":false}");
+        patch(client, root + "/api/history-display", "{\"year\":2014,\"visible\":true}");
+        JsonNode restored =
+            mapper.readTree(
+                patch(client, root + "/api/history-display", "{\"showHistory\":true}").body());
+        assertThat(restored.get("hiddenYears").toString()).isEqualTo("[2015]");
+        assertThat(
+                mapper
+                    .readTree(get(client, root + "/api/tracks/1").body())
+                    .get("visible")
+                    .asBoolean())
+            .isFalse();
+        assertThat(
+                mapper
+                    .readTree(get(client, root + "/api/tracks/2").body())
+                    .get("visible")
+                    .asBoolean())
+            .isTrue();
+        assertThat(
+                mapper
+                    .readTree(get(client, root + "/api/tracks/3").body())
+                    .get("visible")
+                    .asBoolean())
+            .isTrue();
+        assertThat(
+                mapper
+                    .readTree(
+                        get(client, root + "/api/tracks?from=2014-06-18&to=2014-06-18").body())
+                    .size())
+            .isEqualTo(1);
+        for (String invalid :
+            java.util.List.of(
+                "{}",
+                "null",
+                "[]",
+                "{\"showHistory\":1}",
+                "{\"year\":2014,\"visible\":null}",
+                "{\"year\":2014.5,\"visible\":false}",
+                "{\"year\":0,\"visible\":false}",
+                "{\"year\":10000,\"visible\":false}",
+                "{\"year\":2147483648,\"visible\":false}",
+                "{\"showHistory\":false,\"unknown\":true}")) {
+          assertThat(patch(client, root + "/api/history-display", invalid).statusCode())
+              .isEqualTo(400);
+        }
+        try (HttpClient otherDevice = HttpClient.newHttpClient()) {
+          assertThat(mapper.readTree(get(otherDevice, root + "/api/history-display").body()))
+              .isEqualTo(restored);
+        }
+      }
+      try (ConfigurableApplicationContext app = start()) {
+        assertThat(
+                mapper.readTree(get(client, base(app) + "/api/history-display").body()).toString())
+            .isEqualTo("{\"showHistory\":true,\"hiddenYears\":[2015]}");
+        JsonNode day = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+        assertThat(day.get("name").asText()).isEqualTo("Saved history name");
+        assertThat(day.get("colour").asText()).isEqualTo("#123abc");
+        assertThat(day.get("visible").asBoolean()).isFalse();
+      }
+    }
+  }
+
+  @Test
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  void takeoutArchivesBecomeLocalHistoryDaysAndKeepTheirOriginals()
+      throws IOException, InterruptedException {
+    String records =
+        """
+        {"locations":[
+          {"latitudeE7":593200000,"longitudeE7":180700000,"timestamp":"2014-06-18T21:59:00Z","accuracy":200,"deviceTag":1,"ignored":{"nested":[1,2]}},
+          {"latitudeE7":593210000,"longitudeE7":180710000,"timestampMs":"1403128800000"},
+          {"latitudeE7":407128000,"longitudeE7":-740060000,"timestamp":"2014-06-18T23:01:00Z","deviceTag":1}
+        ]}
+        """;
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      try (ConfigurableApplicationContext app = start()) {
+        JsonMapper mapper = JsonMapper.builder().build();
+        for (boolean zipped : java.util.List.of(true, false)) {
+          byte[] archive = takeout(records, zipped);
+          String events =
+              new String(
+                  upload(client, base(app), archive, "/api/imports").body(),
+                  StandardCharsets.UTF_8);
+          assertThat(events)
+              .contains("\"status\":\"progress\"", "\"total\":2", "\"status\":\"complete\"");
+          assertThat(events)
+              .contains(zipped ? "\"status\":\"imported\"" : "\"status\":\"unchanged\"");
+          assertThat(events).doesNotContain("\"status\":\"failed\"");
+          JsonNode originals = mapper.readTree(get(client, base(app) + "/api/originals").body());
+          long originalId = originals.get(0).get("id").asLong();
+          assertThat(originals.get(0).get("tracks").size()).isEqualTo(2);
+          assertThat(get(client, base(app) + "/api/originals/" + originalId).body())
+              .isEqualTo(archive);
+          String repeated =
+              new String(
+                  upload(client, base(app), archive, "/api/imports").body(),
+                  StandardCharsets.UTF_8);
+          assertThat(repeated)
+              .contains("\"status\":\"duplicate\"")
+              .doesNotContain("\"status\":\"imported\"");
+        }
+        JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body());
+        assertThat(overview.size()).isEqualTo(2);
+        assertThat(overview.get(0).get("kind").asText()).isEqualTo("history");
+        assertThat(overview.get(0).get("historyDate").asText()).isEqualTo("2014-06-19");
+        assertThat(overview.get(1).get("historyDate").asText()).isEqualTo("2014-06-18");
+        assertThat(overview.get(1).get("pointCount").asInt()).isEqualTo(2);
+        assertThat(overview.get(0).get("colour")).isEqualTo(overview.get(1).get("colour"));
+        assertThat(overview.get(0).get("visible").asBoolean()).isTrue();
+        JsonNode detail =
+            mapper.readTree(
+                get(client, base(app) + "/api/tracks/" + overview.get(0).get("id").asLong())
+                    .body());
+        assertThat(detail.get("originalIds").size()).isEqualTo(2);
+        assertThat(detail.get("points").isEmpty()).isTrue();
+        assertThat(detail.get("geometry").isEmpty()).isFalse();
+        assertThat(mapper.readTree(get(client, base(app) + "/api/originals").body()).size())
+            .isEqualTo(2);
+        assertThat(
+                mapper
+                    .readTree(
+                        get(client, base(app) + "/api/tracks?from=2014-06-18&to=2014-06-18").body())
+                    .size())
+            .isEqualTo(1);
+      }
+      try (ConfigurableApplicationContext app = start()) {
+        assertThat(
+                JsonMapper.builder()
+                    .build()
+                    .readTree(get(client, base(app) + "/api/tracks").body())
+                    .size())
+            .isEqualTo(2);
+      }
+    }
+  }
+
+  @Test
+  void noisyHistoryArrivesCleanedWithPersistentCountsAndIndependentBreaks()
+      throws IOException, InterruptedException {
+    byte[] archive =
+        takeout(
+            """
+            {"locations":[
+              {"latitudeE7":593200000,"longitudeE7":180700000,"timestamp":"2014-06-18T10:00:00Z","accuracy":200,"deviceTag":1},
+              {"latitudeE7":593200000,"longitudeE7":190700000,"timestamp":"2014-06-18T10:01:00Z","accuracy":10,"deviceTag":1},
+              {"latitudeE7":593200000,"longitudeE7":180710000,"timestamp":"2014-06-18T10:02:00Z","deviceTag":1},
+              {"latitudeE7":593200000,"longitudeE7":180720000,"timestamp":"2014-06-18T10:03:00Z","accuracy":201,"deviceTag":1},
+              {"latitudeE7":593200000,"longitudeE7":180720000,"timestamp":"2014-06-18T10:04:00Z","accuracy":10,"deviceTag":2},
+              {"latitudeE7":593200000,"longitudeE7":180730000,"timestamp":"2014-06-18T10:32:00Z","accuracy":10,"deviceTag":1},
+              {"latitudeE7":593200000,"longitudeE7":180740000,"timestamp":"2014-06-18T11:03:00Z","accuracy":10,"deviceTag":1},
+              {"latitudeE7":593200000,"longitudeE7":181740000,"timestamp":"2014-06-18T11:04:00Z","accuracy":10,"deviceTag":1}
+            ]}
+            """,
+            true);
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      JsonNode geometry;
+      try (ConfigurableApplicationContext app = start()) {
+        String events =
+            new String(
+                upload(client, base(app), archive, "/api/imports").body(), StandardCharsets.UTF_8);
+        assertThat(events)
+            .contains("\"status\":\"imported\"")
+            .doesNotContain("unresolved", "\"status\":\"failed\"");
+        JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body()).get(0);
+        assertThat(overview.get("pointCount").asInt()).isEqualTo(5);
+        JsonNode simplified = overview.get("geometry");
+        assertThat(simplified.toString())
+            .isEqualTo("[[[59.32,18.07],[59.32,18.073]],[[59.32,18.074]],[[59.32,18.174]]]");
+        JsonNode detail = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+        geometry = detail.get("geometry");
+        assertThat(geometry.toString())
+            .isEqualTo(
+                "[[[59.32,18.07],[59.32,18.071],[59.32,18.073]],[[59.32,18.074]],[[59.32,18.174]]]");
+        assertThat(detail.get("keptFixCount").asInt()).isEqualTo(5);
+        assertThat(detail.get("droppedFixCount").asInt()).isEqualTo(3);
+        assertThat(detail.get("segmentCount").asInt()).isEqualTo(3);
+        assertThat(detail.get("points").isEmpty()).isTrue();
+        for (int gap : new int[] {1, 86_400}) {
+          assertThat(
+                  patch(
+                          client,
+                          base(app) + "/api/playback-settings",
+                          "{\"gapSeconds\":" + gap + ",\"showGapConnections\":true}")
+                      .statusCode())
+              .isEqualTo(200);
+          JsonNode changed = mapper.readTree(get(client, base(app) + "/api/tracks").body()).get(0);
+          assertThat(changed.get("geometry")).isEqualTo(simplified);
+          assertThat(changed.get("gaps").isEmpty()).isTrue();
+          JsonNode opened = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+          assertThat(opened.get("geometry")).isEqualTo(geometry);
+          assertThat(opened.get("gaps").isEmpty()).isTrue();
+        }
+        assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(archive);
+      }
+      try (ConfigurableApplicationContext app = start()) {
+        JsonNode detail = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+        assertThat(detail.get("keptFixCount").asInt()).isEqualTo(5);
+        assertThat(detail.get("droppedFixCount").asInt()).isEqualTo(3);
+        assertThat(detail.get("geometry")).isEqualTo(geometry);
+      }
+    }
+  }
+
+  @Test
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  void rejectedTakeoutArchivesLeaveNoDaysOrOriginals() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      for (String records :
+          java.util.List.of(
+              "{\"timelineObjects\":[]}",
+              "{\"timelineObjects\":[{\"activitySegment\":{\"ignored\":true}}]}",
+              "{\"timelineObjects\":[{\"placeVisit\":{\"location\":{\"name\":\"Invalid named"
+                  + " visit\",\"latitudeE7\":593200000,\"longitudeE7\":180700000}}}]}",
+              "{\"timelineObjects\":[{\"placeVisit\":{\"location\":{\"name\":\"Unresolved"
+                  + " place\",\"latitudeE7\":0,\"longitudeE7\":0},\"duration\":{\"startTimestamp\":\"2014-06-18T10:00:00Z\",\"endTimestamp\":\"2014-06-18T11:00:00Z\"}}}]}",
+              "{\"locations\":[]}",
+              "{\"locations\":[{\"latitudeE7\":593200000,\"longitudeE7\":180700000,\"timestamp\":\"2014-06-18T10:00:00Z\",\"accuracy\":201}]}",
+              "{\"locations\":[{\"latitudeE7\":593200000,\"longitudeE7\":180700000,\"timestamp\":\"2014-06-18T21:59:00Z\"},{]}",
+              "{\"locations\":[{\"latitudeE7\":0,\"longitudeE7\":0,\"timestamp\":\"2014-06-18T21:59:00Z\"}]}")) {
+        for (boolean zipped : java.util.List.of(true, false)) {
+          String events =
+              new String(
+                  upload(client, base(app), takeout(records, zipped), "/api/imports").body(),
+                  StandardCharsets.UTF_8);
+          assertThat(events)
+              .contains("\"status\":\"failed\"")
+              .doesNotContain("\"status\":\"imported\"");
+          assertThat(
+                  new String(get(client, base(app) + "/api/tracks").body(), StandardCharsets.UTF_8))
+              .isEqualTo("[]");
+          assertThat(
+                  new String(
+                      get(client, base(app) + "/api/originals").body(), StandardCharsets.UTF_8))
+              .isEqualTo("[]");
+        }
+      }
+    }
+  }
+
+  @Test
+  void newerTakeoutReplacesDaysPreservesChoicesAndRestoresDeletedDates()
+      throws IOException, InterruptedException {
+    String unchanged = historyFix("2014-06-19T10:00:00Z", 593_200_000, 20);
+    byte[] first =
+        historyArchive(
+            true,
+            historyFix("2014-06-18T10:00:00Z", 593_200_000, 20),
+            unchanged,
+            historyFix("2014-06-20T10:00:00Z", 593_200_000, 20));
+    byte[] newer =
+        historyArchive(
+            false,
+            historyFix("2014-06-18T10:00:00Z", 593_300_000, 20),
+            historyFix("2014-06-18T11:00:00Z", 593_400_000, 20),
+            unchanged,
+            historyFix("2014-06-21T10:00:00Z", 593_200_000, 20));
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      try (ConfigurableApplicationContext app = start()) {
+        JsonMapper mapper = JsonMapper.builder().build();
+        assertThat(historyEvents(client, base(app), first).getLast().get("summary").toString())
+            .isEqualTo("{\"created\":3,\"updated\":0,\"unchanged\":0}");
+        assertThat(
+                patch(
+                        client,
+                        base(app) + "/api/tracks/1",
+                        "{\"name\":\"Saved day\",\"colour\":\"#123abc\",\"visible\":false}")
+                    .statusCode())
+            .isEqualTo(200);
+        assertThat(
+                patch(
+                        client,
+                        base(app) + "/api/tracks/2",
+                        "{\"name\":\"Unchanged saved day\",\"visible\":false}")
+                    .statusCode())
+            .isEqualTo(200);
+        String stale = preview(client, base(app), 1).get("revision").asText();
+        String oldRevision = trackRevision(client, base(app), 1);
+        java.util.List<JsonNode> events = historyEvents(client, base(app), newer);
+        assertThat(events.stream().map(event -> event.get("status").asText()).toList())
+            .containsExactly("progress", "updated", "unchanged", "imported", "complete");
+        assertThat(events.getLast().get("summary").toString())
+            .isEqualTo("{\"created\":1,\"updated\":1,\"unchanged\":1}");
+        assertThat(delete(client, base(app) + "/api/originals/1", stale).statusCode())
+            .isEqualTo(412);
+        assertThat(delete(client, base(app) + "/api/tracks/1", oldRevision).statusCode())
+            .isEqualTo(412);
+        JsonNode saved = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+        assertThat(saved.get("name").asText()).isEqualTo("Saved day");
+        assertThat(saved.get("colour").asText()).isEqualTo("#123abc");
+        assertThat(saved.get("visible").asBoolean()).isFalse();
+        assertThat(saved.get("originalIds").toString()).isEqualTo("[1,2]");
+        assertThat(saved.get("keptFixCount").asInt()).isEqualTo(2);
+        assertThat(saved.get("droppedFixCount").asInt()).isZero();
+        assertThat(saved.get("segmentCount").asInt()).isEqualTo(2);
+        assertThat(saved.get("geometry").toString()).isEqualTo("[[[59.33,18.07]],[[59.34,18.07]]]");
+        JsonNode same = mapper.readTree(get(client, base(app) + "/api/tracks/2").body());
+        assertThat(same.get("name").asText()).isEqualTo("Unchanged saved day");
+        assertThat(same.get("visible").asBoolean()).isFalse();
+        assertThat(same.get("originalIds").toString()).isEqualTo("[1,2]");
+        assertThat(mapper.readTree(get(client, base(app) + "/api/tracks").body()).size())
+            .isEqualTo(4);
+        assertThat(
+                historyEvents(client, base(app), first)
+                    .getLast()
+                    .get("summary")
+                    .get("unchanged")
+                    .asInt())
+            .isEqualTo(3);
+        assertThat(mapper.readTree(get(client, base(app) + "/api/tracks/1").body()))
+            .isEqualTo(saved);
+        assertThat(historyEvents(client, base(app), newer).get(1).get("status").asText())
+            .isEqualTo("duplicate");
+        assertThat(mapper.readTree(get(client, base(app) + "/api/originals").body()).size())
+            .isEqualTo(2);
+        assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(first);
+        assertThat(get(client, base(app) + "/api/originals/2").body()).isEqualTo(newer);
+        assertThat(
+                delete(client, base(app) + "/api/tracks/1", trackRevision(client, base(app), 1))
+                    .statusCode())
+            .isEqualTo(200);
+        assertThat(historyEvents(client, base(app), newer).getLast().get("summary").toString())
+            .isEqualTo("{\"created\":1,\"updated\":0,\"unchanged\":2}");
+      }
+      try (ConfigurableApplicationContext app = start()) {
+        JsonMapper mapper = JsonMapper.builder().build();
+        JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body());
+        assertThat(overview.size()).isEqualTo(4);
+        JsonNode restored = null;
+        String restoredDate = "2014-06-18";
+        for (JsonNode day : overview) {
+          if (restoredDate.equals(day.get("historyDate").asText())) {
+            restored = day;
+          }
+        }
+        assertThat(restored).isNotNull();
+        assertThat(restored.get("visible").asBoolean()).isTrue();
+        assertThat(restored.get("name").asText()).isEqualTo("18 Jun 2014");
+        assertThat(restored.get("pointCount").asInt()).isEqualTo(2);
+      }
+    }
+  }
+
+  @Test
+  void historyCountOnlyUpdatesInvalidateRemovalPreviewsAndSharedOriginalsSurvive()
+      throws IOException, InterruptedException {
+    String kept = historyFix("2014-06-18T10:00:00Z", 593_200_000, 20);
+    String other = historyFix("2014-06-19T10:00:00Z", 593_200_000, 20);
+    byte[] first = historyArchive(false, kept, other);
+    byte[] newer =
+        historyArchive(
+            true,
+            kept,
+            historyFix("2014-06-18T10:01:00Z", 593_200_000, 201),
+            other,
+            historyFix("2014-06-20T10:00:00Z", 593_200_000, 20));
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      historyEvents(client, base(app), first);
+      JsonNode before = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      String beforeRevision = trackRevision(client, base(app), 1);
+      java.util.List<JsonNode> events = historyEvents(client, base(app), newer);
+      assertThat(events.getLast().get("summary").toString())
+          .isEqualTo("{\"created\":1,\"updated\":1,\"unchanged\":1}");
+      JsonNode after = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(after.get("geometry")).isEqualTo(before.get("geometry"));
+      assertThat(after.get("keptFixCount").asInt()).isEqualTo(1);
+      assertThat(after.get("droppedFixCount").asInt()).isEqualTo(1);
+      assertThat(trackRevision(client, base(app), 1)).isNotEqualTo(beforeRevision);
+      JsonNode removal = preview(client, base(app), 2);
+      assertThat(removal.get("tracks").size()).isEqualTo(3);
+      assertThat(removal.get("tracks").get(0).get("retained").asBoolean()).isTrue();
+      assertThat(removal.get("tracks").get(1).get("retained").asBoolean()).isTrue();
+      assertThat(removal.get("tracks").get(2).get("retained").asBoolean()).isFalse();
+      assertThat(delete(client, base(app) + "/api/originals/2", null).statusCode()).isEqualTo(400);
+      assertThat(
+              delete(client, base(app) + "/api/originals/2", removal.get("revision").asText())
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(get(client, base(app) + "/api/tracks/3").statusCode()).isEqualTo(404);
+      JsonNode retained = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(retained.get("droppedFixCount").asInt()).isEqualTo(1);
+      assertThat(retained.get("originalIds").toString()).isEqualTo("[1]");
+      assertThat(get(client, base(app) + "/api/originals/1").body()).isEqualTo(first);
+      JsonNode last = preview(client, base(app), 1);
+      assertThat(last.get("tracks").get(0).get("retained").asBoolean()).isFalse();
+      assertThat(last.get("tracks").get(1).get("retained").asBoolean()).isFalse();
+      assertThat(
+              delete(client, base(app) + "/api/originals/1", last.get("revision").asText())
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks").body()).isEmpty()).isTrue();
+      assertThat(mapper.readTree(get(client, base(app) + "/api/originals").body()).isEmpty())
+          .isTrue();
+    }
+  }
+
+  @Test
+  void changedPlaceVisitsReplaceTheDayWithUnchangedFixes()
+      throws IOException, InterruptedException {
+    String fixes = "{\"locations\":[" + historyFix("2014-06-18T10:00:00Z", 593_200_000, 20) + "]}";
+    byte[] first = takeout(java.util.List.of(semanticVisit("Old cafe"), fixes), true);
+    byte[] newer = takeout(java.util.List.of(semanticVisit("New cafe"), fixes), false);
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      historyEvents(client, base(app), first);
+      JsonNode before = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(historyEvents(client, base(app), newer).getLast().get("summary").toString())
+          .isEqualTo("{\"created\":0,\"updated\":1,\"unchanged\":0}");
+      JsonNode after = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(after.get("geometry")).isEqualTo(before.get("geometry"));
+      assertThat(after.get("placeVisits").size()).isEqualTo(1);
+      assertThat(after.get("placeVisits").get(0).get("name").asText()).isEqualTo("New cafe");
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks?search=New").body()).size())
+          .isEqualTo(1);
+      assertThat(before.get("name").asText()).isEqualTo("18 Jun 2014 · Old cafe");
+      assertThat(after.get("name").asText()).isEqualTo("18 Jun 2014 · New cafe");
+      byte[] repeated = takeout(java.util.List.of(semanticVisit("New cafe"), fixes), true);
+      assertThat(historyEvents(client, base(app), repeated).getLast().get("summary").toString())
+          .isEqualTo("{\"created\":0,\"updated\":0,\"unchanged\":1}");
+    }
+  }
+
+  @Test
+  void reimportKeepsOwnerRenamesAndRefreshesStartTimes() throws IOException, InterruptedException {
+    String visit = semanticVisit("Old cafe");
+    byte[] first =
+        takeout(
+            java.util.List.of(
+                visit,
+                "{\"locations\":["
+                    + historyFix("2014-06-18T10:00:00Z", 593_200_000, 20)
+                    + ","
+                    + historyFix("2014-06-19T10:00:00Z", 593_200_000, 20)
+                    + "]}"),
+            true);
+    byte[] newer =
+        takeout(
+            java.util.List.of(
+                semanticVisit("New cafe"),
+                "{\"locations\":["
+                    + historyFix("2014-06-18T08:00:00Z", 593_200_000, 20)
+                    + ","
+                    + historyFix("2014-06-19T07:00:00Z", 593_200_000, 20)
+                    + "]}"),
+            false);
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final JsonMapper mapper = JsonMapper.builder().build();
+      historyEvents(client, base(app), first);
+      assertThat(patch(client, base(app) + "/api/tracks/1", "{\"name\":\"Cafe day\"}").statusCode())
+          .isEqualTo(200);
+      assertThat(historyEvents(client, base(app), newer).getLast().get("summary").toString())
+          .isEqualTo("{\"created\":0,\"updated\":2,\"unchanged\":0}");
+      JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body());
+      assertThat(overview.get(0).get("name").asText()).isEqualTo("19 Jun 2014");
+      assertThat(overview.get(0).get("startTime").asText()).isEqualTo("2014-06-19T07:00:00Z");
+      assertThat(overview.get(1).get("name").asText()).isEqualTo("Cafe day");
+      assertThat(overview.get(1).get("startTime").asText()).isEqualTo("2014-06-18T08:00:00Z");
+    }
+  }
+
+  private static String semanticVisit(String name) {
+    return "{\"timelineObjects\":[{\"placeVisit\":{\"location\":{\"name\":\""
+        + name
+        + "\",\"latitudeE7\":593200000,\"longitudeE7\":180700000},\"duration\":"
+        + "{\"startTimestamp\":\"2014-06-18T09:00:00Z\",\"endTimestamp\":"
+        + "\"2014-06-18T09:30:00Z\"}}}]}";
+  }
+
+  @Test
+  void failedHistoryReplacementRollsBackAndRetryPreservesCountryReview()
+      throws IOException, InterruptedException {
+    byte[] first = historyArchive(true, historyFix("2014-06-18T10:00:00Z", 593_200_000, 20));
+    byte[] newer = historyArchive(false, historyFix("2014-06-18T10:00:00Z", 593_300_000, 20));
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final JsonMapper mapper = JsonMapper.builder().build();
+      historyEvents(client, base(app), first);
+      // Recording evidence makes the existing review API usable before history country attribution.
+      assertThat(
+              upload(
+                      client,
+                      base(app),
+                      gpx(
+                          """
+                          <trk><trkseg>
+                          <trkpt lat='59.32' lon='18.07'><time>2014-06-18T10:00:00Z</time></trkpt>
+                          <trkpt lat='59.32' lon='18.07'><time>2014-06-19T10:00:00Z</time></trkpt>
+                          </trkseg></trk>
+                          """))
+                  .statusCode())
+          .isEqualTo(201);
+      assertThat(
+              patch(
+                      client,
+                      base(app) + "/api/visits/review",
+                      """
+                      {"state":"confirmed","visits":[{"country":"SWE","date":"2014-06-18"}]}
+                      """)
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(
+              patch(
+                      client,
+                      base(app) + "/api/visits/review",
+                      """
+                      {"state":"excluded","visits":[{"country":"SWE","date":"2014-06-19"}]}
+                      """)
+                  .statusCode())
+          .isEqualTo(200);
+      final JsonNode reviewed =
+          mapper.readTree(get(client, base(app) + "/api/visits").body()).get("candidates");
+      JsonNode saved = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      org.springframework.jdbc.core.JdbcTemplate jdbc =
+          app.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+      jdbc.execute(
+          "CREATE TRIGGER fail_history BEFORE INSERT ON track_point WHEN NEW.track_id = 1 BEGIN"
+              + " SELECT RAISE(ABORT, 'synthetic storage failure'); END");
+      String failed =
+          new String(
+              upload(client, base(app), newer, "/api/imports").body(), StandardCharsets.UTF_8);
+      assertThat(failed)
+          .contains(
+              "\"status\":\"failed\"", "\"summary\":{\"created\":0,\"updated\":0,\"unchanged\":0}");
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks/1").body())).isEqualTo(saved);
+      jdbc.execute("DROP TRIGGER fail_history");
+      java.util.List<JsonNode> events = historyEvents(client, base(app), newer);
+      assertThat(events.get(1).get("status").asText()).isEqualTo("updated");
+      JsonNode updated = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(updated.get("geometry").toString()).isEqualTo("[[[59.33,18.07]]]");
+      assertThat(updated.get("originalIds").toString()).isEqualTo("[1,3]");
+      assertThat(mapper.readTree(get(client, base(app) + "/api/visits").body()).get("candidates"))
+          .isEqualTo(reviewed);
+    }
+  }
+
+  private static String historyFix(String time, int latitude, int accuracy) {
+    return "{\"timestamp\":\""
+        + time
+        + "\",\"latitudeE7\":"
+        + latitude
+        + ",\"longitudeE7\":180700000,\"accuracy\":"
+        + accuracy
+        + "}";
+  }
+
+  private static byte[] historyArchive(boolean zipped, String... fixes) throws IOException {
+    return takeout("{\"locations\":[" + String.join(",", fixes) + "]}", zipped);
+  }
+
+  private static java.util.List<JsonNode> historyEvents(
+      HttpClient client, String base, byte[] bytes) throws IOException, InterruptedException {
+    HttpResponse<byte[]> response = upload(client, base, bytes, "/api/imports");
+    assertThat(response.statusCode()).isEqualTo(200);
+    JsonMapper mapper = JsonMapper.builder().build();
+    java.util.List<JsonNode> events =
+        new String(response.body(), StandardCharsets.UTF_8).lines().map(mapper::readTree).toList();
+    assertThat(events.stream().map(event -> event.get("status").asText())).doesNotContain("failed");
+    return events;
+  }
+
+  private static byte[] takeout(String records, boolean zipped) throws IOException {
+    return takeout(java.util.List.of("{\"timelineObjects\":[]}", records), zipped);
+  }
+
+  // File names and directories do not identify either supported JSON format.
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  private static byte[] takeout(java.util.List<String> entries, boolean zipped) throws IOException {
+    java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+    if (zipped) {
+      try (java.util.zip.ZipOutputStream archive = new java.util.zip.ZipOutputStream(bytes)) {
+        for (int index = 0; index < entries.size(); index++) {
+          archive.putNextEntry(new java.util.zip.ZipEntry("別のフォルダー/renamed-" + index));
+          archive.write(entries.get(index).getBytes(StandardCharsets.UTF_8));
+          archive.closeEntry();
+        }
+      }
+    } else {
+      try (org.apache.commons.compress.archivers.tar.TarArchiveOutputStream archive =
+          new org.apache.commons.compress.archivers.tar.TarArchiveOutputStream(
+              new java.util.zip.GZIPOutputStream(bytes))) {
+        for (int index = 0; index < entries.size(); index++) {
+          byte[] json = entries.get(index).getBytes(StandardCharsets.UTF_8);
+          org.apache.commons.compress.archivers.tar.TarArchiveEntry entry =
+              new org.apache.commons.compress.archivers.tar.TarArchiveEntry(
+                  "anderer-ordner/renamed-" + index);
+          entry.setSize(json.length);
+          archive.putArchiveEntry(entry);
+          archive.write(json);
+          archive.closeArchiveEntry();
+        }
+      }
+    }
+    return bytes.toByteArray();
+  }
+
+  @Test
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  void semanticVisitsPersistWithTheirArrivalDayAndRemainSearchable()
+      throws IOException, InterruptedException {
+    String raw =
+        """
+        {"locations":[
+          {"latitudeE7":596496000,"longitudeE7":179238000,"timestamp":"2014-06-12T07:00:00Z"},
+          {"latitudeE7":593200000,"longitudeE7":180700000,"timestamp":"2014-06-13T10:00:00Z"}
+        ]}
+        """;
+    String semantic =
+        """
+        {"timelineObjects":[
+          {"placeVisit":{"location":{"name":"Paddington","latitudeE7":515154000,"longitudeE7":-1755000},"duration":{"startTimestamp":"2014-06-12T14:00:00Z","endTimestamp":"2014-06-12T15:00:00Z"}}},
+          {"activitySegment":{"startLocation":{"latitudeE7":0,"longitudeE7":0},"duration":{"startTimestamp":"2014-06-17T10:00:00Z","endTimestamp":"2014-06-17T12:00:00Z"}}},
+          {"placeVisit":{"location":{"name":"Arlanda","latitudeE7":596496000,"longitudeE7":179238000},"duration":{"startTimestamp":"2014-06-12T07:00:00.500Z","endTimestamp":"2014-06-12T08:00:00Z"},"otherCandidateLocations":[{"name":"Ignored"}]}},
+          {"placeVisit":{"location":{"name":"Heathrow","latitudeE7":514700000,"longitudeE7":-4543000},"duration":{"startTimestampMs":"1402567200000","endTimestampMs":"1402570800000"}}}
+        ]}
+        """;
+    String stopsOnly =
+        """
+        {"timelineObjects":[
+          {"placeVisit":{"location":{"name":"Night museum","latitudeE7":593200000,"longitudeE7":180700000},"duration":{"startTimestamp":"2014-06-14T22:30:00Z","endTimestamp":"2014-06-16T01:00:00Z"}}}
+        ]}
+        """;
+    JsonMapper mapper = JsonMapper.builder().build();
+    try (HttpClient client = HttpClient.newHttpClient()) {
+      try (ConfigurableApplicationContext app = start()) {
+        for (boolean zipped : java.util.List.of(true, false)) {
+          byte[] archive = takeout(java.util.List.of(semantic, raw, stopsOnly), zipped);
+          String events =
+              new String(
+                  upload(client, base(app), archive, "/api/imports").body(),
+                  StandardCharsets.UTF_8);
+          assertThat(events)
+              .contains("\"total\":3", "\"status\":\"complete\"")
+              .doesNotContain("\"status\":\"failed\"");
+          assertThat(events)
+              .contains(zipped ? "\"status\":\"imported\"" : "\"status\":\"unchanged\"");
+          JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body());
+          assertThat(overview.size()).isEqualTo(3);
+          assertThat(overview.get(0).get("historyDate").asText()).isEqualTo("2014-06-15");
+          assertThat(overview.get(0).get("name").asText()).isEqualTo("15 Jun 2014 · Night museum");
+          assertThat(overview.get(0).get("pointCount").asInt()).isZero();
+          assertThat(overview.get(0).get("geometry").isEmpty()).isTrue();
+          assertThat(overview.get(0).get("startTime").asText()).isEqualTo("2014-06-14T22:30:00Z");
+          assertThat(overview.get(1).get("name").asText()).isEqualTo("13 Jun 2014");
+          assertThat(overview.get(2).get("name").asText())
+              .isEqualTo(zipped ? "12 Jun 2014 · Arlanda, Heathrow" : "Saved name");
+          assertThat(overview.get(2).get("placeNames").toString())
+              .isEqualTo("[\"Arlanda\",\"Heathrow\",\"Paddington\"]");
+          long dayId = overview.get(2).get("id").asLong();
+          JsonNode detail = mapper.readTree(get(client, base(app) + "/api/tracks/" + dayId).body());
+          assertThat(detail.get("points").isEmpty()).isTrue();
+          assertThat(detail.get("placeVisits").size()).isEqualTo(3);
+          JsonNode arlanda = detail.get("placeVisits").get(0);
+          assertThat(arlanda.get("name").asText()).isEqualTo("Arlanda");
+          assertThat(arlanda.get("latitude").asDouble()).isEqualTo(59.6496);
+          assertThat(arlanda.get("longitude").asDouble()).isEqualTo(17.9238);
+          assertThat(arlanda.get("startTime").asText()).isEqualTo("2014-06-12T07:00:00.500Z");
+          assertThat(overview.get(2).get("startTime").asText()).isEqualTo("2014-06-12T07:00:00Z");
+          assertThat(arlanda.get("endTime").asText()).isEqualTo("2014-06-12T08:00:00Z");
+          assertThat(
+                  patch(client, base(app) + "/api/tracks/" + dayId, "{\"name\":\"Saved name\"}")
+                      .statusCode())
+              .isEqualTo(200);
+          for (String search : java.util.List.of("PADDINGTON", "2014-06-12", "12%20Jun%202014")) {
+            assertThat(
+                    mapper
+                        .readTree(get(client, base(app) + "/api/tracks?search=" + search).body())
+                        .size())
+                .isEqualTo(1);
+          }
+          JsonNode filtered =
+              mapper.readTree(
+                  get(client, base(app) + "/api/tracks?from=2014-06-15&to=2014-06-15").body());
+          assertThat(filtered.size()).isEqualTo(1);
+          JsonNode stops =
+              mapper.readTree(
+                  get(client, base(app) + "/api/tracks/" + filtered.get(0).get("id").asLong())
+                      .body());
+          assertThat(stops.get("segmentCount").asInt()).isZero();
+          assertThat(stops.get("placeVisits").size()).isEqualTo(1);
+          assertThat(stops.get("placeVisits").get(0).get("endTime").asText())
+              .isEqualTo("2014-06-16T01:00:00Z");
+          assertThat(
+                  mapper
+                      .readTree(
+                          get(client, base(app) + "/api/tracks?from=2014-06-16&to=2014-06-16")
+                              .body())
+                      .isEmpty())
+              .isTrue();
+          assertThat(
+                  mapper
+                      .readTree(
+                          get(
+                                  client,
+                                  base(app)
+                                      + "/api/tracks?country=SWE&from=2014-06-15&to=2014-06-15")
+                              .body())
+                      .isEmpty())
+              .isTrue();
+          JsonNode originals = mapper.readTree(get(client, base(app) + "/api/originals").body());
+          assertThat(
+                  get(client, base(app) + "/api/originals/" + originals.get(0).get("id").asLong())
+                      .body())
+              .isEqualTo(archive);
+        }
+      }
+      try (ConfigurableApplicationContext app = start()) {
+        JsonNode overview =
+            mapper.readTree(get(client, base(app) + "/api/tracks?search=Night").body());
+        assertThat(overview.size()).isEqualTo(1);
+        assertThat(mapper.readTree(get(client, base(app) + "/api/tracks/years").body()).toString())
+            .isEqualTo("[2014]");
+        long dayId = overview.get(0).get("id").asLong();
+        JsonNode detail = mapper.readTree(get(client, base(app) + "/api/tracks/" + dayId).body());
+        assertThat(detail.get("originalIds").size()).isEqualTo(2);
+        assertThat(detail.get("placeVisits").size()).isEqualTo(1);
+        HttpResponse<byte[]> deleted =
+            client.send(
+                HttpRequest.newBuilder(URI.create(base(app) + "/api/tracks/" + dayId))
+                    .header("If-Match", overview.get(0).get("revision").asText())
+                    .DELETE()
+                    .build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertThat(deleted.statusCode()).isEqualTo(200);
+        assertThat(
+                mapper
+                    .readTree(get(client, base(app) + "/api/tracks?search=Night").body())
+                    .isEmpty())
+            .isTrue();
+      }
+    }
+  }
+
+  @Test
+  void openedHistoryDayReportsItsLocalSpanAndVisitTimes() throws IOException, InterruptedException {
+    String raw =
+        """
+        {"locations":[
+          {"latitudeE7":596496000,"longitudeE7":179238000,"timestamp":"2014-06-12T07:00:00Z"}
+        ]}
+        """;
+    String semantic =
+        """
+        {"timelineObjects":[
+          {"placeVisit":{"location":{"name":"Arlanda","latitudeE7":596496000,"longitudeE7":179238000},"duration":{"startTimestamp":"2014-06-12T07:00:00.500Z","endTimestamp":"2014-06-12T08:00:00Z"}}},
+          {"placeVisit":{"location":{"name":"Paddington","latitudeE7":515154000,"longitudeE7":-1755000},"duration":{"startTimestamp":"2014-06-12T14:00:00Z","endTimestamp":"2014-06-12T15:00:00Z"}}},
+          {"placeVisit":{"location":{"name":"Night museum","latitudeE7":593200000,"longitudeE7":180700000},"duration":{"startTimestamp":"2014-06-14T22:30:00Z","endTimestamp":"2014-06-16T01:00:00Z"}}}
+        ]}
+        """;
+    JsonMapper mapper = JsonMapper.builder().build();
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      upload(client, base(app), takeout(java.util.List.of(semantic, raw), true), "/api/imports");
+      JsonNode overview = mapper.readTree(get(client, base(app) + "/api/tracks").body());
+      JsonNode stopsOnly =
+          mapper.readTree(
+              get(client, base(app) + "/api/tracks/" + overview.get(0).get("id").asLong()).body());
+      assertThat(stopsOnly.get("localStartTime").asText()).isEqualTo("2014-06-15T00:30:00+02:00");
+      assertThat(stopsOnly.get("localEndTime").asText()).isEqualTo("2014-06-16T03:00:00+02:00");
+      JsonNode day =
+          mapper.readTree(
+              get(client, base(app) + "/api/tracks/" + overview.get(1).get("id").asLong()).body());
+      assertThat(day.get("localStartTime").asText()).isEqualTo("2014-06-12T09:00:00+02:00");
+      assertThat(day.get("localEndTime").asText()).isEqualTo("2014-06-12T16:00:00+01:00");
+      JsonNode arlanda = day.get("placeVisits").get(0);
+      assertThat(arlanda.get("localStartTime").asText()).isEqualTo("2014-06-12T09:00:00.5+02:00");
+      assertThat(arlanda.get("localEndTime").asText()).isEqualTo("2014-06-12T10:00:00+02:00");
+    }
+  }
+
+  @Test
+  void semanticOnlyArchiveCreatesStopsOnlyYear() throws IOException, InterruptedException {
+    String semantic =
+        """
+        {"timelineObjects":[{"placeVisit":{"location":{"name":"Synthetic station","latitudeE7":593200000,"longitudeE7":180700000},"duration":{"startTimestamp":"2013-01-01T10:00:00Z","endTimestamp":"2013-01-01T11:00:00Z"}}}]}
+        """;
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      String events =
+          new String(
+              upload(client, base(app), takeout(semantic, true), "/api/imports").body(),
+              StandardCharsets.UTF_8);
+      assertThat(events)
+          .contains("\"status\":\"imported\"")
+          .doesNotContain("\"status\":\"failed\"");
+      assertThat(mapper.readTree(get(client, base(app) + "/api/tracks/years").body()).toString())
+          .isEqualTo("[2013]");
+      JsonNode overview =
+          mapper.readTree(
+              get(client, base(app) + "/api/tracks?from=2013-01-01&to=2013-01-01&search=station")
+                  .body());
+      assertThat(overview.size()).isEqualTo(1);
+      assertThat(overview.get(0).get("pointCount").asInt()).isZero();
+      assertThat(overview.get(0).get("geometry").isEmpty()).isTrue();
+      assertThat(
+              mapper
+                  .readTree(get(client, base(app) + "/api/visits").body())
+                  .get("candidates")
+                  .isEmpty())
+          .isTrue();
+    }
+  }
 
   // Rejected uploads must leave the public collection unchanged.
   @Test
@@ -425,9 +1333,47 @@ class TrackHttpTests {
       JsonNode detail =
           JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks/9").body());
       assertThat(detail.get("name").asText()).isEqualTo("Saved display name");
+      assertThat(detail.get("keptFixCount").isNull()).isTrue();
+      assertThat(detail.get("localStartTime").isNull()).isTrue();
+      assertThat(detail.get("droppedFixCount").isNull()).isTrue();
+      assertThat(
+              JsonMapper.builder()
+                  .build()
+                  .readTree(get(client, base(app) + "/api/history-display").body())
+                  .toString())
+          .isEqualTo("{\"showHistory\":true,\"hiddenYears\":[]}");
       assertThat(detail.get("colour").asText()).isEqualTo("#123456");
       assertThat(detail.get("visible").asBoolean()).isTrue();
       assertThat(get(client, base(app) + "/api/originals/7").body()).isEqualTo(original);
+    }
+  }
+
+  @Test
+  void upgradingHistoryDaysBackfillsCountsWithoutChangingSavedData()
+      throws IOException, InterruptedException, SQLException {
+    String url = "jdbc:sqlite:" + directory.resolve("geobook.db");
+    Flyway.configure().dataSource(url, null, null).target("11").load().migrate();
+    try (Connection connection = DriverManager.getConnection(url);
+        Statement statement = connection.createStatement()) {
+      statement.executeUpdate(
+          "INSERT INTO track(id, name, colour, visible, kind, history_date) VALUES (9, 'Saved"
+              + " history name', '#123456', 0, 'history', '2014-06-18')");
+      statement.executeUpdate("INSERT INTO track_segment VALUES (9, 0)");
+      statement.executeUpdate(
+          "INSERT INTO track_point(track_id, ordinal, segment, latitude, longitude, recorded_time)"
+              + " VALUES (9, 0, 0, '59.32', '18.07', '2014-06-18T10:00:00Z')");
+    }
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonNode detail =
+          JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks/9").body());
+      assertThat(detail.get("name").asText()).isEqualTo("Saved history name");
+      assertThat(detail.get("colour").asText()).isEqualTo("#123456");
+      assertThat(detail.get("visible").asBoolean()).isFalse();
+      assertThat(detail.get("historyDate").asText()).isEqualTo("2014-06-18");
+      assertThat(detail.get("keptFixCount").asInt()).isEqualTo(1);
+      assertThat(detail.get("droppedFixCount").asInt()).isZero();
+      assertThat(detail.get("geometry").toString()).isEqualTo("[[[59.32,18.07]]]");
     }
   }
 
@@ -609,6 +1555,8 @@ class TrackHttpTests {
       JsonNode full =
           JsonMapper.builder().build().readTree(get(client, base(app) + "/api/tracks/1").body());
       assertThat(full.get("name").asText()).isEqualTo("Existing recording");
+      assertThat(full.get("kind").asText()).isEqualTo("recording");
+      assertThat(full.get("historyDate").isNull()).isTrue();
       assertThat(
               JsonMapper.builder()
                   .build()
@@ -827,6 +1775,119 @@ class TrackHttpTests {
                     .asInt())
             .isEqualTo(1);
       }
+    }
+  }
+
+  @Test
+  void historyDaysSuggestCountryVisitsFromKeptFixesAndCountInSummaries()
+      throws IOException, InterruptedException {
+    byte[] archive =
+        takeout(
+            java.util.List.of(
+                """
+                {"timelineObjects":[{"placeVisit":{"location":{"name":"Colosseum","latitudeE7":418902000,"longitudeE7":124922000},"duration":{"startTimestamp":"2014-06-28T10:00:00Z","endTimestamp":"2014-06-28T11:00:00Z"}}}]}
+                """,
+                """
+                {"locations":[
+                  {"latitudeE7":525200000,"longitudeE7":134050000,"timestamp":"2014-06-18T10:00:00Z","accuracy":10,"deviceTag":1},
+                  {"latitudeE7":488566000,"longitudeE7":23522000,"timestamp":"2014-06-18T10:02:00Z","accuracy":900,"deviceTag":1},
+                  {"latitudeE7":525210000,"longitudeE7":134060000,"timestamp":"2014-06-18T10:05:00Z","accuracy":10,"deviceTag":1},
+                  {"latitudeE7":599139000,"longitudeE7":107522000,"timestamp":"2014-06-18T12:00:00Z","accuracy":10,"deviceTag":2},
+                  {"latitudeE7":525200000,"longitudeE7":134050000,"timestamp":"2014-06-22T10:00:00Z","accuracy":10,"deviceTag":1},
+                  {"latitudeE7":556761000,"longitudeE7":125683000,"timestamp":"2014-06-25T10:00:00Z","accuracy":900,"deviceTag":1}
+                ]}
+                """),
+            false);
+    byte[] track =
+        gpx(
+            "<trk><name>Berlin walk</name><trkseg><trkpt lat='52.53' lon='13.41'>"
+                + "<time>2014-06-18T15:00:00Z</time></trkpt></trkseg></trk>");
+    JsonMapper mapper = JsonMapper.builder().build();
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(
+              new String(
+                  upload(client, base(app), archive, "/api/imports").body(),
+                  StandardCharsets.UTF_8))
+          .contains("\"status\":\"imported\"");
+      assertThat(upload(client, base(app), track).statusCode()).isEqualTo(201);
+      JsonNode review = mapper.readTree(get(client, base(app) + "/api/visits").body());
+      assertThat(review.get("unresolvedPoints").asInt()).isZero();
+      JsonNode candidates = review.get("candidates");
+      assertThat(candidates.size()).isEqualTo(2);
+      assertThat(candidates.toString()).doesNotContain("FRA", "NOR", "DNK", "ITA", "2014-06-28");
+      JsonNode stopsOnly =
+          mapper.readTree(
+              get(client, base(app) + "/api/tracks?from=2014-06-28&to=2014-06-28").body());
+      assertThat(stopsOnly.size()).isEqualTo(1);
+      assertThat(stopsOnly.get(0).get("name").asText()).isEqualTo("28 Jun 2014 · Colosseum");
+      assertThat(stopsOnly.get(0).get("pointCount").asInt()).isZero();
+      JsonNode later = candidates.get(0);
+      assertThat(later.get("country").asText()).isEqualTo("DEU");
+      assertThat(later.get("date").asText()).isEqualTo("2014-06-22");
+      assertThat(later.get("state").asText()).isEqualTo("pending");
+      assertThat(later.get("tracks").size()).isEqualTo(1);
+      assertThat(later.get("tracks").get(0).get("kind").asText()).isEqualTo("history");
+      assertThat(later.get("tracks").get(0).get("name").asText()).isEqualTo("22 Jun 2014");
+      JsonNode shared = candidates.get(1);
+      assertThat(shared.get("date").asText()).isEqualTo("2014-06-18");
+      assertThat(shared.get("tracks").size()).isEqualTo(2);
+      assertThat(shared.get("tracks").findValuesAsString("kind"))
+          .containsExactlyInAnyOrder("history", "recording");
+      assertThat(shared.get("tracks").findValuesAsString("name")).contains("Berlin walk");
+      assertThat(
+              patch(
+                      client,
+                      base(app) + "/api/visits/review",
+                      """
+                      {"state":"confirmed","visits":[{"country":"DEU","date":"2014-06-18"},{"country":"DEU","date":"2014-06-22"}]}
+                      """)
+                  .statusCode())
+          .isEqualTo(200);
+      JsonNode summary = mapper.readTree(get(client, base(app) + "/api/countries").body());
+      assertThat(summary.size()).isEqualTo(1);
+      assertThat(summary.get(0).get("country").asText()).isEqualTo("DEU");
+      assertThat(summary.get(0).get("firstVisit").asText()).isEqualTo("2014-06-18");
+      assertThat(summary.get(0).get("latestVisit").asText()).isEqualTo("2014-06-22");
+      assertThat(summary.get(0).get("recordedDays").asInt()).isEqualTo(2);
+      long laterDay = later.get("tracks").get(0).get("trackId").asLong();
+      assertThat(
+              delete(
+                      client,
+                      base(app) + "/api/tracks/" + laterDay,
+                      trackRevision(client, base(app), laterDay))
+                  .statusCode())
+          .isEqualTo(200);
+      summary = mapper.readTree(get(client, base(app) + "/api/countries").body());
+      assertThat(summary.get(0).get("latestVisit").asText()).isEqualTo("2014-06-18");
+      assertThat(summary.get(0).get("recordedDays").asInt()).isEqualTo(1);
+      assertThat(
+              delete(
+                      client,
+                      base(app) + "/api/originals/1",
+                      preview(client, base(app), 1).get("revision").asText())
+                  .statusCode())
+          .isEqualTo(200);
+      candidates = mapper.readTree(get(client, base(app) + "/api/visits").body()).get("candidates");
+      assertThat(candidates.size()).isEqualTo(1);
+      assertThat(candidates.get(0).get("tracks").findValuesAsString("kind"))
+          .containsExactly("recording");
+      assertThat(
+              mapper
+                  .readTree(get(client, base(app) + "/api/countries").body())
+                  .get(0)
+                  .get("recordedDays")
+                  .asInt())
+          .isEqualTo(1);
+      assertThat(
+              delete(
+                      client,
+                      base(app) + "/api/originals/2",
+                      preview(client, base(app), 2).get("revision").asText())
+                  .statusCode())
+          .isEqualTo(200);
+      assertThat(mapper.readTree(get(client, base(app) + "/api/countries").body()).isEmpty())
+          .isTrue();
     }
   }
 
@@ -1288,9 +2349,14 @@ class TrackHttpTests {
         .getBytes(StandardCharsets.UTF_8);
   }
 
-  private ConfigurableApplicationContext start() {
+  private ConfigurableApplicationContext start(String... settings) {
     return new SpringApplicationBuilder(TrackerApplication.class)
-        .run("--server.port=0", "--geobook.data-directory=" + directory);
+        .run(
+            java.util.stream.Stream.concat(
+                    java.util.stream.Stream.of(
+                        "--server.port=0", "--geobook.data-directory=" + directory),
+                    java.util.Arrays.stream(settings))
+                .toArray(String[]::new));
   }
 
   private static String base(ConfigurableApplicationContext app) {

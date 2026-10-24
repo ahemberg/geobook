@@ -8,7 +8,22 @@ import java.util.List;
 
 // IDs use the same name throughout storage and the public track representation.
 @SuppressWarnings("PMD.ShortVariable")
-public record Track(long id, String name, String colour, boolean visible, String identity) {
+public record Track(
+    long id,
+    String name,
+    String colour,
+    boolean visible,
+    String identity,
+    String kind,
+    String historyDate) {
+  public boolean isHistory() {
+    return "history".equals(kind);
+  }
+
+  public PlaybackSettings geometrySettings(PlaybackSettings settings) {
+    return isHistory() ? HistoryDay.GEOMETRY : settings;
+  }
+
   public String revision() {
     String state =
         id
@@ -23,7 +38,15 @@ public record Track(long id, String name, String colour, boolean visible, String
     return "\"" + ContentIdentity.original(state.getBytes(StandardCharsets.UTF_8)) + "\"";
   }
 
-  public record Imported(long trackId, long originalId, boolean duplicate) {}
+  public record Imported(long trackId, long originalId, String status) {
+    public Imported(long trackId, long originalId, boolean duplicate) {
+      this(trackId, originalId, duplicate ? "duplicate" : "imported");
+    }
+
+    public boolean duplicate() {
+      return "duplicate".equals(status);
+    }
+  }
 
   public record Overview(
       Track track,
@@ -31,8 +54,10 @@ public record Track(long id, String name, String colour, boolean visible, String
       int pointCount,
       int unknownDateCount,
       List<List<List<BigDecimal>>> geometry,
-      List<List<List<BigDecimal>>> gaps) {
+      List<List<List<BigDecimal>>> gaps,
+      List<String> placeNames) {
     public Overview {
+      placeNames = List.copyOf(placeNames);
       geometry = List.copyOf(TrackGeometry.copy(geometry));
       gaps = List.copyOf(TrackGeometry.copy(gaps));
     }
@@ -41,6 +66,7 @@ public record Track(long id, String name, String colour, boolean visible, String
   public static final class OverviewBuilder {
     private final Track track;
     private final Instant start;
+    private final List<String> placeNames;
     private final PlaybackSettings settings;
     private final List<List<List<BigDecimal>>> gaps = new ArrayList<>();
     private final List<List<List<BigDecimal>>> geometry = new ArrayList<>();
@@ -49,7 +75,9 @@ public record Track(long id, String name, String colour, boolean visible, String
     private int count;
     private int unknown;
 
-    public OverviewBuilder(Track track, Instant start, PlaybackSettings settings) {
+    public OverviewBuilder(
+        Track track, Instant start, PlaybackSettings settings, List<String> placeNames) {
+      this.placeNames = List.copyOf(placeNames);
       this.track = track;
       this.start = start;
       this.settings = settings;
@@ -82,7 +110,7 @@ public record Track(long id, String name, String colour, boolean visible, String
     }
 
     public Overview build() {
-      return new Overview(track, start, count, unknown, geometry, gaps);
+      return new Overview(track, start, count, unknown, geometry, gaps, placeNames);
     }
   }
 
@@ -95,8 +123,11 @@ public record Track(long id, String name, String colour, boolean visible, String
       List<Point> points,
       List<List<List<BigDecimal>>> geometry,
       List<List<List<BigDecimal>>> gaps,
-      List<Long> originalIds) {
+      List<Long> originalIds,
+      HistoryDay.FixCounts fixCounts,
+      List<PlaceVisit> placeVisits) {
     public Detail {
+      placeVisits = List.copyOf(placeVisits);
       points = List.copyOf(points);
       geometry = List.copyOf(TrackGeometry.copy(geometry));
       gaps = List.copyOf(TrackGeometry.copy(gaps));

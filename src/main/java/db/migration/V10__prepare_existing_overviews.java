@@ -69,7 +69,13 @@ public class V10__prepare_existing_overviews extends BaseJavaMigration {
       update.setString(1, start == null ? null : start.toString());
       update.setLong(2, trackId);
       update.executeUpdate();
-      for (OverviewRun run : OverviewRun.prepare(points, local, countries)) {
+      for (OverviewRun run :
+          OverviewRun.prepare(
+              points,
+              local,
+              countries,
+              OverviewRun.MIN_GAP_SECONDS,
+              OverviewRun.RECORDING_METRES)) {
         runInsert.setLong(1, trackId);
         runInsert.setInt(2, run.first());
         runInsert.setInt(3, run.last());

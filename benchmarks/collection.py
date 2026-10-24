@@ -36,56 +36,85 @@ def generate(directory, tracks, points):
     print(json.dumps(manifest))
 
 
+class ReadProbe:
+    """Reads the complete collection every five seconds while an import runs."""
+
+    def __init__(self, url):
+        self.url = url
+        self.stop = threading.Event()
+        self.reads = []
+        self.failures = []
+        self.worker = threading.Thread(target=self.probe)
+
+    def probe(self):
+        while not self.stop.is_set():
+            started = time.monotonic()
+            try:
+                with urllib.request.urlopen(self.url + '/api/tracks', timeout=60) as response:
+                    tracks = json.load(response)
+                self.reads.append({'seconds': time.monotonic() - started, 'tracks': len(tracks)})
+            except Exception as error:
+                self.failures.append(str(error))
+            self.stop.wait(5)
+
+    def __enter__(self):
+        self.worker.start()
+        return self
+
+    def __exit__(self, *ignored):
+        self.stop.set()
+        self.worker.join()
+
+
+def post(url, path, content_type, started, on_event):
+    boundary = 'geobook-benchmark'
+    body = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{path.name}"\r\n'
+            f'Content-Type: {content_type}\r\n\r\n').encode() + path.read_bytes() + f'\r\n--{boundary}--\r\n'.encode()
+    request = urllib.request.Request(url + '/api/imports', data=body,
+                headers={'Content-Type': f'multipart/form-data; boundary={boundary}'})
+    completed = False
+    with urllib.request.urlopen(request, timeout=3600) as response:
+        for line in response:
+            event = json.loads(line)
+            on_event(event)
+            print(json.dumps({'elapsed': time.monotonic() - started, 'file': path.name, **event}), flush=True)
+            if event['status'] == 'failed':
+                raise RuntimeError(event)
+            completed |= event['status'] == 'complete'
+    assert completed, f'Incomplete import: {path}'
+
+
+def upload(url, paths, content_type):
+    """Imports files in order and prints one final JSON line with timings and outcomes."""
+    events = []
+    started = time.monotonic()
+    first_progress = None
+    outcomes = {}
+
+    def record(event):
+        nonlocal first_progress
+        if first_progress is None:
+            first_progress = time.monotonic() - started
+        outcomes[event['status']] = outcomes.get(event['status'], 0) + 1
+        events.append(event)
+
+    with ReadProbe(url) as probe:
+        try:
+            for path in paths:
+                post(url, path, content_type, started, record)
+        finally:
+            print(json.dumps({'importSeconds': time.monotonic() - started, 'firstProgressSeconds': first_progress,
+                              'outcomes': outcomes, 'collectionReads': probe.reads,
+                              'readFailures': probe.failures}), flush=True)
+    assert not probe.failures, probe.failures
+    return events, outcomes
+
+
 def import_collection(directory, url):
     paths = sorted(directory.glob('collection-*.gpx'))
     assert paths, 'Generate the collection before importing it'
     manifest = json.loads((directory / 'manifest.json').read_text())
-    stop = threading.Event()
-    reads = []
-    failures = []
-
-    def probe():
-        while not stop.is_set():
-            started = time.monotonic()
-            try:
-                with urllib.request.urlopen(url + '/api/tracks', timeout=60) as response:
-                    tracks = json.load(response)
-                reads.append({'seconds': time.monotonic() - started, 'tracks': len(tracks)})
-            except Exception as error:
-                failures.append(str(error))
-            stop.wait(5)
-
-    worker = threading.Thread(target=probe)
-    worker.start()
-    started = time.monotonic()
-    outcomes = {}
-    first_progress = None
-    try:
-        for path in paths:
-            boundary = 'geobook-benchmark'
-            body = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{path.name}"\r\n'
-                    'Content-Type: application/gpx+xml\r\n\r\n').encode() + path.read_bytes() + f'\r\n--{boundary}--\r\n'.encode()
-            request = urllib.request.Request(url + '/api/imports', data=body,
-                        headers={'Content-Type': f'multipart/form-data; boundary={boundary}'})
-            completed = False
-            with urllib.request.urlopen(request, timeout=600) as response:
-                for line in response:
-                    event = json.loads(line)
-                    if first_progress is None:
-                        first_progress = time.monotonic() - started
-                    status = event['status']
-                    outcomes[status] = outcomes.get(status, 0) + 1
-                    print(json.dumps({'elapsed': time.monotonic() - started, 'file': path.name, **event}), flush=True)
-                    if status == 'failed':
-                        raise RuntimeError(event)
-                    completed |= status == 'complete'
-            assert completed, f'Incomplete import: {path}'
-    finally:
-        stop.set()
-        worker.join()
-        print(json.dumps({'importSeconds': time.monotonic() - started, 'firstProgressSeconds': first_progress,
-                          'outcomes': outcomes, 'collectionReads': reads, 'readFailures': failures}), flush=True)
-    assert not failures, failures
+    _, outcomes = upload(url, paths, 'application/gpx+xml')
     assert outcomes.get('imported', 0) + outcomes.get('duplicate', 0) == manifest['tracks'], outcomes
 
 

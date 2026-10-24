@@ -1,32 +1,46 @@
 import { useRef, useState } from 'react';
 import { request } from './api';
 import RemovalDialog from './RemovalDialog';
-import type { Controls, Overview } from './api';
+import type { Controls, HistoryDisplay, Overview } from './api';
 import { trackDateLabel } from './trackDateLabel';
+
+const historyDateFormat = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
 
 export default function TrackLibrary({
   tracks,
+  historyDisplay,
+  actions,
   filtered,
   selectedId,
   select,
-  onSaved,
-  onRemoved,
   loading,
   empty,
   uploading,
   chooseFile,
+  uploadLimitMb,
 }: {
   tracks: Overview[];
+  historyDisplay: HistoryDisplay | null;
+  actions: {
+    onSaved: (saved: Controls) => void;
+    onRemoved: () => void;
+    onDisplaySaved: (display: HistoryDisplay) => void;
+  };
   filtered: boolean;
   selectedId: number | null;
   select: (id: number) => void;
-  onSaved: (saved: Controls) => void;
-  onRemoved: () => void;
   loading: boolean;
   empty: boolean;
   uploading: boolean;
   chooseFile: () => void;
+  uploadLimitMb: number | undefined;
 }) {
+  const { onSaved, onRemoved, onDisplaySaved } = actions;
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [search, setSearch] = useState('');
   const searchInput = useRef<HTMLInputElement>(null);
@@ -41,9 +55,20 @@ export default function TrackLibrary({
     if (!controls.name.toLowerCase().includes(search.trim().toLowerCase()))
       searchInput.current?.focus();
   }
-  const matches = tracks.filter((track) =>
-    track.name.toLowerCase().includes(search.trim().toLowerCase()),
-  );
+  const query = search.trim().toLowerCase();
+  const matches = tracks.filter((track) => {
+    if (track.name.toLowerCase().includes(query)) return true;
+    const terms: string[] = [];
+    if (track.kind === 'history') {
+      terms.push(track.historyDate ?? '', ...(track.placeNames ?? []));
+      if (track.historyDate) {
+        terms.push(historyDateFormat.format(new Date(track.historyDate)));
+      }
+    }
+    return terms.some((term) => term.toLowerCase().includes(query));
+  });
+  const history = matches.filter((item) => item.kind === 'history');
+  const recordings = matches.filter((item) => item.kind !== 'history');
   return (
     <aside className={`library ${libraryOpen ? 'expanded' : ''}`} id="tracks" tabIndex={-1}>
       <div className="library-heading">
@@ -64,9 +89,13 @@ export default function TrackLibrary({
             Loading your tracks…
           </p>
         )}
-        {empty && (
-          <EmptyLibrary filtered={filtered} uploading={uploading} chooseFile={chooseFile} />
-        )}
+        <EmptyLibrary
+          empty={empty}
+          filtered={filtered}
+          uploading={uploading}
+          chooseFile={chooseFile}
+          uploadLimitMb={uploadLimitMb}
+        />
         <label className="library-search">
           Search tracks
           <input
@@ -82,7 +111,7 @@ export default function TrackLibrary({
           </p>
         )}
         <ul className="track-list">
-          {matches.map((track) => (
+          {recordings.map((track) => (
             <TrackRow
               key={track.id}
               track={track}
@@ -93,20 +122,152 @@ export default function TrackLibrary({
             />
           ))}
         </ul>
+        <HistoryLibrary
+          days={history}
+          display={historyDisplay}
+          selectedId={selectedId}
+          select={openRecording}
+          onDisplaySaved={onDisplaySaved}
+          onSaved={saved}
+          onRemoved={onRemoved}
+        />
       </div>
     </aside>
   );
 }
 
+function HistoryLibrary({
+  days,
+  display,
+  selectedId,
+  select,
+  onDisplaySaved,
+  onSaved,
+  onRemoved,
+}: {
+  days: Overview[];
+  display: HistoryDisplay | null;
+  selectedId: number | null;
+  select: (id: number) => void;
+  onDisplaySaved: (display: HistoryDisplay) => void;
+  onSaved: (saved: Controls) => void;
+  onRemoved: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  async function save(changes: { showHistory: boolean } | { year: number; visible: boolean }) {
+    setSaving(true);
+    setError('');
+    try {
+      onDisplaySaved(
+        await request<HistoryDisplay>('/api/history-display', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(changes),
+        }),
+      );
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : 'History display could not be saved. Try again.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+  if (!days.length) return null;
+  const groups = Map.groupBy(
+    [...days].sort((a, b) => (b.historyDate ?? '').localeCompare(a.historyDate ?? '')),
+    (day) => Number(day.historyDate?.slice(0, 4)),
+  );
+  const years = [...groups.keys()].sort((a, b) => b - a);
+  return (
+    <section className="history-library" aria-label="Google history">
+      <details open>
+        <summary className="history-heading">
+          <h3>Google history</h3>
+          <span className="inferred-badge">Inferred</span>
+        </summary>
+        <label className="history-gate">
+          <input
+            type="checkbox"
+            role="switch"
+            aria-label="Show Google history on map"
+            checked={display?.showHistory ?? false}
+            disabled={saving || !display}
+            onChange={(event) => void save({ showHistory: event.target.checked })}
+          />
+          Show on map
+        </label>
+        {years.map((year, index) => {
+          const yearDays = groups.get(year) ?? [];
+          return (
+            <div className="history-year" key={year}>
+              <div className="history-year-heading">
+                <label className="track-visibility">
+                  <input
+                    type="checkbox"
+                    aria-label={`Show ${year} history on map`}
+                    checked={display ? !display.hiddenYears.includes(year) : false}
+                    disabled={saving || !display}
+                    onChange={(event) => void save({ year, visible: event.target.checked })}
+                  />
+                </label>
+                <details
+                  open={index === 0 || yearDays.some((day) => day.id === selectedId)}
+                  aria-label={`${year} history days`}
+                >
+                  <summary>
+                    {year}{' '}
+                    <span>
+                      {yearDays.length} {yearDays.length === 1 ? 'day' : 'days'}
+                    </span>
+                  </summary>
+                  <ul className="track-list">
+                    {yearDays.map((day) => (
+                      <TrackRow
+                        key={day.id}
+                        track={day}
+                        selected={day.id === selectedId}
+                        select={() => select(day.id)}
+                        onSaved={onSaved}
+                        onRemoved={onRemoved}
+                      />
+                    ))}
+                  </ul>
+                </details>
+              </div>
+            </div>
+          );
+        })}
+        {saving && (
+          <p className="row-feedback" role="status">
+            Saving history display…
+          </p>
+        )}
+        {error && (
+          <p className="row-feedback error" role="alert">
+            {error}
+          </p>
+        )}
+      </details>
+    </section>
+  );
+}
+
 function EmptyLibrary({
+  empty,
   filtered,
   uploading,
   chooseFile,
+  uploadLimitMb,
 }: {
+  empty: boolean;
   filtered: boolean;
   uploading: boolean;
   chooseFile: () => void;
+  uploadLimitMb: number | undefined;
 }) {
+  if (!empty) return null;
   const emptyMessage = filtered
     ? {
         title: 'No recorded points in these dates',
@@ -116,20 +277,29 @@ function EmptyLibrary({
     : {
         title: 'Your travels start here',
         description:
-          'Upload a GPX recording to see it on your map. Your original export stays unchanged.',
+          'Upload a GPX recording or Google Takeout archive to see it on your map. Your original export stays unchanged.',
       };
   return (
     <div className="empty-state">
       <h3>{emptyMessage.title}</h3>
       <p>{emptyMessage.description}</p>
       <button className="primary" disabled={uploading} onClick={chooseFile}>
-        Choose a GPX file
+        Choose GPX or Takeout
       </button>
       <p className="hint">
-        Choose files or collection exports. Up to 32 MB per file and 250,000 points per track.
+        Choose files or collection exports.{' '}
+        {uploadLimitMb !== undefined && `Upload limit: ${uploadLimitMb} MB. `}
+        Up to 250,000 points per track.
       </p>
     </div>
   );
+}
+
+function historyDayName(day: Overview) {
+  if (!day.historyDate) return day.name;
+  const date = historyDateFormat.format(new Date(`${day.historyDate}T00:00:00Z`));
+  if (day.name.startsWith(`${date} · `)) return day.name.slice(date.length + 3);
+  return day.name === day.historyDate ? date : day.name;
 }
 
 function TrackRow({
@@ -141,12 +311,11 @@ function TrackRow({
 }: {
   track: Overview;
   selected: boolean;
-  select: () => void;
+  select?: () => void;
   onSaved: (saved: Controls) => void;
   onRemoved: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const date = trackDateLabel(track);
   const editButton = useRef<HTMLButtonElement>(null);
   function closeEditor() {
     setEditing(false);
@@ -185,13 +354,7 @@ function TrackRow({
             }}
           />
         </label>
-        <button className="track-row" aria-pressed={selected} onClick={select} title={track.name}>
-          <span className="swatch" style={{ backgroundColor: track.colour }} />
-          <span className="track-label">
-            <strong>{track.name}</strong>
-            {date && <span>{date}</span>}
-          </span>
-        </button>
+        <TrackLabel track={track} selected={selected} select={select} />
         <button
           ref={editButton}
           className="track-edit"
@@ -222,6 +385,38 @@ function TrackRow({
   );
 }
 
+function TrackLabel({
+  track,
+  selected,
+  select,
+}: {
+  track: Overview;
+  selected: boolean;
+  select: (() => void) | undefined;
+}) {
+  const history = track.kind === 'history';
+  const date = history ? track.historyDate : trackDateLabel(track);
+  const name = history ? historyDayName(track) : track.name;
+  const RowLabel = select ? 'button' : 'div';
+  return (
+    <RowLabel
+      className="track-row"
+      aria-pressed={select ? selected : undefined}
+      onClick={select}
+      title={track.name}
+    >
+      <span
+        className={history ? 'swatch history-swatch' : 'swatch'}
+        style={{ backgroundColor: track.colour }}
+      />
+      <span className="track-label">
+        <strong>{name}</strong>
+        {date && <span>{date}</span>}
+      </span>
+    </RowLabel>
+  );
+}
+
 function TrackDeletion({
   track,
   saving,
@@ -241,12 +436,12 @@ function TrackDeletion({
         disabled={saving}
         onClick={() => setDeleting(true)}
       >
-        Delete track
+        {track.kind === 'history' ? 'Delete history day' : 'Delete track'}
       </button>
       {deleting && (
         <RemovalDialog
           title={`Delete ${track.name}?`}
-          action="Delete track"
+          action={track.kind === 'history' ? 'Delete history day' : 'Delete track'}
           cancel={() => {
             setDeleting(false);
             deleteButton.current?.focus();
@@ -260,8 +455,8 @@ function TrackDeletion({
           onRemoved={onRemoved}
         >
           <p>
-            This track will leave your map and library. Original exports will be kept in the
-            archive.
+            This {track.kind === 'history' ? 'history day' : 'track'} will leave your map and
+            library. Original exports will be kept in the archive.
           </p>
         </RemovalDialog>
       )}
@@ -296,7 +491,7 @@ function TrackEditor({
       }}
     >
       <label>
-        Track name
+        {track.kind === 'history' ? 'History day name' : 'Track name'}
         <input
           value={name}
           required
@@ -306,7 +501,7 @@ function TrackEditor({
         />
       </label>
       <label className="colour-control">
-        Track colour
+        {track.kind === 'history' ? 'History day colour' : 'Track colour'}
         <input
           type="color"
           value={colour}

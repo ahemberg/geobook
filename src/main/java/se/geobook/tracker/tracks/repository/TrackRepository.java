@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,8 +13,11 @@ import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import se.geobook.tracker.tracks.domain.DateRange;
+import se.geobook.tracker.tracks.domain.HistoryDay;
+import se.geobook.tracker.tracks.domain.HistoryDisplay;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.OverviewRun;
+import se.geobook.tracker.tracks.domain.PlaceVisit;
 import se.geobook.tracker.tracks.domain.PlaybackSettings;
 import se.geobook.tracker.tracks.domain.PointCountry;
 import se.geobook.tracker.tracks.domain.PointLocalTime;
@@ -28,15 +32,48 @@ import se.geobook.tracker.tracks.domain.TrackUpdate;
 public class TrackRepository {
   private static final String COLOUR_COLUMN = "colour";
   private static final String OVERVIEW_SELECT =
-      "SELECT t.id, t.name, t.colour, t.visible, t.content_hash, t.start_time, r.first_ordinal,"
-          + " r.last_ordinal, r.local_date, r.break_before, r.seconds_before, p.latitude,"
-          + " p.longitude FROM overview_run r JOIN track t ON t.id = r.track_id JOIN overview_point"
-          + " p ON p.track_id = r.track_id AND p.run_ordinal = r.first_ordinal";
+      "SELECT t.id, t.name, t.colour, t.visible, t.content_hash, t.kind, t.history_date,"
+          + " t.start_time, r.first_ordinal, r.last_ordinal, r.local_date, r.break_before,"
+          + " r.seconds_before, p.latitude, p.longitude FROM track t LEFT JOIN overview_run r ON"
+          + " t.id = r.track_id LEFT JOIN overview_point p ON p.track_id = r.track_id AND"
+          + " p.run_ordinal = r.first_ordinal";
   private static final String OVERVIEW_ORDER = " ORDER BY t.id, r.first_ordinal, p.ordinal";
+  private static final String COUNTRY_FILTER = " WHERE (? IS NULL OR r.country_code = ?)";
+  private static final String RANGE_FILTER =
+      COUNTRY_FILTER + " AND COALESCE(r.local_date, t.history_date) BETWEEN ? AND ?";
+  private static final String PLACE_NAMES =
+      "SELECT track_id, name FROM place_visit WHERE track_id IN (SELECT t.id FROM track t LEFT"
+          + " JOIN overview_run r ON t.id = r.track_id";
+  private static final String PLACE_NAMES_ORDER = ") ORDER BY track_id, ordinal";
   private final JdbcTemplate jdbc;
 
   TrackRepository(JdbcTemplate jdbc) {
     this.jdbc = jdbc;
+  }
+
+  public HistoryDisplay historyDisplay() {
+    boolean show =
+        Boolean.TRUE.equals(
+            jdbc.queryForObject(
+                "SELECT show_history FROM history_display WHERE singleton = 1", Boolean.class));
+    return new HistoryDisplay(
+        show,
+        jdbc.queryForList(
+            "SELECT year FROM history_hidden_year ORDER BY year DESC", Integer.class));
+  }
+
+  public HistoryDisplay showHistory(boolean show) {
+    jdbc.update("UPDATE history_display SET show_history = ? WHERE singleton = 1", show);
+    return historyDisplay();
+  }
+
+  public HistoryDisplay showHistoryYear(int year, boolean show) {
+    if (show) {
+      jdbc.update("DELETE FROM history_hidden_year WHERE year = ?", year);
+    } else {
+      jdbc.update("INSERT OR IGNORE INTO history_hidden_year VALUES (?)", year);
+    }
+    return historyDisplay();
   }
 
   public PlaybackSettings playbackSettings() {
@@ -74,7 +111,10 @@ public class TrackRepository {
   public Optional<Long> findByIdentity(String identity) {
     return jdbc
         .queryForList(
-            "SELECT id FROM track WHERE content_hash = ? ORDER BY id LIMIT 1", Long.class, identity)
+            "SELECT id FROM track WHERE content_hash = ? AND kind = 'recording' ORDER BY id LIMIT"
+                + " 1",
+            Long.class,
+            identity)
         .stream()
         .findFirst();
   }
@@ -85,7 +125,7 @@ public class TrackRepository {
 
   public List<Track.Neighbour> neighbours() {
     return jdbc.query(
-        "SELECT colour, south, north, west, east FROM track",
+        "SELECT colour, south, north, west, east FROM track WHERE kind = 'recording'",
         (row, index) ->
             new Track.Neighbour(
                 row.getString(COLOUR_COLUMN),
@@ -97,25 +137,76 @@ public class TrackRepository {
   }
 
   public long count() {
-    return Objects.requireNonNull(jdbc.queryForObject("SELECT count(*) FROM track", Long.class));
+    return Objects.requireNonNull(
+        jdbc.queryForObject("SELECT count(*) FROM track WHERE kind = 'recording'", Long.class));
+  }
+
+  public Optional<Long> findHistoryDate(String date) {
+    return jdbc
+        .queryForList(
+            "SELECT id FROM track WHERE kind = 'history' AND history_date = ?", Long.class, date)
+        .stream()
+        .findFirst();
   }
 
   public long insert(long originalId, Track.Prepared prepared, String colour) {
+    return insert(originalId, prepared, colour, null);
+  }
+
+  public long insert(
+      long originalId, Track.Prepared prepared, String colour, HistoryDay historyDay) {
     Recording recording = prepared.recording();
     TrackColours.Bounds bounds = prepared.bounds();
     jdbc.update(
-        "INSERT INTO track(name, colour, south, north, west, east, content_hash) VALUES (?,"
-            + " ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO track(name, colour, south, north, west, east, content_hash, kind,"
+            + " history_date, kept_fix_count, dropped_fix_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,"
+            + " ?, ?)",
         recording.name(),
         colour,
         bounds.south(),
         bounds.north(),
         bounds.west(),
         bounds.east(),
-        prepared.identity());
+        prepared.identity(),
+        historyDay == null ? "recording" : "history",
+        historyDay == null ? null : historyDay.date(),
+        historyDay == null ? null : historyDay.keptFixCount(),
+        historyDay == null ? null : historyDay.droppedFixCount());
     long trackId =
         Objects.requireNonNull(jdbc.queryForObject("SELECT last_insert_rowid()", Long.class));
     jdbc.update("INSERT INTO track_original VALUES (?, ?)", trackId, originalId);
+    insertContent(trackId, prepared);
+    return trackId;
+  }
+
+  // A name still equal to the previous default was never chosen by the owner.
+  public void replaceHistory(long trackId, Track.Prepared prepared, HistoryDay day) {
+    TrackColours.Bounds bounds = prepared.bounds();
+    String previousDefault = new HistoryDay(day.date(), List.of(), 0, placeVisits(trackId)).name();
+    jdbc.update(
+        "UPDATE track SET name = CASE WHEN name = ? THEN ? ELSE name END, content_hash = ?,"
+            + " south = ?, north = ?, west = ?, east = ?, kept_fix_count = ?,"
+            + " dropped_fix_count = ? WHERE id = ? AND kind = 'history'",
+        previousDefault,
+        day.name(),
+        prepared.identity(),
+        bounds.south(),
+        bounds.north(),
+        bounds.west(),
+        bounds.east(),
+        day.keptFixCount(),
+        day.droppedFixCount(),
+        trackId);
+    jdbc.update("DELETE FROM overview_run WHERE track_id = ?", trackId);
+    jdbc.update("DELETE FROM track_point WHERE track_id = ?", trackId);
+    jdbc.update("DELETE FROM track_segment WHERE track_id = ?", trackId);
+    jdbc.update("DELETE FROM place_visit WHERE track_id = ?", trackId);
+    insertContent(trackId, prepared);
+    insertPlaceVisits(trackId, day.placeVisits());
+  }
+
+  private void insertContent(long trackId, Track.Prepared prepared) {
+    Recording recording = prepared.recording();
     for (int i = 0; i < recording.segmentCount(); i++) {
       jdbc.update("INSERT INTO track_segment VALUES (?, ?)", trackId, i);
     }
@@ -152,7 +243,6 @@ public class TrackRepository {
         });
 
     insertOverview(trackId, prepared);
-    return trackId;
   }
 
   // Each run needs its own batch bindings.
@@ -207,12 +297,11 @@ public class TrackRepository {
         range.from() == null
             ? new Object[] {country, country}
             : new Object[] {country, country, range.from(), range.through()};
+    Map<Long, List<String>> names = placeNames(range, arguments);
     return jdbc.query(
         range.from() == null
-            ? OVERVIEW_SELECT + " WHERE (? IS NULL OR r.country_code = ?)" + OVERVIEW_ORDER
-            : OVERVIEW_SELECT
-                + " WHERE (? IS NULL OR r.country_code = ?) AND r.local_date BETWEEN ? AND ?"
-                + OVERVIEW_ORDER,
+            ? OVERVIEW_SELECT + COUNTRY_FILTER + OVERVIEW_ORDER
+            : OVERVIEW_SELECT + RANGE_FILTER + OVERVIEW_ORDER,
         rows -> {
           Map<Long, Track.OverviewBuilder> tracks = new LinkedHashMap<>();
           while (rows.next()) {
@@ -225,8 +314,12 @@ public class TrackRepository {
                       rows.getString("start_time") == null
                           ? null
                           : Instant.parse(rows.getString("start_time")),
-                      settings);
+                      track(rows).geometrySettings(settings),
+                      names.getOrDefault(trackId, List.of()));
               tracks.put(trackId, builder);
+            }
+            if (rows.getObject("first_ordinal") == null) {
+              continue;
             }
             builder.add(
                 rows.getInt("first_ordinal"),
@@ -246,7 +339,8 @@ public class TrackRepository {
   public Optional<Track> find(long id) {
     return jdbc
         .query(
-            "SELECT id, name, colour, visible, content_hash FROM track WHERE id = ?",
+            "SELECT id, name, colour, visible, content_hash, kind, history_date FROM track WHERE id"
+                + " = ?",
             (row, index) -> track(row),
             id)
         .stream()
@@ -259,7 +353,78 @@ public class TrackRepository {
         row.getString("name"),
         row.getString(COLOUR_COLUMN),
         row.getBoolean("visible"),
-        row.getString("content_hash"));
+        row.getString("content_hash"),
+        row.getString("kind"),
+        row.getString("history_date"));
+  }
+
+  public HistoryDay.FixCounts fixCounts(long id) {
+    return jdbc.queryForObject(
+        "SELECT kept_fix_count, dropped_fix_count FROM track WHERE id = ?",
+        (row, index) -> new HistoryDay.FixCounts(row.getInt(1), row.getInt(2)),
+        id);
+  }
+
+  public void insertPlaceVisits(long trackId, List<PlaceVisit> visits) {
+    jdbc.batchUpdate(
+        "INSERT INTO place_visit(track_id, ordinal, name, latitude, longitude, start_time,"
+            + " end_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
+          @Override
+          public void setValues(java.sql.PreparedStatement statement, int index)
+              throws SQLException {
+            PlaceVisit visit = visits.get(index);
+            statement.setLong(1, trackId);
+            statement.setInt(2, index);
+            statement.setString(3, visit.name());
+            statement.setString(4, visit.latitude().toString());
+            statement.setString(5, visit.longitude().toString());
+            statement.setString(6, visit.startTime().toString());
+            statement.setString(7, visit.endTime().toString());
+          }
+
+          @Override
+          public int getBatchSize() {
+            return visits.size();
+          }
+        });
+    if (!visits.isEmpty()) {
+      Instant arrival = visits.getFirst().startTime();
+      String start =
+          jdbc.queryForObject("SELECT start_time FROM track WHERE id = ?", String.class, trackId);
+      if (start == null || arrival.isBefore(Instant.parse(start))) {
+        jdbc.update("UPDATE track SET start_time = ? WHERE id = ?", arrival.toString(), trackId);
+      }
+    }
+  }
+
+  public List<PlaceVisit> placeVisits(long trackId) {
+    return jdbc.query(
+        "SELECT name, latitude, longitude, start_time, end_time FROM place_visit WHERE track_id = ?"
+            + " ORDER BY ordinal",
+        (row, index) ->
+            new PlaceVisit(
+                row.getString("name"),
+                new BigDecimal(row.getString("latitude")),
+                new BigDecimal(row.getString("longitude")),
+                Instant.parse(row.getString("start_time")),
+                Instant.parse(row.getString("end_time"))),
+        trackId);
+  }
+
+  private Map<Long, List<String>> placeNames(DateRange range, Object... arguments) {
+    Map<Long, List<String>> names = new LinkedHashMap<>();
+    jdbc.query(
+        range.from() == null
+            ? PLACE_NAMES + COUNTRY_FILTER + PLACE_NAMES_ORDER
+            : PLACE_NAMES + RANGE_FILTER + PLACE_NAMES_ORDER,
+        (org.springframework.jdbc.core.RowCallbackHandler)
+            row ->
+                names
+                    .computeIfAbsent(row.getLong("track_id"), ignored -> new ArrayList<>())
+                    .add(row.getString("name")),
+        arguments);
+    return names;
   }
 
   public int segmentCount(long id) {
@@ -358,7 +523,8 @@ public class TrackRepository {
   public List<Integer> years() {
     return jdbc.queryForList(
         "SELECT DISTINCT CAST(substr(local_date, 1, 4) AS INTEGER) FROM overview_run WHERE"
-            + " local_date IS NOT NULL ORDER BY 1 DESC",
+            + " local_date IS NOT NULL UNION SELECT DISTINCT CAST(substr(history_date, 1, 4) AS"
+            + " INTEGER) FROM track WHERE history_date IS NOT NULL ORDER BY 1 DESC",
         Integer.class);
   }
 

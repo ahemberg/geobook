@@ -1,7 +1,8 @@
 import { useState } from 'react';
 
 type ImportEvent = {
-  status: 'progress' | 'imported' | 'duplicate' | 'failed' | 'complete';
+  kind?: 'recording' | 'history';
+  status: 'progress' | 'imported' | 'updated' | 'unchanged' | 'duplicate' | 'failed' | 'complete';
   completed: number;
   total: number;
   name: string;
@@ -9,34 +10,47 @@ type ImportEvent = {
   originalId: number | null;
   warnings: string[];
   message: string | null;
+  summary?: HistorySummary | null;
 };
+type HistorySummary = { created: number; updated: number; unchanged: number };
 type Result = ImportEvent & { filename: string };
 
-export function useUpload(onImported: (trackIds: number[]) => void) {
+export function useUpload(
+  onImported: (trackIds: number[], recordingId: number | null) => void,
+  uploadLimitMb?: number,
+) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState('');
   const [results, setResults] = useState<Result[]>([]);
   const [finished, setFinished] = useState(false);
+  const [historySummary, setHistorySummary] = useState<HistorySummary | null>(null);
 
   async function upload(files: File[]) {
     if (!files.length) return;
     setResults([]);
+    setHistorySummary(null);
     setFinished(false);
     setUploading(true);
     const imported: number[] = [];
+    let recordingId: number | null = null;
     for (const [index, file] of files.entries()) {
       const label = `File ${index + 1} of ${files.length}: ${file.name}`;
-      setProgress(`${label}. Uploading and reading GPX…`);
+      setProgress(`${label}. Uploading and reading export…`);
       try {
-        if (file.size > 32 * 1024 * 1024)
-          throw new Error('Choose a GPX file no larger than 32 MB.');
+        if (uploadLimitMb !== undefined && file.size > uploadLimitMb * 1024 * 1024)
+          throw new Error(`Upload exceeds the ${uploadLimitMb} MB limit. Choose a smaller file.`);
         await importFile(file, (event) => {
-          setProgress(`${label}. ${event.completed} of ${event.total} tracks processed.`);
+          setProgress(`${label}. ${event.completed} of ${event.total} items processed.`);
+          setHistorySummary((previous) => addSummary(previous, event));
           if (event.status === 'progress' || event.status === 'complete') return;
           setResults((previous) => [...previous, { ...event, filename: file.name }]);
-          if (event.status === 'imported' && event.trackId !== null) {
+          if (
+            (event.status === 'imported' || event.status === 'updated') &&
+            event.trackId !== null
+          ) {
             imported.push(event.trackId);
-            onImported([...imported]);
+            recordingId = imported.length === 1 && event.kind !== 'history' ? event.trackId : null;
+            onImported([...imported], recordingId);
           }
         });
       } catch (error) {
@@ -56,11 +70,20 @@ export function useUpload(onImported: (trackIds: number[]) => void) {
         ]);
       }
     }
-    if (imported.length > 0) onImported(imported);
+    if (imported.length > 0) onImported(imported, recordingId);
     setUploading(false);
     setFinished(true);
   }
-  return { upload, uploading, progress, results, finished };
+  return { upload, uploading, progress, results, finished, historySummary };
+}
+
+function addSummary(previous: HistorySummary | null, event: ImportEvent) {
+  if (event.status !== 'complete' || !event.summary) return previous;
+  return {
+    created: (previous?.created ?? 0) + event.summary.created,
+    updated: (previous?.updated ?? 0) + event.summary.updated,
+    unchanged: (previous?.unchanged ?? 0) + event.summary.unchanged,
+  };
 }
 
 async function importFile(file: File, onEvent: (event: ImportEvent) => void) {
@@ -111,15 +134,22 @@ export function UploadFeedback({
   progress,
   results,
   finished,
+  historySummary,
 }: {
   uploading: boolean;
   progress: string;
   results: Result[];
   finished: boolean;
+  historySummary: HistorySummary | null;
 }) {
   if (!uploading && !finished) return null;
-  const imported = results.filter((result) => result.status === 'imported').length;
-  const duplicates = results.filter((result) => result.status === 'duplicate').length;
+  const recordings = results.filter((result) => result.kind !== 'history');
+  const imported = recordings.filter((result) => result.status === 'imported').length;
+  const summary = historySummary
+    ? `Google history: ${historySummary.created} created · ${historySummary.updated} updated · ${historySummary.unchanged} unchanged${imported ? ` · ${imported} recordings imported` : ''}`
+    : `${imported} imported`;
+  // The history summary already counts duplicate days as unchanged.
+  const duplicates = recordings.filter((result) => result.status === 'duplicate').length;
   const failures = results.filter((result) => result.status === 'failed').length;
   const warnings = results.filter((result) => result.warnings.length > 0).length;
   const originals = new Map(
@@ -132,7 +162,7 @@ export function UploadFeedback({
       <div className="notice" role="status">
         {uploading
           ? progress
-          : `${imported} imported · ${duplicates} duplicate · ${failures} failed · ${warnings} with warnings`}
+          : `${summary} · ${duplicates} duplicate · ${failures} failed · ${warnings} with warnings`}
       </div>
       {results.length > 0 && (
         <details className="import-details" open={failures > 0}>
@@ -154,10 +184,16 @@ export function UploadFeedback({
                   >
                     {result.filename} · {result.name}:{' '}
                     {result.status === 'imported'
-                      ? 'Imported'
-                      : result.status === 'duplicate'
-                        ? 'Duplicate'
-                        : 'Failed'}
+                      ? result.kind === 'history'
+                        ? 'Created'
+                        : 'Imported'
+                      : result.status === 'updated'
+                        ? 'Updated'
+                        : result.status === 'unchanged'
+                          ? 'Unchanged'
+                          : result.status === 'duplicate'
+                            ? 'Duplicate'
+                            : 'Failed'}
                     {result.message && `. ${result.message}`}
                   </p>
                   {result.warnings.map((warning) => (

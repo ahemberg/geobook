@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { request } from './api';
-import type { Controls, Country, DateRange, MapConfig, Overview, PlaybackSettings } from './api';
+import type {
+  Controls,
+  Country,
+  DateRange,
+  HistoryDisplay,
+  MapConfig,
+  Overview,
+  PlaybackSettings,
+} from './api';
 import RecordingWorkspace from './RecordingWorkspace';
 import GapSettings from './GapSettings';
 import DateFilter from './DateFilter';
@@ -25,6 +33,7 @@ export default function App() {
     tracks,
     years,
     config,
+    uploadLimitMb,
     loading,
     loadError,
     empty,
@@ -32,6 +41,8 @@ export default function App() {
     onSaved,
     settings,
     setSettings,
+    historyDisplay,
+    setHistoryDisplay,
   } = useOverview(range, reload + settingsReload, country);
 
   function removed() {
@@ -57,15 +68,15 @@ export default function App() {
     setSelectedId(id);
   }
 
-  const uploadState = useUpload((trackIds) => {
+  const uploadState = useUpload((trackIds, recordingId) => {
     setCountry(null);
     setView('map');
     setRange(null);
     clear();
     setImportedIds(trackIds);
-    setSelectedId(trackIds.length === 1 ? (trackIds[0] ?? null) : null);
+    setSelectedId(recordingId);
     setReload((value) => value + 1);
-  });
+  }, uploadLimitMb);
   const { uploading } = uploadState;
   function explore(next: Country | null) {
     setCountry(next);
@@ -83,7 +94,11 @@ export default function App() {
         <OriginalArchive reload={reload} onRemoved={removed} />
       ) : (
         <>
-          <TravelScope country={country} count={tracks.length} clearCountry={() => explore(null)}>
+          <TravelScope
+            country={country}
+            count={tracks.filter((item) => item.kind !== 'history').length}
+            clearCountry={() => explore(null)}
+          >
             <DateFilter range={range} years={years} apply={filter} />
             {settings && (
               <GapSettings
@@ -115,19 +130,21 @@ export default function App() {
           <main className="workspace" hidden={view !== 'map'}>
             <TrackLibrary
               tracks={tracks}
+              historyDisplay={historyDisplay}
               filtered={range !== null || country !== null}
-              onSaved={onSaved}
-              onRemoved={removed}
+              actions={{ onSaved, onRemoved: removed, onDisplaySaved: setHistoryDisplay }}
               selectedId={selectedId}
               select={select}
               loading={loading}
               empty={empty}
               uploading={uploading}
               chooseFile={() => fileInput.current?.click()}
+              uploadLimitMb={uploadLimitMb}
             />
             <RecordingWorkspace
               tracks={tracks}
               config={config}
+              historyDisplay={historyDisplay}
               selectedId={selectedId}
               importedIds={importedIds}
               country={country}
@@ -208,15 +225,16 @@ function AppHeader({
           disabled={uploading}
           onClick={() => fileInput.current?.click()}
         >
-          {uploading ? 'Importing GPX…' : 'Upload GPX'}
+          {uploading ? 'Importing…' : 'Upload GPX / Takeout'}
         </button>
         <input
           ref={fileInput}
           className="file-input"
           type="file"
           multiple
-          accept=".gpx,application/gpx+xml,application/xml,text/xml"
-          aria-label="Choose GPX file"
+          accept=".gpx,.zip,.tgz,.tar.gz,application/gpx+xml,application/xml,text/xml,application/zip,application/gzip"
+          aria-label="Choose GPX or Takeout"
+          title="GPX files or Google Takeout ZIP or TGZ archives"
           disabled={uploading}
           onChange={(event) => {
             void upload(Array.from(event.target.files ?? []));
@@ -229,6 +247,7 @@ function AppHeader({
 }
 
 function useOverview(range: DateRange, reload: number, country: Country | null) {
+  const [historyDisplay, setHistoryDisplay] = useState<HistoryDisplay | null>(null);
   const [settings, setSettings] = useState<PlaybackSettings | null>(null);
   const [tracks, setTracks] = useState<Overview[]>([]);
   const [config, setConfig] = useState<MapConfig | null>(null);
@@ -254,13 +273,15 @@ function useOverview(range: DateRange, reload: number, country: Country | null) 
       request<number[]>('/api/tracks/years', { signal: controller.signal }),
       request<MapConfig>('/api/map-config', { signal: controller.signal }),
       request<PlaybackSettings>('/api/playback-settings', { signal: controller.signal }),
+      request<HistoryDisplay>('/api/history-display', { signal: controller.signal }),
     ])
-      .then(([saved, savedYears, mapConfig, playbackSettings]) => {
+      .then(([saved, savedYears, mapConfig, playbackSettings, display]) => {
         if (controller.signal.aborted) return;
         setTracks(saved.map((track) => ({ ...track, ...savedControls.current.get(track.id) })));
         setYears(savedYears);
         setConfig(mapConfig);
         setSettings(playbackSettings);
+        setHistoryDisplay(display);
         setLoadError('');
         setLoading(false);
       })
@@ -277,9 +298,12 @@ function useOverview(range: DateRange, reload: number, country: Country | null) 
     tracks,
     settings,
     setSettings,
+    historyDisplay,
+    setHistoryDisplay,
     onSaved,
     years,
     config,
+    uploadLimitMb: config?.uploadLimitMb,
     loading,
     loadError,
     empty: !loading && !loadError && tracks.length === 0,

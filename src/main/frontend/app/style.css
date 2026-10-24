@@ -747,6 +747,10 @@ select {
   text-align: left;
   overflow-wrap: anywhere;
 }
+.evidence-link .inferred-badge {
+  display: inline-block;
+  margin-left: 0.375rem;
+}
 .visit-limitation {
   background: #fff7e3;
   color: #614511;
@@ -1065,5 +1069,124 @@ select {
   .archive-list > li {
     flex-direction: column;
     gap: 16px;
+  }
+}
+
+.history-library {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+.history-heading {
+  min-height: 44px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.history-heading h3 {
+  display: inline;
+  margin: 0 8px 0 0;
+  font-size: 18px;
+}
+.history-gate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  cursor: pointer;
+}
+.history-year-heading {
+  position: relative;
+  border-top: 1px solid var(--line);
+}
+.history-year-heading > .track-visibility {
+  position: absolute;
+  inset: 0 auto auto 0;
+}
+.history-year-heading summary {
+  min-height: 44px;
+  padding: 10px 16px 10px 44px;
+  cursor: pointer;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.history-year-heading summary span {
+  float: right;
+  font-weight: 400;
+  color: var(--muted);
+}
+.history-heading:hover,
+.history-year-heading summary:hover {
+  background: var(--selection);
+}
+.history-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+  background-image: repeating-linear-gradient(135deg, transparent 0 2px, #fff 2px 3px);
+}
+.track-item div.track-row:hover {
+  background: transparent;
+}
+.inferred-badge {
+  color: #435c64;
+  background: #edf2f4;
+  font-size: 0.875rem;
+  padding: 0.125rem 0.375rem;
+}
+
+.library-content:has(.history-library) {
+  overflow-y: auto;
+}
+.library-content:has(.history-library) > .track-list,
+.history-library .track-list {
+  flex: none;
+  overflow: visible;
+}
+
+.history-detail .recording-heading h2 .inferred-badge {
+  margin-left: 4px;
+  font-weight: 400;
+  vertical-align: 2px;
+}
+.history-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding-block: 6px;
+  color: var(--muted);
+}
+.history-span {
+  color: #20312d;
+  font-weight: 600;
+}
+.history-visits {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.history-visits button {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-height: 44px;
+  padding: 6px 12px;
+  text-align: left;
+}
+.visit-time {
+  color: var(--muted);
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .history-visits {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  .history-visits button {
+    white-space: nowrap;
   }
 }
