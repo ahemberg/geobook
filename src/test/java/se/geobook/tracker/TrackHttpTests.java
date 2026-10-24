@@ -941,6 +941,35 @@ class TrackHttpTests {
     }
   }
 
+  @Test
+  void namedVisitWithoutPositionIsSkippedWithWarning() throws IOException, InterruptedException {
+    String semantic =
+        """
+        {"timelineObjects":[
+          {"placeVisit":{"location":{"name":"Synthetic station","latitudeE7":593200000,"longitudeE7":180700000},"duration":{"startTimestamp":"2017-01-24T10:00:00Z","endTimestamp":"2017-01-24T11:00:00Z"}}},
+          {"placeVisit":{"location":{"name":"Norrmalm","locationConfidence":100.0},"duration":{"startTimestamp":"2017-01-24T12:18:31Z","endTimestamp":"2017-01-24T12:35:12.397Z"}}}
+        ]}
+        """;
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      String events =
+          new String(
+              upload(client, base(app), takeout(semantic, false), "/api/imports").body(),
+              StandardCharsets.UTF_8);
+      assertThat(events)
+          .contains("\"status\":\"imported\"")
+          .contains(
+              "1 place visits have no position or duration and remain only in the original"
+                  + " export.")
+          .doesNotContain("\"status\":\"failed\"");
+      JsonNode visits = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
+      assertThat(visits.get("placeVisits").size()).isEqualTo(1);
+      assertThat(visits.get("placeVisits").get(0).get("name").asText())
+          .isEqualTo("Synthetic station");
+    }
+  }
+
   // Rejected uploads must leave the public collection unchanged.
   @Test
   void rejectedUploadDoesNotCreateTrackOrOriginal() throws IOException, InterruptedException {
