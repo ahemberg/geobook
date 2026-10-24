@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
 import { UploadFeedback, useUpload } from './Upload';
 
-test('history re-import reports every outcome and refreshes updated days without playback', async () => {
+test('history re-import reports every outcome and refreshes once without playback', async () => {
   const events = ['updated', 'unchanged', 'imported', 'duplicate'].map((status, index) => ({
     status,
     kind: 'history',
@@ -20,7 +20,7 @@ test('history re-import reports every outcome and refreshes updated days without
     kind: 'history',
     completed: 4,
     total: 4,
-    warnings: [],
+    warnings: ['2 fixes or place visits have unresolved local dates.'],
     summary: { created: 1, updated: 1, unchanged: 2 },
   };
   const response = [...events, complete].map((event) => JSON.stringify(event) + '\n').join('');
@@ -28,13 +28,16 @@ test('history re-import reports every outcome and refreshes updated days without
   const onImported = vi.fn();
   const { result } = renderHook(() => useUpload(onImported));
   await act(() => result.current.upload([new File(['synthetic'], 'newer.tgz')]));
-  expect(onImported).toHaveBeenCalledWith([7], null);
-  expect(onImported).toHaveBeenLastCalledWith([7, 9], null);
+  expect(onImported).toHaveBeenCalledOnce();
+  expect(onImported).toHaveBeenCalledWith([7, 9], null);
   render(<UploadFeedback {...result.current} />);
   expect(screen.getByRole('status')).toHaveTextContent(
-    'Google history: 1 created · 1 updated · 2 unchanged · 0 duplicate · 0 failed',
+    'Google history: 1 created · 1 updated · 2 unchanged · 0 duplicate · 0 failed · 1 with warnings',
   );
   await userEvent.setup().click(screen.getByText('Review import results'));
+  expect(
+    screen.getAllByText('Warning: newer.tgz: 2 fixes or place visits have unresolved local dates.'),
+  ).toHaveLength(1);
   expect(screen.getByText('newer.tgz · 2014-06-18: Updated')).toBeVisible();
   expect(screen.getByText('newer.tgz · 2014-06-19: Unchanged')).toBeVisible();
   expect(screen.getByText('newer.tgz · 2014-06-20: Created')).toBeVisible();

@@ -142,13 +142,32 @@ class HistoryDayTests {
     LocationFix stockholmBefore = timedFix(59.32, 18.07, midnight.minusSeconds(60), "old");
     LocationFix stockholmAfter = timedFix(59.32, 18.07, midnight, "new");
     LocationFix newYork = timedFix(40.7128, -74.006, midnight.plusSeconds(60), "old");
-    LocationFix unresolved = timedFix(0, 0, midnight, "ocean");
-    List<HistoryDay> days =
-        HistoryDay.split(List.of(newYork, stockholmAfter, unresolved, stockholmBefore));
+    List<HistoryDay> days = HistoryDay.split(List.of(newYork, stockholmAfter, stockholmBefore));
     assertThat(days).extracting(HistoryDay::date).containsExactly("2014-06-18", "2014-06-19");
     assertThat(days.getFirst().fixes()).containsExactly(stockholmBefore, newYork);
     assertThat(days.getLast().fixes()).containsExactly(stockholmAfter);
     assertThat(days).allMatch(day -> day.droppedFixCount() == 0);
+  }
+
+  @Test
+  void fixesAtSeaTakeTheLocalDateOfTheNearestFixInTime() {
+    LocationFix nynashamn = timedFix(58.90, 17.95, Instant.parse("2014-06-18T21:50:00Z"), null);
+    LocationFix ferry = timedFix(58.20, 18.15, Instant.parse("2014-06-18T22:10:00Z"), null);
+    LocationFix visby = timedFix(57.64, 18.29, Instant.parse("2014-06-19T01:00:00Z"), null);
+    List<HistoryDay> days = HistoryDay.split(List.of(visby, ferry, nynashamn));
+    assertThat(days).extracting(HistoryDay::date).containsExactly("2014-06-18", "2014-06-19");
+    assertThat(days.getLast().fixes()).containsExactly(ferry, visby);
+    assertThat(HistoryDay.split(List.of(ferry))).isEmpty();
+  }
+
+  @Test
+  void dropsFixesAtNullIsland() {
+    LocationFix first = fix(18.07, 0, 10, null);
+    LocationFix second = fix(18.071, 60, 10, null);
+    HistoryDay day =
+        day(first, second, timedFix(0, 0, Instant.parse("2014-06-18T10:02:00Z"), null));
+    assertThat(day.fixes()).containsExactly(first, second);
+    assertThat(day.droppedFixCount()).isEqualTo(1);
   }
 
   private static HistoryDay day(LocationFix... fixes) {
@@ -167,7 +186,9 @@ class HistoryDayTests {
   }
 
   private static LocationFix equatorFix(double longitude, int seconds) {
-    return timedFix(0, longitude, Instant.parse("2014-06-18T10:00:00Z").plusSeconds(seconds), null);
+    // Off 0°, 0°, which history cleaning treats as a missing position.
+    return timedFix(
+        0, 10 + longitude, Instant.parse("2014-06-18T10:00:00Z").plusSeconds(seconds), null);
   }
 
   private static LocationFix timedFix(

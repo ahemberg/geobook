@@ -63,11 +63,40 @@ final class TakeoutReader {
           "The archive contains no usable Google location history. Choose a Takeout ZIP or TGZ"
               + " containing location records or named place visits.");
     }
-    return new History(fixes, visits.kept(), visits.skipped().size());
+    List<PlaceVisit> placed =
+        visits.unplaced().stream()
+            .map(visit -> visit.placeAt(fixes))
+            .filter(java.util.Objects::nonNull)
+            .toList();
+    List<PlaceVisit> kept = new ArrayList<>(visits.kept());
+    kept.addAll(placed);
+    return new History(fixes, kept, visits.unplaced().size() - placed.size());
   }
 
-  /** Named visits without a position or duration stay only in the original export. */
-  private record Visits(List<PlaceVisit> kept, List<String> skipped) {}
+  private record Visits(List<PlaceVisit> kept, List<Unplaced> unplaced) {}
+
+  /** A named visit without coordinates, as left by some Timeline edits, or without a duration. */
+  private record Unplaced(String name, Instant start, Instant end) {
+    private static final java.time.Duration MARGIN = java.time.Duration.ofMinutes(15);
+
+    // The phone's own fix closest to the middle of the stay stands in for the place.
+    PlaceVisit placeAt(List<LocationFix> fixes) {
+      if (start == null) {
+        return null;
+      }
+      Instant middle = start.plus(java.time.Duration.between(start, end).dividedBy(2));
+      return fixes.stream()
+          .filter(fix -> !fix.point().time().isBefore(start.minus(MARGIN)))
+          .filter(fix -> !fix.point().time().isAfter(end.plus(MARGIN)))
+          .min(
+              java.util.Comparator.comparing(
+                  fix -> java.time.Duration.between(fix.point().time(), middle).abs()))
+          .map(
+              fix ->
+                  new PlaceVisit(name, fix.point().latitude(), fix.point().longitude(), start, end))
+          .orElse(null);
+    }
+  }
 
   private static void readZip(InputStream input, List<LocationFix> fixes, Visits visits)
       throws IOException {
@@ -161,8 +190,12 @@ final class TakeoutReader {
         if (name() == null || name().isBlank()) {
           return;
         }
-        if (latitude() == null || longitude() == null || times == null || !times.valid()) {
-          visits.skipped().add(name.strip());
+        if (times == null || !times.valid()) {
+          visits.unplaced().add(new Unplaced(name.strip(), null, null));
+          return;
+        }
+        if (latitude() == null || longitude() == null) {
+          visits.unplaced().add(new Unplaced(name.strip(), times.start(), times.end()));
           return;
         }
         visits
