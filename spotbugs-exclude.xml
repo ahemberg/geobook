@@ -13,4 +13,25 @@
         <Class name="se.geobook.tracker.web.controller.FrontendController"/>
         <Bug pattern="SPRING_ENDPOINT"/>
     </Match>
+    <Match>
+        <Or>
+            <Class name="se.geobook.tracker.access.controller.SessionController"/>
+            <Class name="se.geobook.tracker.access.controller.StatusController"/>
+            <Class name="se.geobook.tracker.access.controller.LoginPageController"/>
+        </Or>
+        <Bug pattern="SPRING_ENDPOINT"/>
+    </Match>
+    <!-- The session cookie is HttpOnly, SameSite=Strict and holds only a random token. -->
+    <Match>
+        <Class name="se.geobook.tracker.access.controller.SessionCookies"/>
+        <Bug pattern="COOKIE_USAGE"/>
+    </Match>
+    <!-- The redirect always targets /login; the query only becomes a NextPath-validated parameter. -->
+    <Match>
+        <Class name="se.geobook.tracker.access.controller.SignInEntryPoint"/>
+        <Or>
+            <Bug pattern="UNVALIDATED_REDIRECT"/>
+            <Bug pattern="SERVLET_QUERY_STRING"/>
+        </Or>
+    </Match>
 </FindBugsFilter>

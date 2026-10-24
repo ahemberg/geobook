@@ -776,3 +776,33 @@ test('compact overview geometry keeps full point counts and fetches detail only 
   expect(await screen.findByText(/Complete recording · 10,000 points/)).toBeVisible();
   expect(requests.filter((url) => url === '/api/tracks/1')).toHaveLength(1);
 });
+
+test('sign out appears only when Geobook requires a password', async () => {
+  for (const authMode of ['password', 'public']) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve(
+          Response.json(
+            url === '/api/status'
+              ? { authMode }
+              : url === '/api/tracks' || url === '/api/tracks/years'
+                ? []
+                : {
+                    url: '/tiles/{z}/{x}/{y}.png',
+                    attribution: 'Test tiles',
+                    attributionUrl: '/copyright',
+                    uploadLimitMb: 512,
+                  },
+          ),
+        ),
+      ),
+    );
+    const { unmount } = render(<App />);
+    expect(await screen.findByText('Your travels start here')).toBeVisible();
+    if (authMode === 'password')
+      expect(await screen.findByRole('button', { name: 'Sign out' })).toBeVisible();
+    else expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull();
+    unmount();
+  }
+});

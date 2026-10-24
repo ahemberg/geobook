@@ -62,8 +62,21 @@ export type MapConfig = {
   uploadLimitMb: number;
 };
 
-export async function request<T>(url: string, options?: RequestInit): Promise<T> {
+export type Status = { authMode: 'password' | 'public' };
+
+/** Fetches from Geobook and sends the browser to the login page when the session has ended. */
+export async function send(url: string, options?: RequestInit): Promise<Response> {
   const response = await fetch(url, options);
+  if (response.status === 401) {
+    const here = `${window.location.pathname}${window.location.search}`;
+    window.location.assign(`/login?next=${encodeURIComponent(here)}`);
+    throw new Error('Your session has ended. Sign in to continue.');
+  }
+  return response;
+}
+
+export async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const response = await send(url, options);
   if (!response.ok) {
     const error: unknown = await response.json().catch(() => null);
     throw new Error(

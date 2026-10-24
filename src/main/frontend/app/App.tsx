@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { request } from './api';
+import { request, send } from './api';
 import type {
   Controls,
   Country,
@@ -8,6 +8,7 @@ import type {
   MapConfig,
   Overview,
   PlaybackSettings,
+  Status,
 } from './api';
 import RecordingWorkspace from './RecordingWorkspace';
 import GapSettings from './GapSettings';
@@ -186,6 +187,23 @@ function TravelScope({
   );
 }
 
+function useSignedIn() {
+  const [signedIn, setSignedIn] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    request<Status>('/api/status', { signal: controller.signal })
+      .then((status) => setSignedIn(status.authMode === 'password'))
+      .catch(() => setSignedIn(false));
+    return () => controller.abort();
+  }, []);
+  return signedIn;
+}
+
+async function signOut() {
+  await send('/api/session', { method: 'DELETE' }).catch(() => null);
+  window.location.assign('/login');
+}
+
 function AppHeader({
   view,
   setView,
@@ -198,6 +216,7 @@ function AppHeader({
   fileInput: RefObject<HTMLInputElement | null>;
 }) {
   const { upload, uploading } = uploadState;
+  const signedIn = useSignedIn();
   return (
     <>
       <a
@@ -227,6 +246,11 @@ function AppHeader({
         >
           {uploading ? 'Importing…' : 'Upload GPX / Takeout'}
         </button>
+        {signedIn && (
+          <button className="sign-out" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        )}
         <input
           ref={fileInput}
           className="file-input"

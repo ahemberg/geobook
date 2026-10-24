@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { send } from './api';
 
 type ImportEvent = {
   kind?: 'recording' | 'history';
@@ -99,7 +100,7 @@ function addSummary(previous: HistorySummary | null, event: ImportEvent) {
 async function importFile(file: File, onEvent: (event: ImportEvent) => void) {
   const body = new FormData();
   body.append('file', file);
-  const response = await fetch('/api/imports', { method: 'POST', body });
+  const response = await send('/api/imports', { method: 'POST', body });
   if (!response.ok) {
     const error = (await response.json().catch(() => null)) as { message?: string } | null;
     throw new Error(error?.message ?? 'Upload failed. Please try again.');

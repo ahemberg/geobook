@@ -5,8 +5,9 @@ The reference deployment is a Raspberry Pi 5 with 8 GB RAM and a local SSD.
 Use a 64-bit OS. The image contains Java 27, the compiled frontend, SQLite's native
 libraries and the offline timezone resources. It needs no database service or Node runtime.
 
-Geobook has no login. Bind it to a LAN/VPN interface or leave the loopback default.
-Do not expose its port to the public internet. Back up before changing releases.
+The owner signs in with a password before Geobook shows anything. See
+[authentication](#authentication). Keep the port on a LAN/VPN interface or the
+loopback default unless you have read that section. Back up before changing releases.
 
 ## First start
 
@@ -26,7 +27,7 @@ sudo install -d -m 0750 -o 10001 -g 10001 /mnt/ssd/geobook
 
 Edit `.env`. Set `GEOBOOK_IMAGE` to the exact published version or the
 `geobook:<commit>` tag just built, `GEOBOOK_DATA_DIRECTORY` to the absolute SSD
-directory, and `GEOBOOK_BIND_ADDRESS`
+directory, `GEOBOOK_OWNER_PASSWORD` to the owner's password, and `GEOBOOK_BIND_ADDRESS`
 to the host's LAN or VPN address if other devices need access. Keep the directory
 owned by the configured `GEOBOOK_UID` and `GEOBOOK_GID`, both 10001 by default.
 Compose refuses a missing directory, so a mistyped mount cannot quietly create a new collection.
@@ -38,7 +39,8 @@ docker compose up -d
 docker compose logs -f geobook
 ```
 
-Wait for the Spring Boot startup message, then open `http://HOST:8080/map`.
+Wait for the Spring Boot startup message, then open `http://HOST:8080/map` and
+sign in as `admin`, or the `GEOBOOK_OWNER_USER` you chose.
 Startup creates `geobook.db` and completes Flyway migrations before serving HTTP.
 Uploads, original exports, attribution and saved controls live in this directory,
 including SQLite's `-wal` and `-shm` files while running. Never share it with a
@@ -49,6 +51,43 @@ The image runs as an unprivileged numeric user. Its writable temporary directory
 holds uploads and extracted native libraries. The data mount holds persistent state.
 The Java runtime handles container signals directly; Compose allows 60 seconds for shutdown.
 If a migration is running, let it finish before stopping or replacing the container.
+
+## Authentication
+
+Geobook has one owner, who signs in on the login page. The browser keeps the
+session in an HttpOnly, SameSite=Strict cookie. Every page and API endpoint needs
+that session, except the login page and its assets, `POST /api/session` and
+`GET /api/status`. The status endpoint only reports the auth mode, so a container
+healthcheck can call it without credentials. API calls without a session get 401,
+and page loads go to `/login` and come back to the requested page after sign-in.
+
+`GEOBOOK_AUTH_MODE` picks the mode. The startup log names the active one.
+
+- `password`, the default, requires the owner to sign in.
+- `public` turns login off. Anyone who can reach the port can read, upload and
+  delete the whole collection, so use it only on a network you trust. The login
+  page and sign-out action disappear, and `/login` redirects to the map.
+
+The owner's username is `GEOBOOK_OWNER_USER`, `admin` by default.
+`GEOBOOK_OWNER_PASSWORD` sets the first password. It takes 8 characters to 72 bytes
+(bcrypt's input limit) or a ready-made bcrypt hash, which keeps the plain password
+out of `.env`. Put a hash in single quotes there, because Compose would otherwise
+read its `$` signs as variables. Geobook stores bcrypt hashes at cost 12.
+
+Geobook applies the variable only while the owner has no password. Once a password
+is stored, later values are ignored, so changing the variable does not change the
+password. In password mode, startup fails with a message naming
+`GEOBOOK_OWNER_PASSWORD` when the owner has no password and the variable is unset.
+Invalid values also stop startup. There is no setup page that could be claimed by
+whoever reaches a new instance first.
+
+A session lasts at most `GEOBOOK_SESSION_MAXAGE`, two weeks by default, and ends
+earlier after `GEOBOOK_SESSION_TIMEOUT` without use, one week by default. Give either
+in seconds or with a `d`, `h`, `m` or `s` suffix, such as `14d`. Signing out ends
+the session at once, because Geobook checks its session store on every request.
+
+The cookie is marked Secure when the request reaches Geobook over HTTPS. On plain
+HTTP on a LAN, login still works without it.
 
 ## Upload limit, map provider and distribution notices
 
@@ -77,11 +116,15 @@ the nested JARs in `/app/app.jar`. Java notices are under `/opt/java/openjdk/leg
 and OS package notices are under `/usr/share/doc` in the image. Geobook's own MIT
 licence is at `/app/LICENSE` in the image and `LICENSE` in the source.
 
-`/` and `/map`, including `/map/`, serve the bundled application. Unknown paths,
+`/` and `/map`, including `/map/`, serve the bundled application, and `/login`
+serves the login page. Unknown paths,
 unknown `/api` endpoints and missing assets return errors. Frontend development's
 Vite proxy is not part of the deployment.
 
 ## Explicit manual updates
+
+Read the [release notes](release-notes.md) first. Some releases need a setting
+before they start, such as the owner password.
 
 Build and test the chosen release before stopping the running application. Select
 an actual reviewed release tag or full commit ID, not a moving branch or `latest`:
@@ -177,7 +220,9 @@ install Chromium with `npx playwright install --with-deps chromium` from
 `src/main/frontend`, then append `--browser` to the smoke command. Tiles are stubbed;
 the frontend, HTTP interface, database and timezone data are real. The existing
 standalone JAR browser tests still run. `GEOBOOK_TEST_URL` points Playwright at an
-already running disposable server when needed; these tests write fixture data.
+already running disposable server in public mode when needed; these tests write
+fixture data. The smoke test runs its container in public mode, and the login
+journey runs only against the standalone JAR.
 
 CI runs Maven/frontend quality checks, then the same container and browser checks
 on native `ubuntu-24.04` x86-64 and `ubuntu-24.04-arm` ARM64 runners. An ARM runner

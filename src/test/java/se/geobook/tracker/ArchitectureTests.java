@@ -31,6 +31,8 @@ class ArchitectureTests {
         .and()
         .doNotHaveFullyQualifiedName("se.geobook.tracker.configuration.StorageConfiguration")
         .and()
+        .doNotHaveFullyQualifiedName("se.geobook.tracker.configuration.ClockConfiguration")
+        .and()
         .resideOutsideOfPackage("db.migration..")
         .should()
         .resideInAnyPackage(
@@ -137,6 +139,30 @@ class ArchitectureTests {
   }
 
   @Test
+  void springSecurityBelongsToTheAccessFeature() {
+    // The filter chain, its filter and entry point are HTTP handling in the access controllers.
+    noClasses()
+        .that()
+        .resideOutsideOfPackage("se.geobook.tracker.access.controller..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage(
+            "org.springframework.security.config..",
+            "org.springframework.security.web..",
+            "org.springframework.security.core..",
+            "org.springframework.security.authentication..")
+        .check(APPLICATION);
+    // Password hashing is the only part of Spring Security that services use.
+    noClasses()
+        .that()
+        .resideOutsideOfPackage("se.geobook.tracker.access.service..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("org.springframework.security.crypto..")
+        .check(APPLICATION);
+  }
+
+  @Test
   void featuresCannotUseInfrastructureAsAnEscapeFromTheLayers() {
     noClasses()
         .that()
@@ -163,6 +189,7 @@ class ArchitectureTests {
             TrackerApplication.class,
             JavaClass.Predicates.resideInAPackage("se.geobook.tracker.configuration.."));
     assertThat(modules.getModuleByName("tracks")).isPresent();
+    assertThat(modules.getModuleByName("access")).isPresent();
     modules.forEach(module -> assertThat(module.isOpen()).as(module.getDisplayName()).isFalse());
     modules.verify();
   }

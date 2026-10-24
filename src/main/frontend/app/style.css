@@ -1190,3 +1190,59 @@ select {
     white-space: nowrap;
   }
 }
+
+.login-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.login {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 64px 16px;
+}
+.login-form {
+  width: 100%;
+  max-width: 360px;
+  display: grid;
+  gap: 16px;
+}
+.login-form h1 {
+  font-size: 21px;
+}
+.login-form .notice {
+  padding: 12px 16px;
+  border-radius: 6px;
+}
+.login-form label {
+  display: grid;
+  gap: 6px;
+}
+.login-form input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #9baca4;
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--surface);
+  color: inherit;
+  caret-color: var(--blue);
+}
+.login-form button {
+  font-weight: 600;
+}
+.sign-out {
+  background: transparent;
+  color: white;
+  border-color: transparent;
+}
+.sign-out:hover {
+  background: #28588f;
+}
+@media (max-width: 700px) {
+  .login {
+    padding: 32px 16px;
+  }
+}
