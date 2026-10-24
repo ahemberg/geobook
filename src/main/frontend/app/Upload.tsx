@@ -14,6 +14,7 @@ type ImportEvent = {
 };
 type HistorySummary = { created: number; updated: number; unchanged: number };
 type Result = ImportEvent & { filename: string };
+type FileWarning = { filename: string; warning: string };
 
 export function useUpload(
   onImported: (trackIds: number[], recordingId: number | null) => void,
@@ -24,11 +25,13 @@ export function useUpload(
   const [results, setResults] = useState<Result[]>([]);
   const [finished, setFinished] = useState(false);
   const [historySummary, setHistorySummary] = useState<HistorySummary | null>(null);
+  const [fileWarnings, setFileWarnings] = useState<FileWarning[]>([]);
 
   async function upload(files: File[]) {
     if (!files.length) return;
     setResults([]);
     setHistorySummary(null);
+    setFileWarnings([]);
     setFinished(false);
     setUploading(true);
     const imported: number[] = [];
@@ -42,6 +45,7 @@ export function useUpload(
         await importFile(file, (event) => {
           setProgress(`${label}. ${event.completed} of ${event.total} items processed.`);
           setHistorySummary((previous) => addSummary(previous, event));
+          setFileWarnings((previous) => [...previous, ...completeWarnings(event, file.name)]);
           if (event.status === 'progress' || event.status === 'complete') return;
           setResults((previous) => [...previous, { ...event, filename: file.name }]);
           if (
@@ -50,7 +54,8 @@ export function useUpload(
           ) {
             imported.push(event.trackId);
             recordingId = imported.length === 1 && event.kind !== 'history' ? event.trackId : null;
-            onImported([...imported], recordingId);
+            // A Takeout creates thousands of days; reloading after each one aborts every load.
+            if (event.kind !== 'history') onImported([...imported], recordingId);
           }
         });
       } catch (error) {
@@ -74,7 +79,12 @@ export function useUpload(
     setUploading(false);
     setFinished(true);
   }
-  return { upload, uploading, progress, results, finished, historySummary };
+  return { upload, uploading, progress, results, finished, historySummary, fileWarnings };
+}
+
+function completeWarnings(event: ImportEvent, filename: string): FileWarning[] {
+  if (event.status !== 'complete') return [];
+  return event.warnings.map((warning) => ({ filename, warning }));
 }
 
 function addSummary(previous: HistorySummary | null, event: ImportEvent) {
@@ -135,12 +145,14 @@ export function UploadFeedback({
   results,
   finished,
   historySummary,
+  fileWarnings,
 }: {
   uploading: boolean;
   progress: string;
   results: Result[];
   finished: boolean;
   historySummary: HistorySummary | null;
+  fileWarnings: FileWarning[];
 }) {
   if (!uploading && !finished) return null;
   const recordings = results.filter((result) => result.kind !== 'history');
@@ -151,7 +163,9 @@ export function UploadFeedback({
   // The history summary already counts duplicate days as unchanged.
   const duplicates = recordings.filter((result) => result.status === 'duplicate').length;
   const failures = results.filter((result) => result.status === 'failed').length;
-  const warnings = results.filter((result) => result.warnings.length > 0).length;
+  const warnings =
+    results.filter((result) => result.warnings.length > 0).length +
+    new Set(fileWarnings.map((warning) => warning.filename)).size;
   const originals = new Map(
     results.flatMap((result) =>
       result.originalId === null ? [] : [[result.originalId, result.filename] as const],
@@ -164,7 +178,7 @@ export function UploadFeedback({
           ? progress
           : `${summary} · ${duplicates} duplicate · ${failures} failed · ${warnings} with warnings`}
       </div>
-      {results.length > 0 && (
+      {(results.length > 0 || fileWarnings.length > 0) && (
         <details className="import-details" open={failures > 0}>
           <summary>Review import results</summary>
           <div className="import-result-list">
@@ -175,6 +189,11 @@ export function UploadFeedback({
                 </a>
               ))}
             </div>
+            {fileWarnings.map(({ filename, warning }) => (
+              <p className="import-warning" key={`${filename}-${warning}`}>
+                Warning: {filename}: {warning}
+              </p>
+            ))}
             <ul>
               {results.map((result, index) => (
                 <li key={index}>

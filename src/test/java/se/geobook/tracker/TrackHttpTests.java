@@ -963,10 +963,47 @@ class TrackHttpTests {
               "1 place visits have no position or duration and remain only in the original"
                   + " export.")
           .doesNotContain("\"status\":\"failed\"");
+      assertThat(events.split("remain only in the original export", -1)).hasSize(2);
       JsonNode visits = mapper.readTree(get(client, base(app) + "/api/tracks/1").body());
       assertThat(visits.get("placeVisits").size()).isEqualTo(1);
       assertThat(visits.get("placeVisits").get(0).get("name").asText())
           .isEqualTo("Synthetic station");
+    }
+  }
+
+  @Test
+  void namedVisitWithoutPositionTakesTheFixNearestItsMiddle()
+      throws IOException, InterruptedException {
+    String records =
+        "{\"locations\":["
+            + historyFix("2017-01-24T12:10:00Z", 593_200_000, 20)
+            + ","
+            + historyFix("2017-01-24T12:26:00Z", 593_300_000, 20)
+            + "]}";
+    String semantic =
+        """
+        {"timelineObjects":[{"placeVisit":{"location":{"name":"Norrmalm"},"duration":{"startTimestamp":"2017-01-24T12:18:31Z","endTimestamp":"2017-01-24T12:35:12.397Z"}}}]}
+        """;
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      JsonMapper mapper = JsonMapper.builder().build();
+      String events =
+          new String(
+              upload(
+                      client,
+                      base(app),
+                      takeout(java.util.List.of(records, semantic), true),
+                      "/api/imports")
+                  .body(),
+              StandardCharsets.UTF_8);
+      assertThat(events).contains("\"status\":\"imported\"").doesNotContain("Warning", "remain");
+      JsonNode visit =
+          mapper
+              .readTree(get(client, base(app) + "/api/tracks/1").body())
+              .get("placeVisits")
+              .get(0);
+      assertThat(visit.get("name").asText()).isEqualTo("Norrmalm");
+      assertThat(visit.get("latitude").decimalValue()).isEqualByComparingTo("59.33");
     }
   }
 

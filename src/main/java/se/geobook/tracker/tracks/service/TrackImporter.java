@@ -113,7 +113,7 @@ public class TrackImporter {
         .toList();
   }
 
-  // Every day sends its own immutable progress result.
+  // Every day sends its own immutable progress result; archive warnings arrive once at the end.
   @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
   private void importHistory(String filename, byte[] bytes, Progress progress)
       throws java.io.IOException {
@@ -156,7 +156,7 @@ public class TrackImporter {
     OriginalExport.Source source = collection.retainOriginal(filename, bytes);
     progress.send(
         new ImportEvent(
-            "progress", 0, days.size(), filename, null, source.id(), warnings, null, HISTORY));
+            "progress", 0, days.size(), filename, null, source.id(), List.of(), null, HISTORY));
     int created = 0;
     int updated = 0;
     int unchanged = 0;
@@ -177,7 +177,7 @@ public class TrackImporter {
                 day.date(),
                 imported.trackId(),
                 source.id(),
-                warnings,
+                List.of(),
                 null,
                 HISTORY));
       } catch (IllegalArgumentException exception) {
@@ -189,7 +189,7 @@ public class TrackImporter {
                 day.date(),
                 null,
                 source.id(),
-                warnings,
+                List.of(),
                 exception.getMessage(),
                 HISTORY));
       } catch (org.springframework.dao.DataAccessException exception) {
@@ -201,7 +201,7 @@ public class TrackImporter {
                 day.date(),
                 null,
                 source.id(),
-                warnings,
+                List.of(),
                 "The history day could not be saved. Check server storage and retry.",
                 HISTORY));
       }
