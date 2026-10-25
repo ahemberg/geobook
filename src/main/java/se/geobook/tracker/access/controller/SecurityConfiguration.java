@@ -10,6 +10,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import se.geobook.tracker.access.domain.AuthMode;
+import se.geobook.tracker.access.service.BruteForceGuard;
 import se.geobook.tracker.access.service.SessionService;
 
 /**
@@ -20,7 +21,10 @@ import se.geobook.tracker.access.service.SessionService;
 class SecurityConfiguration {
   @Bean
   SecurityFilterChain filterChain(
-      HttpSecurity http, SessionService sessions, ClientConnection connection) {
+      HttpSecurity http,
+      SessionService sessions,
+      BruteForceGuard guard,
+      ClientConnection connection) {
     http.csrf(AbstractHttpConfigurer::disable)
         .formLogin(AbstractHttpConfigurer::disable)
         .httpBasic(AbstractHttpConfigurer::disable)
@@ -36,7 +40,8 @@ class SecurityConfiguration {
       http.authorizeHttpRequests(requests -> requests.anyRequest().permitAll());
       return http.build();
     }
-    http.addFilterBefore(new CredentialFilter(sessions), AnonymousAuthenticationFilter.class)
+    http.addFilterBefore(
+            new CredentialFilter(sessions, guard, connection), AnonymousAuthenticationFilter.class)
         .exceptionHandling(
             handling -> handling.authenticationEntryPoint(new SignInEntryPoint(connection)))
         .authorizeHttpRequests(
