@@ -10,6 +10,7 @@ export default defineConfig({
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         login: fileURLToPath(new URL('./login.html', import.meta.url)),
+        account: fileURLToPath(new URL('./account.html', import.meta.url)),
       },
     },
   },

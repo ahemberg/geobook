@@ -8,7 +8,7 @@ const baseURL = externalURL ?? 'http://127.0.0.1:18080';
 const loginURL = 'http://127.0.0.1:18081';
 const jar = 'java -jar ../../../target/tracker-0.0.1-SNAPSHOT.jar';
 const dataDirectory = () => mkdtempSync(join(tmpdir(), 'geobook-browser-'));
-const login = /login\.spec\.ts/;
+const login = /(login|account)\.spec\.ts/;
 
 export default defineConfig({
   testDir: './e2e',
