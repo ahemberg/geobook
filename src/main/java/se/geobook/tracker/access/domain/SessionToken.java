@@ -32,10 +32,14 @@ public record SessionToken(String value) {
   }
 
   public String hash() {
+    return sha256(value);
+  }
+
+  static String sha256(String secret) {
     try {
       return HexFormat.of()
           .formatHex(
-              MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+              MessageDigest.getInstance("SHA-256").digest(secret.getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException exception) {
       throw new IllegalStateException("Every Java runtime provides SHA-256.", exception);
     }

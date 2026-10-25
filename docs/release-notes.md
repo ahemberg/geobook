@@ -5,6 +5,8 @@
 ### Owner login
 
 Geobook now asks the owner to sign in. See [authentication](deployment.md#authentication).
+Scripts that upload or read tracks need an [app password](deployment.md#app-passwords)
+from the account page.
 
 **Before you upgrade**, add one of these to `.env`, then recreate the container:
 

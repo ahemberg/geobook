@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import AppPasswords from './AppPasswords';
 import { perform } from './api';
 
 function message(failure: unknown) {
@@ -22,6 +23,7 @@ export default function Account({
       <main className="account">
         <h1>Account</h1>
         <PasswordChange />
+        <AppPasswords />
         <SignOutEverywhere navigate={navigate} />
       </main>
     </div>

@@ -36,9 +36,13 @@ class SecurityConfiguration {
       http.authorizeHttpRequests(requests -> requests.anyRequest().permitAll());
       return http.build();
     }
+    final ScopeAuthorization scopes = new ScopeAuthorization();
     http.addFilterBefore(new CredentialFilter(sessions), AnonymousAuthenticationFilter.class)
         .exceptionHandling(
-            handling -> handling.authenticationEntryPoint(new SignInEntryPoint(connection)))
+            handling ->
+                handling
+                    .authenticationEntryPoint(new SignInEntryPoint(connection))
+                    .accessDeniedHandler(scopes))
         .authorizeHttpRequests(
             requests ->
                 requests
@@ -51,7 +55,7 @@ class SecurityConfiguration {
                     .requestMatchers(HttpMethod.POST, "/api/session")
                     .permitAll()
                     .anyRequest()
-                    .authenticated());
+                    .access(scopes));
     return http.build();
   }
 }

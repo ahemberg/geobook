@@ -96,6 +96,34 @@ and DELETE requests with 403 when the browser's `Sec-Fetch-Site` header says the
 from another site, or when it has no such header and its `Origin` names a different
 host than the request's `Host`. Scripts that send neither header are not affected.
 
+### App passwords
+
+A script that calls Geobook should use an app password, not the owner's password.
+Create one under App passwords on the account page. Give it a name, pick a scope
+and, if you want, a last day it works. The value appears once, right after
+creation. Copy it then, because Geobook stores only its SHA-256 hash.
+
+- `import` may upload tracks (`POST /api/tracks` and `POST /api/imports`) and read
+  `GET /api/status`. Nothing else, so it is the one to keep on a phone.
+- `read` may make GET requests only.
+- `*` may do everything the owner can, except change the password, sign out
+  sessions, manage app passwords or manage 2FA.
+
+A request outside the scope gets 403. Send the value as a Bearer token. To upload
+a GPX file:
+
+```sh
+curl -H "Authorization: Bearer OXiV72-wTtiL9-d04jO7-X7XP4p" \
+  -F "file=@ride.gpx" https://geobook.example.org/api/tracks
+```
+
+App passwords have no idle timeout and stop working only at their expiry, when
+one is set. The account page lists each one with its scope, creation time, expiry
+and last use. Last use is updated at most once a minute. Revoke stops one app
+password on the next request and leaves the others and your browser sessions
+alone. Changing the password and signing out everywhere leave app passwords
+working. Public mode ignores Bearer headers.
+
 ### Behind a reverse proxy
 
 Put Geobook behind an HTTPS reverse proxy before exposing it to the internet. List

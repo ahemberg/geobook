@@ -2,9 +2,10 @@ package se.geobook.tracker.access.domain;
 
 import java.util.Arrays;
 
-/** What issued a session. App passwords will be stored in the same table as {@code app}. */
+/** What issued a session: a sign-in on the login page, or the owner creating an app password. */
 public enum SessionKind {
-  BROWSER("browser");
+  BROWSER("browser"),
+  APP("app");
 
   private final String storedValue;
 
