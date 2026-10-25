@@ -3,6 +3,7 @@ package se.geobook.tracker.access.service;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.util.Optional;
+import java.util.OptionalLong;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import se.geobook.tracker.access.domain.RecoveryCode;
@@ -81,7 +82,7 @@ public class TwoFactorService {
     final TotpSecret secret =
         pendingOrActiveSecret()
             .orElseThrow(() -> new IllegalStateException("Start the 2FA setup first."));
-    if (!secret.matches(code, clock.instant())) {
+    if (!accept(secret, code)) {
       throw new IllegalArgumentException("Wrong code.");
     }
     final RecoveryCode recovery = RecoveryCode.generate(random);
@@ -90,12 +91,17 @@ public class TwoFactorService {
     return recovery;
   }
 
-  /** Whether 2FA is on and the code is a current TOTP code. */
-  public boolean codeMatches(String code) {
-    return active()
-        && pendingOrActiveSecret()
-            .map(secret -> secret.matches(code, clock.instant()))
-            .orElse(false);
+  /**
+   * Whether 2FA is on and the code is a current TOTP code that was not used before. An accepted
+   * code uses up its time step and every earlier one.
+   */
+  public boolean acceptCode(String code) {
+    return active() && pendingOrActiveSecret().map(secret -> accept(secret, code)).orElse(false);
+  }
+
+  private boolean accept(TotpSecret secret, String code) {
+    final OptionalLong step = secret.step(code, clock.instant());
+    return step.isPresent() && owners.useTotpStep(step.getAsLong());
   }
 
   /** Whether 2FA is on and the value is the recovery code. */
@@ -120,7 +126,7 @@ public class TwoFactorService {
     if (!active()) {
       throw new IllegalStateException("2FA is off.");
     }
-    if (!codeMatches(code)) {
+    if (!acceptCode(code)) {
       throw new IllegalArgumentException("Wrong code.");
     }
     turnOff();

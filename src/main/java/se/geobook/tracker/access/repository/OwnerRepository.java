@@ -58,8 +58,21 @@ public class OwnerRepository {
   public void startTwoFactor(byte[] encryptedSecret) {
     jdbc.update(
         "UPDATE owner SET totp_secret = ?, recovery_code_hash = NULL,"
-            + " two_factor_activated_at = NULL WHERE singleton = 1",
+            + " two_factor_activated_at = NULL, totp_last_step = NULL WHERE singleton = 1",
         (Object) encryptedSecret);
+  }
+
+  /**
+   * Records a TOTP code's time step as used, unless that step or a later one was used already. The
+   * check and the write are one statement, so two requests cannot both use the same code.
+   */
+  public boolean useTotpStep(long step) {
+    return jdbc.update(
+            "UPDATE owner SET totp_last_step = ? WHERE singleton = 1"
+                + " AND (totp_last_step IS NULL OR totp_last_step < ?)",
+            step,
+            step)
+        == 1;
   }
 
   public void activateTwoFactor(String recoveryCodeHash, Instant activatedAt) {
@@ -72,6 +85,6 @@ public class OwnerRepository {
   public void clearTwoFactor() {
     jdbc.update(
         "UPDATE owner SET totp_secret = NULL, recovery_code_hash = NULL,"
-            + " two_factor_activated_at = NULL WHERE singleton = 1");
+            + " two_factor_activated_at = NULL, totp_last_step = NULL WHERE singleton = 1");
   }
 }

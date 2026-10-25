@@ -144,6 +144,7 @@ class TwoFactorHttpTests {
           signIn(client, app, HOME, "wrong password", totp.codeAt(clock.instant()));
       assertThat(badPassword.body()).isEqualTo("{\"message\":\"Wrong username or password.\"}");
 
+      clock.advance(Duration.ofSeconds(30));
       final String fresh = cookie(signIn(client, app, HOME, totp.codeAt(clock.instant())));
       assertThat(send(client, app, "GET", "/api/tracks", fresh, null, HOME).statusCode())
           .isEqualTo(200);
@@ -169,6 +170,7 @@ class TwoFactorHttpTests {
       try (ConfigurableApplicationContext app = start()) {
         totp = turnOn(client, app, cookie(signIn(client, app, HOME, null)));
       }
+      clock.advance(Duration.ofSeconds(30));
       try (ConfigurableApplicationContext app = start()) {
         assertThat(signIn(client, app, HOME, totp.codeAt(clock.instant())).statusCode())
             .isEqualTo(200);
@@ -181,21 +183,65 @@ class TwoFactorHttpTests {
     try (HttpClient client = HttpClient.newHttpClient();
         ConfigurableApplicationContext app = start()) {
       final TotpSecret totp = turnOn(client, app, cookie(signIn(client, app, HOME, null)));
+      clock.advance(Duration.ofSeconds(60));
       final Instant now = clock.instant();
-      assertThat(signIn(client, app, HOME, totp.codeAt(now.minusSeconds(30))).statusCode())
-          .isEqualTo(200);
-      assertThat(signIn(client, app, HOME, totp.codeAt(now.plusSeconds(30))).statusCode())
-          .isEqualTo(200);
       assertThat(signIn(client, app, HOME, totp.codeAt(now.minusSeconds(60))).statusCode())
           .isEqualTo(401);
       assertThat(signIn(client, app, HOME, totp.codeAt(now.plusSeconds(60))).statusCode())
           .isEqualTo(401);
+      assertThat(signIn(client, app, HOME, totp.codeAt(now.minusSeconds(30))).statusCode())
+          .isEqualTo(200);
+      assertThat(signIn(client, app, HOME, totp.codeAt(now.plusSeconds(30))).statusCode())
+          .isEqualTo(200);
 
+      clock.advance(Duration.ofSeconds(60));
       final String code = totp.codeAt(clock.instant());
       clock.advance(Duration.ofSeconds(30));
       assertThat(signIn(client, app, HOME, code).statusCode()).isEqualTo(200);
+      final String late = totp.codeAt(clock.instant());
+      clock.advance(Duration.ofSeconds(60));
+      assertThat(signIn(client, app, HOME, late).statusCode()).isEqualTo(401);
+    }
+  }
+
+  @Test
+  void usedCodeAndCodesFromEarlierStepsAreRefused() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final String cookie = cookie(signIn(client, app, HOME, null));
+      final TotpSecret totp = turnOn(client, app, cookie);
+      final HttpResponse<String> confirmCode =
+          signIn(client, app, HOME, totp.codeAt(clock.instant()));
+      assertThat(confirmCode.statusCode()).isEqualTo(401);
+      assertThat(confirmCode.body())
+          .isEqualTo("{\"message\":\"Wrong code.\",\"codeRequired\":true}");
+
       clock.advance(Duration.ofSeconds(30));
+      final String code = totp.codeAt(clock.instant());
+      assertThat(signIn(client, app, HOME, code).statusCode()).isEqualTo(200);
       assertThat(signIn(client, app, HOME, code).statusCode()).isEqualTo(401);
+      assertThat(signIn(client, app, HOME, totp.codeAt(clock.instant().minusSeconds(30))))
+          .extracting(HttpResponse::statusCode)
+          .isEqualTo(401);
+      final HttpResponse<String> offWithUsedCode =
+          send(client, app, "POST", "/api/account/2fa/off", cookie, offBody(PASSWORD, code), HOME);
+      assertThat(offWithUsedCode.statusCode()).isEqualTo(400);
+      assertThat(offWithUsedCode.body()).isEqualTo("{\"message\":\"Wrong code.\"}");
+
+      final String next = totp.codeAt(clock.instant().plusSeconds(30));
+      assertThat(signIn(client, app, HOME, next).statusCode()).isEqualTo(200);
+      clock.advance(Duration.ofSeconds(60));
+      assertThat(
+              send(
+                      client,
+                      app,
+                      "POST",
+                      "/api/account/2fa/off",
+                      cookie,
+                      offBody(PASSWORD, totp.codeAt(clock.instant())),
+                      HOME)
+                  .statusCode())
+          .isEqualTo(204);
     }
   }
 
@@ -231,6 +277,7 @@ class TwoFactorHttpTests {
         ConfigurableApplicationContext app = start()) {
       final String before = cookie(signIn(client, app, HOME, null));
       final TotpSecret totp = turnOn(client, app, cookie(signIn(client, app, HOME, null)));
+      clock.advance(Duration.ofSeconds(30));
       final HttpResponse<String> signedIn = signIn(client, app, HOME, totp.codeAt(clock.instant()));
       assertThat(signedIn.headers().firstValue("Set-Cookie").orElseThrow())
           .contains("Max-Age=" + Duration.ofDays(28).toSeconds());
@@ -279,6 +326,7 @@ class TwoFactorHttpTests {
       final HttpResponse<String> reused = signIn(client, app, HOME, first.recoveryCode());
       assertThat(reused.statusCode()).isEqualTo(401);
       assertThat(reused.body()).isEqualTo("{\"message\":\"Wrong code.\",\"codeRequired\":true}");
+      clock.advance(Duration.ofSeconds(30));
       assertThat(signIn(client, app, HOME, first.totp().codeAt(clock.instant())).statusCode())
           .isEqualTo(401);
       assertThat(signIn(client, app, HOME, second.totp().codeAt(clock.instant())).statusCode())
@@ -310,6 +358,7 @@ class TwoFactorHttpTests {
         ConfigurableApplicationContext app = start()) {
       final String setupCookie = cookie(signIn(client, app, HOME, null));
       final TotpSecret totp = turnOn(client, app, setupCookie);
+      clock.advance(Duration.ofSeconds(30));
       final String cookie = cookie(signIn(client, app, HOME, totp.codeAt(clock.instant())));
       final String wrongCode = totp.codeAt(clock.instant().plusSeconds(120));
 
@@ -340,6 +389,7 @@ class TwoFactorHttpTests {
           .contains("\"twoFactor\":true");
       assertThat(signIn(client, app, HOME, null).statusCode()).isEqualTo(401);
 
+      clock.advance(Duration.ofSeconds(30));
       final HttpResponse<String> off =
           send(
               client,

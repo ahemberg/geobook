@@ -206,7 +206,9 @@ The owner can turn on TOTP 2FA on the account page: enter the password, scan the
 QR code with an authenticator app and confirm one code. Geobook then shows one
 recovery code, once. From then on, signing in asks for a code after a correct
 password. Codes use SHA1, 6 digits and 30 seconds, and the code from one step
-before or after is also accepted, so keep the host clock in sync. Wrong codes count
+before or after is also accepted, so keep the host clock in sync. Each code works
+once: after Geobook accepts a code, that code and codes from earlier steps are
+refused, so wait for the next code to sign in again. Wrong codes count
 towards the same limits and lockout as wrong passwords. While 2FA is on, sessions
 opened with a code last twice as long: four weeks at most and two weeks idle by
 default.

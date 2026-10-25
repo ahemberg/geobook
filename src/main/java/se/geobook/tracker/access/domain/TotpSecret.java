@@ -7,6 +7,7 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.OptionalLong;
 import java.util.regex.Pattern;
 import java.util.stream.LongStream;
 import javax.crypto.Mac;
@@ -41,19 +42,28 @@ public final class TotpSecret {
 
   /** Whether the code is valid in the step containing {@code now} or the step either side. */
   public boolean matches(String code, Instant now) {
+    return step(code, now).isPresent();
+  }
+
+  /**
+   * The time step whose code this is, among the step containing {@code now} and the step either
+   * side, or empty when it is none of them. Callers remember the step to refuse a replayed code.
+   */
+  public OptionalLong step(String code, Instant now) {
     if (code == null || !FORMAT.matcher(code).matches()) {
-      return false;
+      return OptionalLong.empty();
     }
     final byte[] given = code.getBytes(StandardCharsets.US_ASCII);
-    final long step = Math.floorDiv(now.getEpochSecond(), PERIOD_SECONDS);
+    final long current = Math.floorDiv(now.getEpochSecond(), PERIOD_SECONDS);
     // Every step is compared, so the answer takes as long whichever one matches.
-    return LongStream.rangeClosed(step - TOLERANCE_STEPS, step + TOLERANCE_STEPS)
+    final long[] matching =
+        LongStream.rangeClosed(current - TOLERANCE_STEPS, current + TOLERANCE_STEPS)
             .filter(
                 candidate ->
                     MessageDigest.isEqual(
                         given, code(candidate).getBytes(StandardCharsets.US_ASCII)))
-            .count()
-        > 0;
+            .toArray();
+    return matching.length == 0 ? OptionalLong.empty() : OptionalLong.of(matching[0]);
   }
 
   public String codeAt(Instant now) {

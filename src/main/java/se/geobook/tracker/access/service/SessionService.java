@@ -85,7 +85,7 @@ public class SessionService {
     if (secondFactor && (code == null || code.isBlank())) {
       return new SignInResult.CodeRequired();
     }
-    if (secondFactor && !twoFactor.codeMatches(code.strip())) {
+    if (secondFactor && !twoFactor.acceptCode(code.strip())) {
       if (!twoFactor.recoveryCodeMatches(code.strip())) {
         guard.loginFailed();
         return new SignInResult.WrongCode();
