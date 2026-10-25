@@ -12,12 +12,18 @@ import se.geobook.tracker.access.domain.NextPath;
 
 /** API calls without a session get 401; page loads go to the login page and come back. */
 final class SignInEntryPoint implements AuthenticationEntryPoint {
+  private final ClientConnection connection;
+
+  SignInEntryPoint(ClientConnection connection) {
+    this.connection = connection;
+  }
+
   @Override
   public void commence(
       HttpServletRequest request, HttpServletResponse response, AuthenticationException exception)
       throws IOException {
     if (SessionCookies.read(request).isPresent()) {
-      SessionCookies.clear(request, response);
+      SessionCookies.clear(response, connection.secure(request));
     }
     final String path = request.getRequestURI();
     if ("/api".equals(path) || path.startsWith("/api/")) {

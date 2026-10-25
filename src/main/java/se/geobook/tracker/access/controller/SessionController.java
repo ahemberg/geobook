@@ -18,9 +18,11 @@ import se.geobook.tracker.access.service.SessionService;
 @RestController
 final class SessionController {
   private final SessionService sessions;
+  private final ClientConnection connection;
 
-  SessionController(SessionService sessions) {
+  SessionController(SessionService sessions, ClientConnection connection) {
     this.sessions = sessions;
+    this.connection = connection;
   }
 
   record SignIn(String username, String password, String next) {
@@ -48,7 +50,7 @@ final class SessionController {
           .body(new Failure("Wrong username or password."));
     }
     SessionCookies.read(request).ifPresent(sessions::signOut);
-    SessionCookies.issue(request, response, token.get(), sessions.maxAge());
+    SessionCookies.issue(response, token.get(), sessions.maxAge(), connection.secure(request));
     return ResponseEntity.ok(new SignedIn(input.username(), NextPath.resolve(input.next())));
   }
 
@@ -60,7 +62,7 @@ final class SessionController {
   @DeleteMapping("/api/session")
   ResponseEntity<Void> signOut(HttpServletRequest request, HttpServletResponse response) {
     SessionCookies.read(request).ifPresent(sessions::signOut);
-    SessionCookies.clear(request, response);
+    SessionCookies.clear(response, connection.secure(request));
     return ResponseEntity.noContent().build();
   }
 }

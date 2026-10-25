@@ -10,7 +10,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import se.geobook.tracker.access.domain.SessionToken;
 
-/** The browser session cookie: HttpOnly, SameSite=Strict, and Secure on HTTPS requests. */
+/**
+ * The browser session cookie: HttpOnly, SameSite=Strict, and Secure when {@link ClientConnection}
+ * says the client used HTTPS.
+ */
 final class SessionCookies {
   static final String NAME = "geobook_session";
 
@@ -28,21 +31,18 @@ final class SessionCookies {
   }
 
   static void issue(
-      HttpServletRequest request,
-      HttpServletResponse response,
-      SessionToken token,
-      Duration maxAge) {
-    response.addHeader(HttpHeaders.SET_COOKIE, cookie(request, token.value(), maxAge));
+      HttpServletResponse response, SessionToken token, Duration maxAge, boolean secure) {
+    response.addHeader(HttpHeaders.SET_COOKIE, cookie(token.value(), maxAge, secure));
   }
 
-  static void clear(HttpServletRequest request, HttpServletResponse response) {
-    response.addHeader(HttpHeaders.SET_COOKIE, cookie(request, "", Duration.ZERO));
+  static void clear(HttpServletResponse response, boolean secure) {
+    response.addHeader(HttpHeaders.SET_COOKIE, cookie("", Duration.ZERO, secure));
   }
 
-  private static String cookie(HttpServletRequest request, String value, Duration maxAge) {
+  private static String cookie(String value, Duration maxAge, boolean secure) {
     return ResponseCookie.from(NAME, value)
         .httpOnly(true)
-        .secure(request.isSecure())
+        .secure(secure)
         .sameSite("Strict")
         .path("/")
         .maxAge(maxAge)

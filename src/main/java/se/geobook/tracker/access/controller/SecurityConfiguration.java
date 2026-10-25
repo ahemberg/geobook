@@ -19,20 +19,26 @@ import se.geobook.tracker.access.service.SessionService;
 @Configuration(proxyBeanMethods = false)
 class SecurityConfiguration {
   @Bean
-  SecurityFilterChain filterChain(HttpSecurity http, SessionService sessions) {
+  SecurityFilterChain filterChain(
+      HttpSecurity http, SessionService sessions, ClientConnection connection) {
     http.csrf(AbstractHttpConfigurer::disable)
         .formLogin(AbstractHttpConfigurer::disable)
         .httpBasic(AbstractHttpConfigurer::disable)
         .logout(AbstractHttpConfigurer::disable)
         .requestCache(AbstractHttpConfigurer::disable)
         .sessionManagement(
-            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        // Spring's CSRF tokens would need the frontend to echo a token; the browser's own
+        // Sec-Fetch-Site and Origin headers carry the same answer.
+        .addFilterBefore(new PlainHttpWarning(connection), AnonymousAuthenticationFilter.class)
+        .addFilterBefore(new CrossOriginFilter(), AnonymousAuthenticationFilter.class);
     if (sessions.mode() == AuthMode.PUBLIC) {
       http.authorizeHttpRequests(requests -> requests.anyRequest().permitAll());
       return http.build();
     }
     http.addFilterBefore(new CredentialFilter(sessions), AnonymousAuthenticationFilter.class)
-        .exceptionHandling(handling -> handling.authenticationEntryPoint(new SignInEntryPoint()))
+        .exceptionHandling(
+            handling -> handling.authenticationEntryPoint(new SignInEntryPoint(connection)))
         .authorizeHttpRequests(
             requests ->
                 requests

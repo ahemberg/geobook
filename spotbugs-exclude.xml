@@ -34,4 +34,26 @@
             <Bug pattern="SERVLET_QUERY_STRING"/>
         </Or>
     </Match>
+    <!-- Comparing the browser's Sec-Fetch-Site, Origin and Host headers is the cross-origin check. -->
+    <Match>
+        <Class name="se.geobook.tracker.access.controller.CrossOriginFilter"/>
+        <Or>
+            <Bug pattern="SERVLET_HEADER"/>
+            <Bug pattern="SERVLET_SERVER_NAME"/>
+            <Bug pattern="IMPROPER_UNICODE"/>
+        </Or>
+    </Match>
+    <!-- The logged value is InetAddress.getHostAddress(), which cannot contain line breaks. -->
+    <Match>
+        <Class name="se.geobook.tracker.access.controller.PlainHttpWarning"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+    <!-- InetAddress is immutable. -->
+    <Match>
+        <Class name="se.geobook.tracker.access.domain.TrustedProxies$Block"/>
+        <Or>
+            <Bug pattern="EI_EXPOSE_REP"/>
+            <Bug pattern="EI_EXPOSE_REP2"/>
+        </Or>
+    </Match>
 </FindBugsFilter>

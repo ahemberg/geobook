@@ -86,8 +86,64 @@ earlier after `GEOBOOK_SESSION_TIMEOUT` without use, one week by default. Give e
 in seconds or with a `d`, `h`, `m` or `s` suffix, such as `14d`. Signing out ends
 the session at once, because Geobook checks its session store on every request.
 
-The cookie is marked Secure when the request reaches Geobook over HTTPS. On plain
-HTTP on a LAN, login still works without it.
+The cookie is marked Secure when the request reaches Geobook over HTTPS, directly
+or through a trusted reverse proxy. On plain HTTP on a LAN, login still works without it.
+Geobook logs a warning the first time it is reached over plain HTTP from an address
+outside loopback, LAN, link-local, IPv6 unique local and `100.64.0.0/10` (Tailscale) ranges.
+
+Browsers may not change anything from another site. Geobook refuses POST, PUT, PATCH
+and DELETE requests with 403 when the browser's `Sec-Fetch-Site` header says they came
+from another site, or when it has no such header and its `Origin` names a different
+host than the request's `Host`. Scripts that send neither header are not affected.
+
+### Behind a reverse proxy
+
+Put Geobook behind an HTTPS reverse proxy before exposing it to the internet. List
+the proxy's addresses in `GEOBOOK_TRUSTED_PROXIES` as IP addresses or CIDRs, separated
+by commas or spaces. It is empty by default. Geobook reads `X-Forwarded-For` and
+`X-Forwarded-Proto` only from those addresses and ignores them from anyone else, so a
+client cannot forge its address or claim HTTPS. The client address is the right-most
+`X-Forwarded-For` entry that is not itself a trusted proxy.
+
+The proxy must pass the original `Host` header and set `X-Forwarded-For` and
+`X-Forwarded-Proto`. With the proxy on the Docker host and the default loopback bind
+address, Docker's port forwarding makes requests appear to come from the Docker
+bridge gateway, so trust that network:
+
+```bash
+GEOBOOK_TRUSTED_PROXIES=172.16.0.0/12
+```
+
+An nginx server block for `geobook.example.com`:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name geobook.example.com;
+    ssl_certificate     /etc/letsencrypt/live/geobook.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/geobook.example.com/privkey.pem;
+    client_max_body_size 512m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/imports {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+    }
+}
+```
+
+Caddy sets these headers by default: `reverse_proxy 127.0.0.1:8080` is enough.
+Check the setup by signing in over HTTPS and confirming the `geobook_session`
+cookie is marked Secure in the browser's developer tools.
 
 ## Upload limit, map provider and distribution notices
 
