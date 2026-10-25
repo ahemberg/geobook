@@ -5,7 +5,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.http.HttpHeaders;
@@ -15,6 +14,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 import se.geobook.tracker.access.domain.Access;
+import se.geobook.tracker.access.domain.ClientKey;
 import se.geobook.tracker.access.domain.Credential;
 import se.geobook.tracker.access.domain.SessionKind;
 import se.geobook.tracker.access.service.BruteForceGuard;
@@ -45,7 +45,7 @@ final class CredentialFilter extends OncePerRequestFilter {
       throws ServletException, IOException {
     final Optional<Credential> credential = credential(request);
     if (credential.isPresent()) {
-      final InetAddress client = connection.address(request);
+      final ClientKey client = connection.client(request);
       if (!guard.admitToken(client)) {
         TooManyAttempts.write(response);
         return;

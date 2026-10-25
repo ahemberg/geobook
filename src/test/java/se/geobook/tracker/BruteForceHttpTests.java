@@ -112,6 +112,33 @@ class BruteForceHttpTests {
   }
 
   @Test
+  void forwardedHopsThatAreNotAddressesKeepTheirOwnLimit()
+      throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start(OWNER_PASSWORD, TRUST_LOOPBACK)) {
+      for (int attempt = 0; attempt < 10; attempt++) {
+        assertThat(signIn(client, app, "unknown", WRONG).statusCode()).isEqualTo(401);
+      }
+      assertThat(signIn(client, app, "unknown", PASSWORD).statusCode()).isEqualTo(429);
+      assertThat(signIn(client, app, "_hidden", PASSWORD).statusCode()).isEqualTo(200);
+      assertThat(signIn(client, app, "203.0.113.1", PASSWORD).statusCode()).isEqualTo(200);
+
+      for (int attempt = 0; attempt < 10; attempt++) {
+        assertThat(signIn(client, app, "203.0.113.7:" + (40_000 + attempt), WRONG).statusCode())
+            .isEqualTo(401);
+      }
+      assertThat(signIn(client, app, "203.0.113.7", PASSWORD).statusCode()).isEqualTo(429);
+      assertThat(signIn(client, app, "198.51.100.1", PASSWORD).statusCode()).isEqualTo(200);
+      for (int attempt = 0; attempt < 10; attempt++) {
+        assertThat(signIn(client, app, "[2001:db8::1]:" + (40_000 + attempt), WRONG))
+            .extracting(HttpResponse::statusCode)
+            .isEqualTo(401);
+      }
+      assertThat(signIn(client, app, "2001:db8::2", PASSWORD).statusCode()).isEqualTo(429);
+    }
+  }
+
+  @Test
   void twentyFailuresInRowFromAnywhereLockTheOwnerForFifteenMinutes()
       throws IOException, InterruptedException {
     try (HttpClient client = HttpClient.newHttpClient();

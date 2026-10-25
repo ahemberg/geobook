@@ -1,6 +1,5 @@
 package se.geobook.tracker.access.service;
 
-import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -10,6 +9,7 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import se.geobook.tracker.access.domain.Access;
 import se.geobook.tracker.access.domain.AuthMode;
+import se.geobook.tracker.access.domain.ClientKey;
 import se.geobook.tracker.access.domain.Credential;
 import se.geobook.tracker.access.domain.Owner;
 import se.geobook.tracker.access.domain.PasswordSetting;
@@ -73,7 +73,7 @@ public class SessionService {
    * place of a code once: it signs in and turns 2FA off. Wrong passwords and codes count towards
    * the brute-force limits, and only a complete login refunds them.
    */
-  public SignInResult signIn(String username, String password, String code, InetAddress client) {
+  public SignInResult signIn(String username, String password, String code, ClientKey client) {
     if (!guard.admitLogin(client)) {
       return new SignInResult.Limited();
     }
@@ -96,7 +96,7 @@ public class SessionService {
     return open(client, secondFactor);
   }
 
-  private SignInResult open(InetAddress client, boolean secondFactor) {
+  private SignInResult open(ClientKey client, boolean secondFactor) {
     guard.loginSucceeded(client);
     final SessionToken token = SessionToken.generate(random);
     sessions.insert(StoredSession.browser(token.hash(), clock.instant(), secondFactor));

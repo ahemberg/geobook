@@ -48,7 +48,7 @@ final class SessionController {
             Objects.requireNonNullElse(input.username(), ""),
             Objects.requireNonNullElse(input.password(), ""),
             input.code(),
-            connection.address(request));
+            connection.client(request));
     return switch (result) {
       case SignInResult.Limited _ ->
           ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)

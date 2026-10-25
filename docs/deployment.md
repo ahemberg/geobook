@@ -158,7 +158,10 @@ the proxy's addresses in `GEOBOOK_TRUSTED_PROXIES` as IP addresses or CIDRs, sep
 by commas or spaces. It is empty by default. Geobook reads `X-Forwarded-For` and
 `X-Forwarded-Proto` only from those addresses and ignores them from anyone else, so a
 client cannot forge its address or claim HTTPS. The client address is the right-most
-`X-Forwarded-For` entry that is not itself a trusted proxy.
+`X-Forwarded-For` entry that is not itself a trusted proxy. When that entry is not an
+IP address, such as `unknown`, the brute-force limits count it as its own client.
+When `X-Forwarded-Proto` has several values, the last one counts, because the
+nearest proxy added it.
 
 The proxy must pass the original `Host` header and set `X-Forwarded-For` and
 `X-Forwarded-Proto`. With the proxy on the Docker host and the default loopback bind

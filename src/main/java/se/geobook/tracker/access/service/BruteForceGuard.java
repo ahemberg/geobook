@@ -1,6 +1,5 @@
 package se.geobook.tracker.access.service;
 
-import java.net.InetAddress;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
@@ -37,10 +36,9 @@ public class BruteForceGuard {
    * Whether a login attempt from this client may be checked at all. It takes one attempt from the
    * client's bucket up front, so parallel guesses cannot overrun it while a hash is compared.
    */
-  public boolean admitLogin(InetAddress client) {
+  public boolean admitLogin(ClientKey client) {
     final Instant now = clock.instant();
-    return !lockout.get().locked(now)
-        && take(logins, RateLimit.FAILED_LOGINS, ClientKey.forAddress(client), now);
+    return !lockout.get().locked(now) && take(logins, RateLimit.FAILED_LOGINS, client, now);
   }
 
   /** A wrong password, username or second factor. The admitted attempt stays used. */
@@ -50,21 +48,21 @@ public class BruteForceGuard {
   }
 
   /** Refunds every attempt the client used and ends the owner's row of failures. */
-  public void loginSucceeded(InetAddress client) {
+  public void loginSucceeded(ClientKey client) {
     final Instant now = clock.instant();
-    logins.remove(ClientKey.forAddress(client));
+    logins.remove(client);
     lockout.updateAndGet(current -> current.succeeded(now));
   }
 
   /** Whether a credential from this client may be resolved, without using up an attempt. */
-  public boolean admitToken(InetAddress client) {
-    final TokenBucket bucket = tokens.get(ClientKey.forAddress(client));
+  public boolean admitToken(ClientKey client) {
+    final TokenBucket bucket = tokens.get(client);
     return bucket == null || bucket.canTake(RateLimit.INVALID_TOKENS, clock.instant());
   }
 
   /** A session token or app password that matched nothing valid. */
-  public void tokenInvalid(InetAddress client) {
-    take(tokens, RateLimit.INVALID_TOKENS, ClientKey.forAddress(client), clock.instant());
+  public void tokenInvalid(ClientKey client) {
+    take(tokens, RateLimit.INVALID_TOKENS, client, clock.instant());
   }
 
   private static boolean take(

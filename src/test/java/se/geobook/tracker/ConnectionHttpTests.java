@@ -58,6 +58,10 @@ class ConnectionHttpTests {
 
         assertThat(cookieHeader(signIn(client, app, "X-Forwarded-Proto", "http")))
             .doesNotContain("Secure");
+        assertThat(cookieHeader(signIn(client, app, "X-Forwarded-Proto", "https, http")))
+            .doesNotContain("Secure");
+        assertThat(cookieHeader(signIn(client, app, "X-Forwarded-Proto", "http, https")))
+            .contains("Secure");
         assertThat(cookieHeader(signIn(client, app, NO_HEADERS))).doesNotContain("Secure");
       }
       try (ConfigurableApplicationContext app = start(OWNER_PASSWORD)) {

@@ -6,8 +6,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import se.geobook.tracker.access.domain.ClientKey;
 import se.geobook.tracker.access.domain.TrustedProxies;
 
 /**
@@ -18,44 +21,69 @@ import se.geobook.tracker.access.domain.TrustedProxies;
 final class ClientConnection {
   private static final String FORWARDED_FOR = "X-Forwarded-For";
   private static final String FORWARDED_PROTO = "X-Forwarded-Proto";
+  private static final Pattern BRACKETED = Pattern.compile("\\[([^\\]]+)\\](?::\\d+)?");
+  private static final Pattern IPV4_WITH_PORT = Pattern.compile("([0-9.]+):\\d+");
   private final TrustedProxies trusted;
 
   ClientConnection(@Value("${geobook.trusted-proxies}") String trustedProxies) {
     this.trusted = TrustedProxies.parse(trustedProxies);
   }
 
+  /** The client's address, or empty when a trusted proxy forwarded something else for it. */
+  Optional<InetAddress> address(HttpServletRequest request) {
+    return hopAddress(clientHop(request));
+  }
+
+  /** Whose limits the request counts towards. */
+  ClientKey client(HttpServletRequest request) {
+    final String hop = clientHop(request);
+    return hopAddress(hop).map(ClientKey::forAddress).orElseGet(() -> ClientKey.forHop(hop));
+  }
+
   /**
-   * The client's address. Behind trusted proxies it is the right-most {@code X-Forwarded-For} hop
-   * that is not itself a trusted proxy, because hops further left could be forged by the client.
+   * Whether the client reached Geobook over HTTPS, directly or through a trusted proxy. The last
+   * {@code X-Forwarded-Proto} value is the one the nearest proxy added.
    */
-  InetAddress address(HttpServletRequest request) {
-    final InetAddress peer = peer(request);
-    if (!trusted.contains(peer)) {
+  boolean secure(HttpServletRequest request) {
+    return request.isSecure()
+        || trusted.contains(peer(request))
+            && values(request, FORWARDED_PROTO).reversed().stream()
+                .findFirst()
+                .filter("https"::equalsIgnoreCase)
+                .isPresent();
+  }
+
+  /**
+   * The peer address, or behind trusted proxies the right-most {@code X-Forwarded-For} hop that is
+   * not itself a trusted proxy, because hops further left could be forged by the client. A hop that
+   * is not an address ends the walk as it is, so a proxy writing {@code unknown} does not merge its
+   * clients with the proxy itself.
+   */
+  private String clientHop(HttpServletRequest request) {
+    final String peer = request.getRemoteAddr();
+    if (!trusted.contains(InetAddress.ofLiteral(peer))) {
       return peer;
     }
     final List<String> hops = values(request, FORWARDED_FOR);
-    InetAddress client = peer;
+    String client = peer;
     for (int index = hops.size() - 1; index >= 0; index--) {
-      final Optional<InetAddress> hop = TrustedProxies.literal(hops.get(index));
-      if (hop.isEmpty()) {
-        break;
-      }
-      client = hop.get();
-      if (!trusted.contains(client)) {
+      client = hops.get(index);
+      final Optional<InetAddress> hop = hopAddress(client);
+      if (hop.isEmpty() || !trusted.contains(hop.get())) {
         break;
       }
     }
     return client;
   }
 
-  /** Whether the client reached Geobook over HTTPS, directly or through a trusted proxy. */
-  boolean secure(HttpServletRequest request) {
-    return request.isSecure()
-        || trusted.contains(peer(request))
-            && values(request, FORWARDED_PROTO).stream()
-                .findFirst()
-                .filter("https"::equalsIgnoreCase)
-                .isPresent();
+  /** An address hop, with or without a port, as some proxies write it. Never a DNS lookup. */
+  private static Optional<InetAddress> hopAddress(String hop) {
+    final Matcher bracketed = BRACKETED.matcher(hop);
+    if (bracketed.matches()) {
+      return TrustedProxies.literal(bracketed.group(1));
+    }
+    final Matcher withPort = IPV4_WITH_PORT.matcher(hop);
+    return TrustedProxies.literal(withPort.matches() ? withPort.group(1) : hop);
   }
 
   private static InetAddress peer(HttpServletRequest request) {
