@@ -31,7 +31,12 @@ class ArchitectureTests {
         .and()
         .doNotHaveFullyQualifiedName("se.geobook.tracker.configuration.StorageConfiguration")
         .and()
+        .doNotHaveFullyQualifiedName("se.geobook.tracker.configuration.ClockConfiguration")
+        .and()
         .resideOutsideOfPackage("db.migration..")
+        // The command line entry point is an input adapter beside the HTTP controllers.
+        .and()
+        .resideOutsideOfPackage("se.geobook.tracker.cli..")
         .should()
         .resideInAnyPackage(
             "se.geobook.tracker.*.controller..",
@@ -53,10 +58,14 @@ class ArchitectureTests {
         .definedBy("se.geobook.tracker.*.repository..")
         .layer("Domain")
         .definedBy("se.geobook.tracker.*.domain..")
+        .optionalLayer("CommandLine")
+        .definedBy("se.geobook.tracker.cli..")
         .whereLayer("Controller")
         .mayNotBeAccessedByAnyLayer()
+        .whereLayer("CommandLine")
+        .mayNotBeAccessedByAnyLayer()
         .whereLayer("Service")
-        .mayOnlyBeAccessedByLayers("Controller")
+        .mayOnlyBeAccessedByLayers("Controller", "CommandLine")
         .whereLayer("Repository")
         .mayOnlyBeAccessedByLayers("Service")
         .whereLayer("Domain")
@@ -64,6 +73,10 @@ class ArchitectureTests {
         .ignoreDependency(
             JavaClass.Predicates.resideInAPackage("db.migration.."),
             JavaClass.Predicates.resideInAPackage("se.geobook.tracker.tracks.domain.."))
+        // main() hands subcommands to the command line before the server starts.
+        .ignoreDependency(
+            JavaClass.Predicates.equivalentTo(TrackerApplication.class),
+            JavaClass.Predicates.resideInAPackage("se.geobook.tracker.cli.."))
         .check(APPLICATION);
   }
 
@@ -137,6 +150,30 @@ class ArchitectureTests {
   }
 
   @Test
+  void springSecurityBelongsToTheAccessFeature() {
+    // The filter chain, its filter and entry point are HTTP handling in the access controllers.
+    noClasses()
+        .that()
+        .resideOutsideOfPackage("se.geobook.tracker.access.controller..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage(
+            "org.springframework.security.config..",
+            "org.springframework.security.web..",
+            "org.springframework.security.core..",
+            "org.springframework.security.authentication..")
+        .check(APPLICATION);
+    // Password hashing is the only part of Spring Security that services use.
+    noClasses()
+        .that()
+        .resideOutsideOfPackage("se.geobook.tracker.access.service..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("org.springframework.security.crypto..")
+        .check(APPLICATION);
+  }
+
+  @Test
   void featuresCannotUseInfrastructureAsAnEscapeFromTheLayers() {
     noClasses()
         .that()
@@ -146,7 +183,10 @@ class ArchitectureTests {
         .should()
         .dependOnClassesThat()
         .resideInAnyPackage(
-            "se.geobook.tracker.configuration..", "db.migration..", "se.geobook.tracker")
+            "se.geobook.tracker.configuration..",
+            "se.geobook.tracker.cli..",
+            "db.migration..",
+            "se.geobook.tracker")
         .check(APPLICATION);
     classes()
         .that()
@@ -161,8 +201,10 @@ class ArchitectureTests {
     ApplicationModules modules =
         ApplicationModules.of(
             TrackerApplication.class,
-            JavaClass.Predicates.resideInAPackage("se.geobook.tracker.configuration.."));
+            JavaClass.Predicates.resideInAnyPackage(
+                "se.geobook.tracker.configuration..", "se.geobook.tracker.cli.."));
     assertThat(modules.getModuleByName("tracks")).isPresent();
+    assertThat(modules.getModuleByName("access")).isPresent();
     modules.forEach(module -> assertThat(module.isOpen()).as(module.getDisplayName()).isFalse());
     modules.verify();
   }

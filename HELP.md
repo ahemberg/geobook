@@ -60,10 +60,13 @@ It covers versioned builds, local SSD mounts, manual updates and stopped-app cop
 Build with `./mvnw verify`, then run:
 
 ```bash
-java -jar target/tracker-0.0.1-SNAPSHOT.jar --geobook.data-directory=/path/to/local-data
+GEOBOOK_OWNER_PASSWORD='choose a password' \
+  java -jar target/tracker-0.0.1-SNAPSHOT.jar --geobook.data-directory=/path/to/local-data
 ```
 
-Open http://localhost:8080. Spring Boot serves the frontend and API together.
+Open http://localhost:8080 and sign in as `admin`. Spring Boot serves the frontend and API together.
+The first start needs `GEOBOOK_OWNER_PASSWORD`; later starts keep the stored password.
+`GEOBOOK_AUTH_MODE=public` turns login off. See [authentication](docs/deployment.md#authentication).
 The data directory defaults to `./data`. Startup creates it and applies versioned Flyway
 migrations. SQLite uses WAL, FULL synchronization, foreign keys and a five-second busy timeout.
 Run one application instance per data directory on a local disk. Keep that directory when restarting.
@@ -127,14 +130,16 @@ Configure an OSM-based raster provider through Spring properties or their enviro
 
 Keep attribution visible and follow the selected provider's usage policy. The browser fetches
 tiles directly and uses normal HTTP caching; there is no bulk download or offline prefetch.
-The app has no login and is intended for the agreed LAN/VPN deployment.
 
-For backend development, run `./mvnw spring-boot:run`. For frontend development, run
+For backend development, run `GEOBOOK_AUTH_MODE=public ./mvnw spring-boot:run`, or set
+`GEOBOOK_OWNER_PASSWORD` and sign in. For frontend development, run
 `npm run dev` in `src/main/frontend`; Vite proxies API requests to port 8080.
 
 After building the JAR, run `npm run test:e2e` from `src/main/frontend`. First install
 Chromium with `npx playwright install chromium`. Tests launch the real packaged application
 with temporary SQLite, exercise desktop and touch mobile, and stub only external tiles.
+The journeys run in public mode on port 18080. `login.spec.ts` runs against a second,
+password-mode instance on port 18081.
 GitHub's backend check runs these tests after the Maven build.
 
 ## Security checks

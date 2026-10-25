@@ -9,3 +9,10 @@ paths = [
   '''(^|/)target/''',
   '''(^|/)src/main/frontend/(node_modules|node|\.fallow|dist|coverage|test-results|playwright-report)/''',
 ]
+
+[[allowlists]]
+description = "Public example credentials: the RFC 6238 TOTP test secret and PhotoPrism's documented app password"
+regexes = [
+  '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''',
+  '''OXiV72-wTtiL9-d04jO7-X7XP4p''',
+]

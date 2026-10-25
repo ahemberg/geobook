@@ -7,6 +7,9 @@ the container by hand, as described in [deployment](deployment.md#explicit-manua
 
 ## Cut a release
 
+Move the Unreleased section of [release notes](release-notes.md) under the new
+version, and copy it into the GitHub Release. Upgrade steps go first.
+
 Pick a commit that is already on `main`. Tag it with `v` and a semantic version,
 such as `v0.1.0` for a stable release or `v0.2.0-rc.1` for a prerelease:
 

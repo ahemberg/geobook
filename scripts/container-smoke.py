@@ -34,6 +34,7 @@ def main():
         env = dict(os.environ, GEOBOOK_IMAGE=args.image, GEOBOOK_DATA_DIRECTORY=str(data),
                    GEOBOOK_UID=str(os.getuid()), GEOBOOK_GID=str(os.getgid()),
                    GEOBOOK_BIND_ADDRESS="127.0.0.1", GEOBOOK_PORT="0",
+                   GEOBOOK_AUTH_MODE="public",
                    GEOBOOK_TILES_URL="https://tile.openstreetmap.org/{z}/{x}/{y}.png?smoke=1",
                    GEOBOOK_TILES_ATTRIBUTION="© OpenStreetMap contributors",
                    GEOBOOK_TILES_ATTRIBUTIONURL="https://www.openstreetmap.org/copyright?smoke=1")

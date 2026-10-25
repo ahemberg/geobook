@@ -1,0 +1,7 @@
+#!/bin/sh
+# Runs a Geobook subcommand, such as `geobook passwd`, against the container's data directory.
+# Without arguments it prints the commands instead of starting a second server.
+if [ "$#" -eq 0 ]; then
+  set -- help
+fi
+exec java --enable-native-access=ALL-UNNAMED -jar /app/app.jar "$@"
