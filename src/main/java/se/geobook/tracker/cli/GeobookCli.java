@@ -21,7 +21,9 @@ public final class GeobookCli {
           new Command(
               "passwd",
               "Set a new owner password and sign out every browser session",
-              PasswdCommand.class));
+              PasswdCommand.class),
+          new Command(
+              "auth", "Add, list and revoke app passwords (auth add|ls|rm)", AuthCommand.class));
 
   private GeobookCli() {}
 
