@@ -26,6 +26,18 @@ class TokenBucketTests {
   }
 
   @Test
+  void refundGivesOneTokenBackButNeverMoreThanFull() {
+    TokenBucket bucket = TokenBucket.full(NOW);
+    for (int taken = 0; taken < 3; taken++) {
+      bucket = bucket.take(LIMIT, NOW);
+    }
+    bucket = bucket.refund(LIMIT, NOW);
+    assertThat(bucket.canTake(LIMIT, NOW)).isTrue();
+    assertThat(bucket.take(LIMIT, NOW).canTake(LIMIT, NOW)).isFalse();
+    assertThat(TokenBucket.full(NOW).refund(LIMIT, NOW)).isEqualTo(TokenBucket.full(NOW));
+  }
+
+  @Test
   void refillStopsAtTheBurst() {
     final Instant later = NOW.plus(Duration.ofHours(1));
     TokenBucket bucket = TokenBucket.full(NOW);

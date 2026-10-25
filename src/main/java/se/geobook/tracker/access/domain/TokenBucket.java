@@ -19,6 +19,12 @@ public record TokenBucket(Instant fullAt) {
     return new TokenBucket(start(now).plus(limit.refill()));
   }
 
+  /** Gives back a token taken earlier. A full bucket stays full. */
+  public TokenBucket refund(RateLimit limit, Instant now) {
+    final Instant earlier = fullAt.minus(limit.refill());
+    return new TokenBucket(earlier.isAfter(now) ? earlier : now);
+  }
+
   public boolean isFull(Instant now) {
     return !fullAt.isAfter(now);
   }

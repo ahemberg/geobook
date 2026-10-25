@@ -17,15 +17,16 @@ import se.geobook.tracker.access.domain.TokenBucket;
  * per client, and failed logins from anywhere also count towards locking the owner's login.
  *
  * <p>A login attempt calls {@link #admitLogin} before checking anything, then exactly one of {@link
- * #loginFailed} or {@link #loginSucceeded}. A request carrying a session token or app password
- * calls {@link #admitToken} before resolving it and {@link #tokenInvalid} when it does not resolve.
+ * #loginFailed} or {@link #loginSucceeded}. A request carrying a session cookie or app password
+ * calls {@link #admitCredential} before resolving it and {@link #credentialResolved} when it
+ * resolves.
  */
 @Service
 public class BruteForceGuard {
   private static final int SWEEP_ABOVE = 10_000;
   private final Clock clock;
   private final Map<ClientKey, TokenBucket> logins = new ConcurrentHashMap<>();
-  private final Map<ClientKey, TokenBucket> tokens = new ConcurrentHashMap<>();
+  private final Map<ClientKey, TokenBucket> credentials = new ConcurrentHashMap<>();
   private final AtomicReference<OwnerLockout> lockout = new AtomicReference<>(OwnerLockout.NONE);
 
   BruteForceGuard(Clock clock) {
@@ -54,15 +55,23 @@ public class BruteForceGuard {
     lockout.updateAndGet(current -> current.succeeded(now));
   }
 
-  /** Whether a credential from this client may be resolved, without using up an attempt. */
-  public boolean admitToken(ClientKey client) {
-    final TokenBucket bucket = tokens.get(client);
-    return bucket == null || bucket.canTake(RateLimit.INVALID_TOKENS, clock.instant());
+  /**
+   * Whether a credential from this client may be resolved at all. Like {@link #admitLogin}, it
+   * takes one attempt up front, so parallel invalid credentials cannot overrun the bucket.
+   */
+  public boolean admitCredential(ClientKey client) {
+    return take(credentials, RateLimit.INVALID_CREDENTIALS, client, clock.instant());
   }
 
-  /** A session token or app password that matched nothing valid. */
-  public void tokenInvalid(ClientKey client) {
-    take(tokens, RateLimit.INVALID_TOKENS, client, clock.instant());
+  /** The admitted credential was valid, so its attempt comes back. */
+  public void credentialResolved(ClientKey client) {
+    final Instant now = clock.instant();
+    credentials.computeIfPresent(
+        client,
+        (ignored, bucket) -> {
+          final TokenBucket refunded = bucket.refund(RateLimit.INVALID_CREDENTIALS, now);
+          return refunded.isFull(now) ? null : refunded;
+        });
   }
 
   private static boolean take(

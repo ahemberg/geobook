@@ -46,14 +46,13 @@ final class CredentialFilter extends OncePerRequestFilter {
     final Optional<Credential> credential = credential(request);
     if (credential.isPresent()) {
       final ClientKey client = connection.client(request);
-      if (!guard.admitToken(client)) {
+      if (!guard.admitCredential(client)) {
         TooManyAttempts.write(response);
         return;
       }
       final Optional<Access> access = sessions.resolve(credential.get());
-      if (access.isEmpty()) {
-        guard.tokenInvalid(client);
-      } else {
+      if (access.isPresent()) {
+        guard.credentialResolved(client);
         signIn(access.get());
       }
     }
