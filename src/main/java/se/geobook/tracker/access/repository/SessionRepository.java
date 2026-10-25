@@ -18,19 +18,21 @@ public class SessionRepository {
 
   public void insert(StoredSession session) {
     jdbc.update(
-        "INSERT INTO session (token_hash, kind, scope, created_at, last_active_at)"
-            + " VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO session (token_hash, kind, scope, created_at, last_active_at, second_factor)"
+            + " VALUES (?, ?, ?, ?, ?, ?)",
         session.tokenHash(),
         session.kind().stored(),
         session.scope().stored(),
         session.createdAt().toEpochMilli(),
-        session.lastActiveAt().toEpochMilli());
+        session.lastActiveAt().toEpochMilli(),
+        session.secondFactor() ? 1 : 0);
   }
 
   public Optional<StoredSession> find(String tokenHash) {
     return jdbc
         .query(
-            "SELECT token_hash, kind, scope, created_at, last_active_at FROM session"
+            "SELECT token_hash, kind, scope, created_at, last_active_at, second_factor"
+                + " FROM session"
                 + " WHERE token_hash = ?",
             (row, number) ->
                 new StoredSession(
@@ -38,7 +40,8 @@ public class SessionRepository {
                     SessionKind.fromStored(row.getString("kind")),
                     Scope.fromStored(row.getString("scope")),
                     Instant.ofEpochMilli(row.getLong("created_at")),
-                    Instant.ofEpochMilli(row.getLong("last_active_at"))),
+                    Instant.ofEpochMilli(row.getLong("last_active_at")),
+                    row.getInt("second_factor") == 1),
             tokenHash)
         .stream()
         .findFirst();
@@ -49,6 +52,10 @@ public class SessionRepository {
         "UPDATE session SET last_active_at = ? WHERE token_hash = ?",
         lastActiveAt.toEpochMilli(),
         tokenHash);
+  }
+
+  public void markSecondFactor(String tokenHash) {
+    jdbc.update("UPDATE session SET second_factor = 1 WHERE token_hash = ?", tokenHash);
   }
 
   public void delete(String tokenHash) {

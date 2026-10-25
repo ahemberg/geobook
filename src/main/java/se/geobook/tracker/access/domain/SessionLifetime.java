@@ -16,6 +16,11 @@ public record SessionLifetime(Duration maxAge, Duration idleTimeout) {
         && now.isBefore(session.lastActiveAt().plus(idleTimeout));
   }
 
+  /** The lifetime of a session opened with a 2FA code while 2FA is on. */
+  public SessionLifetime doubled() {
+    return new SessionLifetime(maxAge.multipliedBy(2), idleTimeout.multipliedBy(2));
+  }
+
   public boolean shouldTouch(StoredSession session, Instant now) {
     return !now.isBefore(session.lastActiveAt().plus(TOUCH_INTERVAL));
   }

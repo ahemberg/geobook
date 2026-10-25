@@ -1,6 +1,10 @@
 import { useState, type FormEvent } from 'react';
 
 type SignedIn = { next: string };
+type Refused = { message?: string; codeRequired?: boolean };
+
+/** The password was right, but 2FA is on and a code is needed. */
+class CodeRequired extends Error {}
 
 async function signIn(form: FormData): Promise<string> {
   const response = await fetch('/api/session', {
@@ -9,12 +13,19 @@ async function signIn(form: FormData): Promise<string> {
     body: JSON.stringify({
       username: form.get('username'),
       password: form.get('password'),
+      code: form.get('code') ?? undefined,
       next: new URLSearchParams(window.location.search).get('next'),
     }),
   }).catch(() => {
     throw new Error('Geobook could not be reached. Check the connection and try again.');
   });
-  if (response.status === 401) throw new Error('Wrong username or password.');
+  if (response.status === 401) {
+    const refused = (await response.json().catch(() => ({}))) as Refused;
+    if (refused.codeRequired) {
+      throw new CodeRequired(refused.message ?? 'Enter the code from your authenticator app.');
+    }
+    throw new Error('Wrong username or password.');
+  }
   if (response.status === 429) throw new Error('Too many attempts. Try again later.');
   if (!response.ok) throw new Error('Signing in failed. Please try again.');
   return ((await response.json()) as SignedIn).next;
@@ -27,6 +38,7 @@ export default function Login({
 }) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  const [askCode, setAskCode] = useState(false);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,6 +47,7 @@ export default function Login({
     signIn(new FormData(event.currentTarget))
       .then(navigate)
       .catch((failure: unknown) => {
+        if (failure instanceof CodeRequired) setAskCode(true);
         setError(failure instanceof Error ? failure.message : 'Signing in failed.');
         setPending(false);
       });
@@ -68,6 +81,19 @@ export default function Login({
             Password
             <input name="password" type="password" autoComplete="current-password" required />
           </label>
+          {askCode && (
+            <label>
+              Authenticator code
+              <input
+                name="code"
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                required
+              />
+            </label>
+          )}
           <button className="primary" type="submit" disabled={pending}>
             {pending ? 'Signing in…' : 'Sign in'}
           </button>

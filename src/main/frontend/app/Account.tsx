@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { perform } from './api';
+import TwoFactor from './TwoFactor';
 
 function message(failure: unknown) {
   return failure instanceof Error ? failure.message : 'The request could not be completed.';
@@ -22,6 +23,7 @@ export default function Account({
       <main className="account">
         <h1>Account</h1>
         <PasswordChange />
+        <TwoFactor />
         <SignOutEverywhere navigate={navigate} />
       </main>
     </div>

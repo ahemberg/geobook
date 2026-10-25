@@ -64,7 +64,7 @@ public class AccountService {
     sessions.deleteBrowserSessions();
   }
 
-  private boolean matchesCurrent(String password) {
+  boolean matchesCurrent(String password) {
     return password.getBytes(StandardCharsets.UTF_8).length <= PasswordSetting.MAX_BYTES
         && owners.owner().passwordHash().map(hash -> hasher.matches(password, hash)).orElse(false);
   }

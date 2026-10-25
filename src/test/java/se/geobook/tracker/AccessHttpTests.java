@@ -110,7 +110,7 @@ class AccessHttpTests {
         assertThat(signIn(client, app, "admin", PASSWORD).statusCode()).isEqualTo(401);
         final String cookie = cookie(signIn(client, app, "traveller", PASSWORD));
         assertThat(json(send(client, app, "GET", "/api/session", cookie)).toString())
-            .isEqualTo("{\"username\":\"traveller\"}");
+            .isEqualTo("{\"username\":\"traveller\",\"twoFactor\":false}");
       }
     }
   }
@@ -145,7 +145,7 @@ class AccessHttpTests {
       assertThat(send(client, app, "GET", "/api/session", cookie(first)).statusCode())
           .isEqualTo(200);
       assertThat(json(send(client, app, "GET", "/api/session", second)).toString())
-          .isEqualTo("{\"username\":\"admin\"}");
+          .isEqualTo("{\"username\":\"admin\",\"twoFactor\":false}");
 
       final HttpResponse<String> replaced =
           send(client, app, "POST", "/api/session", second, credentials("admin", PASSWORD));

@@ -45,3 +45,33 @@ test('signing in goes to the page the server accepted as next', async () => {
     next: '/map?from=2024-01-01',
   });
 });
+
+test('a right password with 2FA on asks for the code and sends it with the password', async () => {
+  window.history.replaceState(null, '', '/login');
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(
+      Response.json(
+        { message: 'Enter the code from your authenticator app.', codeRequired: true },
+        { status: 401 },
+      ),
+    )
+    .mockResolvedValueOnce(Response.json({ username: 'admin', next: '/map' }));
+  vi.stubGlobal('fetch', fetch);
+  const navigate = vi.fn();
+  render(<Login navigate={navigate} />);
+  expect(screen.queryByLabelText('Authenticator code')).not.toBeInTheDocument();
+  await signIn('correct horse battery');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Enter the code');
+  const code = screen.getByLabelText('Authenticator code');
+  expect(code).toHaveAttribute('autocomplete', 'one-time-code');
+  await userEvent.type(code, '123456');
+  await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+  await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/map'));
+  expect(JSON.parse((fetch.mock.calls[1] as [string, RequestInit])[1].body as string)).toEqual({
+    username: 'admin',
+    password: 'correct horse battery',
+    code: '123456',
+    next: null,
+  });
+});

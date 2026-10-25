@@ -3,6 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 import Account from './Account';
 
+// The 2FA section loads its own state; TwoFactor.test.tsx covers it.
+vi.mock('./TwoFactor', () => ({ default: () => null }));
+
 afterEach(() => vi.unstubAllGlobals());
 
 async function change(current: string, next: string, repeat = next) {

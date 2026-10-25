@@ -154,6 +154,23 @@ Caddy sets these headers by default: `reverse_proxy 127.0.0.1:8080` is enough.
 Check the setup by signing in over HTTPS and confirming the `geobook_session`
 cookie is marked Secure in the browser's developer tools.
 
+### Two-factor authentication
+
+The owner can turn on TOTP 2FA on the account page: enter the password, scan the
+QR code with an authenticator app and confirm one code. Geobook then shows one
+recovery code, once. From then on, signing in asks for a code after a correct
+password. Codes use SHA1, 6 digits and 30 seconds, and the code from one step
+before or after is also accepted, so keep the host clock in sync. Wrong codes count
+towards the same limits and lockout as wrong passwords. While 2FA is on, sessions
+opened with a code last twice as long: four weeks at most and two weeks idle by
+default.
+
+On first start Geobook creates `secret.key` in the data directory, readable only by
+its own user. It encrypts the 2FA secret in the database with that key; the
+recovery code is stored as a bcrypt hash. Back up `secret.key` together with the
+database. The stopped-app copy below includes it. A restored database without its
+`secret.key` cannot check codes, and replacing the file stops 2FA sign-in.
+
 ### Password recovery
 
 If you forget the password, set a new one from a shell on the host:
@@ -260,7 +277,7 @@ sudo cp -a /mnt/ssd/geobook /mnt/backup/geobook-RELEASE-DATE
 docker compose start
 ```
 
-Copy the whole directory, including any SQLite sidecar files. Do not copy only the
+Copy the whole directory, including any SQLite sidecar files and `secret.key`. Do not copy only the
 main database while the application runs. This is a manual copy, with no scheduler
 or retention policy.
 

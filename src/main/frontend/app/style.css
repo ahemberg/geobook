@@ -1267,6 +1267,18 @@ select {
 .account h2 {
   font-size: 19px;
 }
+.qr-code {
+  width: 200px;
+  height: 200px;
+}
+.secret {
+  font-family: ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+.recovery-code {
+  font-size: 21px;
+  letter-spacing: 0.08em;
+}
 .account-section + .account-section {
   border-top: 1px solid var(--line);
   padding-top: 32px;

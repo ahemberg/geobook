@@ -20,6 +20,7 @@
             <Class name="se.geobook.tracker.access.controller.LoginPageController"/>
             <Class name="se.geobook.tracker.access.controller.AccountController"/>
             <Class name="se.geobook.tracker.access.controller.AccountPageController"/>
+            <Class name="se.geobook.tracker.access.controller.TwoFactorController"/>
         </Or>
         <Bug pattern="SPRING_ENDPOINT"/>
     </Match>

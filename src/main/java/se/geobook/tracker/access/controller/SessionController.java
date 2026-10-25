@@ -24,7 +24,7 @@ final class SessionController {
     this.connection = connection;
   }
 
-  record SignIn(String username, String password, String next) {
+  record SignIn(String username, String password, String code, String next) {
     @Override
     public String toString() {
       return "SignIn[username=" + username + "]";
@@ -33,9 +33,12 @@ final class SessionController {
 
   record SignedIn(String username, String next) {}
 
-  record Session(String username) {}
+  record Session(String username, boolean twoFactor) {}
 
   record Failure(String message) {}
+
+  /** A 401 telling the login page to ask for the 2FA code. */
+  record CodeNeeded(String message, boolean codeRequired) {}
 
   @PostMapping("/api/session")
   ResponseEntity<?> signIn(
@@ -44,6 +47,7 @@ final class SessionController {
         sessions.signIn(
             Objects.requireNonNullElse(input.username(), ""),
             Objects.requireNonNullElse(input.password(), ""),
+            input.code(),
             connection.address(request));
     return switch (result) {
       case SignInResult.Limited _ ->
@@ -52,6 +56,11 @@ final class SessionController {
       case SignInResult.Rejected _ ->
           ResponseEntity.status(HttpStatus.UNAUTHORIZED)
               .body(new Failure("Wrong username or password."));
+      case SignInResult.CodeRequired _ ->
+          ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+              .body(new CodeNeeded("Enter the code from your authenticator app.", true));
+      case SignInResult.WrongCode _ ->
+          ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new CodeNeeded("Wrong code.", true));
       case SignInResult.SignedIn signedIn -> {
         SessionCookies.read(request).ifPresent(sessions::signOut);
         SessionCookies.issue(
@@ -63,7 +72,7 @@ final class SessionController {
 
   @GetMapping("/api/session")
   Session session() {
-    return new Session(sessions.ownerUsername());
+    return new Session(sessions.ownerUsername(), sessions.twoFactorActive());
   }
 
   @DeleteMapping("/api/session")

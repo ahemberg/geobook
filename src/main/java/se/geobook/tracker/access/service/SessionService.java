@@ -27,6 +27,7 @@ public class SessionService {
   private final SessionRepository sessions;
   private final PasswordHasher hasher;
   private final BruteForceGuard guard;
+  private final TwoFactorService twoFactor;
   private final Clock clock;
   private final SecureRandom random = new SecureRandom();
 
@@ -36,12 +37,14 @@ public class SessionService {
       SessionRepository sessions,
       PasswordHasher hasher,
       BruteForceGuard guard,
+      TwoFactorService twoFactor,
       Clock clock) {
     this.settings = settings;
     this.owners = owners;
     this.sessions = sessions;
     this.hasher = hasher;
     this.guard = guard;
+    this.twoFactor = twoFactor;
     this.clock = clock;
   }
 
@@ -49,8 +52,13 @@ public class SessionService {
     return settings.mode();
   }
 
+  /** The cookie lifetime for a new session, doubled while 2FA is on. */
   public Duration maxAge() {
-    return settings.lifetime().maxAge();
+    return (twoFactor.active() ? settings.lifetime().doubled() : settings.lifetime()).maxAge();
+  }
+
+  public boolean twoFactorActive() {
+    return twoFactor.active();
   }
 
   public String ownerUsername() {
@@ -58,10 +66,11 @@ public class SessionService {
   }
 
   /**
-   * Creates a new session for the right credentials. Any wrong part gives the same answer, and too
-   * many wrong answers from the client or in a row limit further attempts.
+   * Creates a new session for the right credentials. A wrong username or password gives the same
+   * answer. While 2FA is on, a right password also needs a current code. Wrong passwords and codes
+   * count towards the brute-force limits, and only a complete login refunds them.
    */
-  public SignInResult signIn(String username, String password, InetAddress client) {
+  public SignInResult signIn(String username, String password, String code, InetAddress client) {
     if (!guard.admitLogin(client)) {
       return new SignInResult.Limited();
     }
@@ -69,9 +78,17 @@ public class SessionService {
       guard.loginFailed();
       return new SignInResult.Rejected();
     }
+    final boolean secondFactor = twoFactor.active();
+    if (secondFactor && (code == null || code.isBlank())) {
+      return new SignInResult.CodeRequired();
+    }
+    if (secondFactor && !twoFactor.codeMatches(code.strip())) {
+      guard.loginFailed();
+      return new SignInResult.WrongCode();
+    }
     guard.loginSucceeded(client);
     final SessionToken token = SessionToken.generate(random);
-    sessions.insert(StoredSession.browser(token.hash(), clock.instant()));
+    sessions.insert(StoredSession.browser(token.hash(), clock.instant(), secondFactor));
     return new SignInResult.SignedIn(token);
   }
 
@@ -98,7 +115,10 @@ public class SessionService {
     }
     final StoredSession session = found.get();
     final Instant now = clock.instant();
-    final SessionLifetime lifetime = settings.lifetime();
+    final SessionLifetime lifetime =
+        session.secondFactor() && twoFactor.active()
+            ? settings.lifetime().doubled()
+            : settings.lifetime();
     if (!lifetime.allows(session, now)) {
       sessions.delete(session.tokenHash());
       return Optional.empty();

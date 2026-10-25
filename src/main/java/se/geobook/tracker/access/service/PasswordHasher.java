@@ -19,6 +19,10 @@ class PasswordHasher {
     };
   }
 
+  String hashSecret(String secret) {
+    return encoder.encode(secret);
+  }
+
   boolean matches(String password, String hash) {
     return encoder.matches(password, hash);
   }
