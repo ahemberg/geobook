@@ -54,4 +54,8 @@ public class SessionRepository {
   public void delete(String tokenHash) {
     jdbc.update("DELETE FROM session WHERE token_hash = ?", tokenHash);
   }
+
+  public void deleteKind(SessionKind kind) {
+    jdbc.update("DELETE FROM session WHERE kind = ?", kind.stored());
+  }
 }
