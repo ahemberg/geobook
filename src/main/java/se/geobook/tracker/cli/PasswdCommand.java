@@ -2,7 +2,6 @@ package se.geobook.tracker.cli;
 
 import java.util.List;
 import java.util.Optional;
-import se.geobook.tracker.access.domain.PasswordSetting;
 import se.geobook.tracker.access.service.AccountService;
 
 /** Sets a new owner password and signs out every browser, for an owner who forgot it. */
@@ -33,7 +32,7 @@ final class PasswdCommand implements Subcommand {
       return FAILED;
     }
     try {
-      accounts.resetPassword(new PasswordSetting.Plain(password.get()));
+      accounts.resetPassword(password.get());
     } catch (IllegalArgumentException exception) {
       terminal.err().println(exception.getMessage());
       return FAILED;

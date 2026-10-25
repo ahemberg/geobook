@@ -15,9 +15,11 @@ import se.geobook.tracker.access.service.WrongPasswordException;
 @RestController
 final class AccountController {
   private final AccountService account;
+  private final ClientConnection connection;
 
-  AccountController(AccountService account) {
+  AccountController(AccountService account, ClientConnection connection) {
     this.account = account;
+    this.connection = connection;
   }
 
   record PasswordChange(String currentPassword, String newPassword) {
@@ -42,7 +44,7 @@ final class AccountController {
   @DeleteMapping("/api/account/sessions")
   ResponseEntity<Void> signOutEverywhere(HttpServletRequest request, HttpServletResponse response) {
     account.signOutEverywhere();
-    SessionCookies.clear(request, response);
+    SessionCookies.clear(response, connection.secure(request));
     return ResponseEntity.noContent().build();
   }
 

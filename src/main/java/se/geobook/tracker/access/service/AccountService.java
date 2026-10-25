@@ -48,10 +48,14 @@ public class AccountService {
             sessions::deleteBrowserSessions);
   }
 
-  /** Sets a new password without the current one and signs out every browser session. */
+  /**
+   * Sets a new password without the current one and signs out every browser session.
+   *
+   * @throws IllegalArgumentException when the new password is too short or too long
+   */
   @Transactional
-  public void resetPassword(PasswordSetting.Plain password) {
-    owners.setPassword(hasher.hash(password), clock.instant());
+  public void resetPassword(String newPassword) {
+    owners.setPassword(hasher.hash(new PasswordSetting.Plain(newPassword)), clock.instant());
     sessions.deleteBrowserSessions();
   }
 
