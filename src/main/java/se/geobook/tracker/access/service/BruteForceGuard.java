@@ -73,7 +73,7 @@ public class BruteForceGuard {
    * takes one attempt up front, so parallel invalid credentials cannot overrun the bucket.
    */
   public boolean admitCredential(ClientKey client) {
-    return take(credentials, RateLimit.INVALID_CREDENTIALS, client, clock.instant());
+    return take(credentials, RateLimit.BAD_CREDENTIALS, client, clock.instant());
   }
 
   /** The admitted credential was valid, so its attempt comes back. */
@@ -82,7 +82,7 @@ public class BruteForceGuard {
     credentials.computeIfPresent(
         client,
         (ignored, bucket) -> {
-          final TokenBucket refunded = bucket.refund(RateLimit.INVALID_CREDENTIALS, now);
+          final TokenBucket refunded = bucket.refund(RateLimit.BAD_CREDENTIALS, now);
           return refunded.isFull(now) ? null : refunded;
         });
   }

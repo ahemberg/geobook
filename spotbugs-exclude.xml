@@ -40,8 +40,13 @@
     </Match>
     <!-- The Authorization header carries the app password, which is checked against the store. -->
     <Match>
-        <Class name="se.geobook.tracker.access.controller.CredentialFilter"/>
+        <Class name="se.geobook.tracker.access.controller.BearerHeader"/>
         <Bug pattern="SERVLET_HEADER"/>
+    </Match>
+    <!-- Error bodies are fixed messages written as application/json, never request input. -->
+    <Match>
+        <Class name="se.geobook.tracker.access.controller.ErrorResponses"/>
+        <Bug pattern="XSS_SERVLET"/>
     </Match>
     <!-- Comparing the browser's Sec-Fetch-Site, Origin and Host headers is the cross-origin check. -->
     <Match>

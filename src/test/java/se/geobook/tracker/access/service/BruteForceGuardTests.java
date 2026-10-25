@@ -16,7 +16,11 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import se.geobook.tracker.access.domain.ClientKey;
 
-@SuppressWarnings({"PMD.UnitTestContainsTooManyAsserts", "PMD.AvoidUsingHardCodedIP"})
+@SuppressWarnings({
+  "PMD.UnitTestContainsTooManyAsserts",
+  "PMD.AvoidUsingHardCodedIP",
+  "PMD.DoNotUseThreads"
+})
 class BruteForceGuardTests {
   private static final ClientKey CLIENT =
       ClientKey.forAddress(InetAddress.ofLiteral("203.0.113.1"));
