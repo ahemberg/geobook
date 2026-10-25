@@ -69,6 +69,7 @@ class AppPasswordHttpTests {
       assertThat(body.get("createdAt").asString()).isEqualTo("2026-03-01T10:00:00Z");
       assertThat(body.get("expiresAt").isNull()).isTrue();
       assertThat(body.get("lastUsedAt").isNull()).isTrue();
+      assertThat(body.size()).isEqualTo(7);
       final String other = secret(create(client, app, cookie, "Dashboard", "read"));
 
       final HttpResponse<String> listed = send(client, app, "GET", APP_PASSWORDS, cookie, null);

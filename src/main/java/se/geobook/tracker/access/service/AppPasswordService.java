@@ -84,12 +84,8 @@ public class AppPasswordService {
     return new Created(password, value);
   }
 
-  public List<AppPassword> list() {
-    return sessions.appPasswords();
-  }
-
   public List<Summary> summaries() {
-    return list().stream().map(Summary::from).toList();
+    return sessions.appPasswords().stream().map(Summary::from).toList();
   }
 
   /** Revokes one app password and reports whether it existed. */

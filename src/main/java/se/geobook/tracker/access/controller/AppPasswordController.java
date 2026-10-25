@@ -1,5 +1,6 @@
 package se.geobook.tracker.access.controller;
 
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -11,8 +12,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import se.geobook.tracker.access.domain.AppPassword;
 import se.geobook.tracker.access.service.AppPasswordService;
+import se.geobook.tracker.access.service.AppPasswordService.Summary;
 
 @RestController
 @SuppressWarnings("PMD.ShortVariable")
@@ -32,51 +33,41 @@ final class AppPasswordController {
       Instant createdAt,
       Instant expiresAt,
       Instant lastUsedAt) {
-    static Listed from(AppPassword password) {
+    static Listed from(Summary summary) {
       return new Listed(
-          password.id(),
-          password.name(),
-          password.scope().stored(),
-          password.createdAt(),
-          password.expiresAt().orElse(null),
-          password.lastUsedAt().orElse(null));
+          summary.id(),
+          summary.name(),
+          summary.scope(),
+          summary.createdAt(),
+          summary.expiresAt().orElse(null),
+          summary.lastUsedAt().orElse(null));
     }
   }
 
-  record Created(
-      String id,
-      String name,
-      String scope,
-      Instant createdAt,
-      Instant expiresAt,
-      Instant lastUsedAt,
-      String password) {
+  /** The listed fields plus the secret, shown once. */
+  record Created(@JsonUnwrapped Listed appPassword, String password) {
+    static Created from(AppPasswordService.Created created) {
+      return new Created(Listed.from(created.summary()), created.secret());
+    }
+
     @Override
     public String toString() {
-      return "Created[id=" + id + ", password=<redacted>]";
+      return "Created[id=" + appPassword.id() + ", password=<redacted>]";
     }
   }
 
   @GetMapping("/api/app-passwords")
   List<Listed> list() {
-    return appPasswords.list().stream().map(Listed::from).toList();
+    return appPasswords.summaries().stream().map(Listed::from).toList();
   }
 
   @PostMapping("/api/app-passwords")
   ResponseEntity<Created> create(@RequestBody Creation input) {
-    final AppPasswordService.Created created =
-        appPasswords.create(input.name(), input.scope(), Optional.ofNullable(input.expiresAt()));
-    final Listed listed = Listed.from(created.password());
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(
-            new Created(
-                listed.id(),
-                listed.name(),
-                listed.scope(),
-                listed.createdAt(),
-                listed.expiresAt(),
-                listed.lastUsedAt(),
-                created.secret()));
+            Created.from(
+                appPasswords.create(
+                    input.name(), input.scope(), Optional.ofNullable(input.expiresAt()))));
   }
 
   @DeleteMapping("/api/app-passwords/{id}")
