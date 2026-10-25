@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
  * that file cannot generate codes.
  */
 @Component
-class SecretBox {
+final class SecretBox {
   static final String FILE_NAME = "secret.key";
   private static final int KEY_BYTES = 32;
   private static final int NONCE_BYTES = 12;

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import AppPasswords from './AppPasswords';
 import { perform } from './api';
 import TwoFactor from './TwoFactor';
 
@@ -24,6 +25,7 @@ export default function Account({
         <h1>Account</h1>
         <PasswordChange />
         <TwoFactor />
+        <AppPasswords />
         <SignOutEverywhere navigate={navigate} />
       </main>
     </div>

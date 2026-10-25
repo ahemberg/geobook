@@ -10,8 +10,10 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import se.geobook.tracker.access.domain.Access;
 import se.geobook.tracker.access.domain.AuthMode;
+import se.geobook.tracker.access.domain.Credential;
 import se.geobook.tracker.access.domain.Owner;
 import se.geobook.tracker.access.domain.PasswordSetting;
+import se.geobook.tracker.access.domain.SessionKind;
 import se.geobook.tracker.access.domain.SessionLifetime;
 import se.geobook.tracker.access.domain.SessionToken;
 import se.geobook.tracker.access.domain.SignInResult;
@@ -107,9 +109,16 @@ public class SessionService {
     return valid;
   }
 
-  public Optional<Access> resolve(String token) {
+  /**
+   * Resolves a session cookie or Bearer app password to the owner. Every invalid credential of
+   * either kind ends here with an empty answer.
+   */
+  public Optional<Access> resolve(Credential credential) {
     final Optional<StoredSession> found =
-        SessionToken.parse(token).flatMap(parsed -> sessions.find(parsed.hash()));
+        credential
+            .hash()
+            .flatMap(sessions::find)
+            .filter(session -> session.kind() == credential.kind());
     if (found.isEmpty()) {
       return Optional.empty();
     }
@@ -120,7 +129,9 @@ public class SessionService {
             ? settings.lifetime().doubled()
             : settings.lifetime();
     if (!lifetime.allows(session, now)) {
-      sessions.delete(session.tokenHash());
+      if (session.kind() == SessionKind.BROWSER) {
+        sessions.delete(session.tokenHash());
+      }
       return Optional.empty();
     }
     if (lifetime.shouldTouch(session, now)) {

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -37,6 +38,29 @@ class SessionLifetimeTests {
     final StoredSession session = StoredSession.browser(HASH, CREATED);
     assertThat(LIFETIME.shouldTouch(session, CREATED.plusSeconds(59))).isFalse();
     assertThat(LIFETIME.shouldTouch(session, CREATED.plusSeconds(60))).isTrue();
+  }
+
+  @Test
+  void appPasswordWithoutExpiryHasNoIdleTimeoutOrMaxAge() {
+    final StoredSession app = StoredSession.app(HASH, Scope.READ, CREATED, Optional.empty());
+    assertThat(LIFETIME.allows(app, CREATED.plus(Duration.ofDays(3650)))).isTrue();
+  }
+
+  @Test
+  void appPasswordEndsAtItsExpiry() {
+    final Instant expiry = CREATED.plus(Duration.ofDays(30));
+    final StoredSession app = StoredSession.app(HASH, Scope.ALL, CREATED, Optional.of(expiry));
+    assertThat(LIFETIME.allows(app, expiry.minusMillis(1))).isTrue();
+    assertThat(LIFETIME.allows(app, expiry)).isFalse();
+  }
+
+  @Test
+  void appPasswordRecordsItsFirstUseAndThenAtMostOncePerMinute() {
+    final StoredSession app = StoredSession.app(HASH, Scope.IMPORT, CREATED, Optional.empty());
+    assertThat(LIFETIME.shouldTouch(app, CREATED.plusSeconds(1))).isTrue();
+    final StoredSession used = app.touchedAt(CREATED.plusSeconds(1));
+    assertThat(LIFETIME.shouldTouch(used, CREATED.plusSeconds(60))).isFalse();
+    assertThat(LIFETIME.shouldTouch(used, CREATED.plusSeconds(61))).isTrue();
   }
 
   @ParameterizedTest

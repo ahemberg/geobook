@@ -1,6 +1,7 @@
 package se.geobook.tracker.access.domain;
 
 import java.time.Instant;
+import java.util.Optional;
 
 /**
  * A session row. Only the SHA-256 hash of its token is ever stored. {@code secondFactor} is set
@@ -12,16 +13,23 @@ public record StoredSession(
     Scope scope,
     Instant createdAt,
     Instant lastActiveAt,
+    Optional<Instant> expiresAt,
     boolean secondFactor) {
   public static StoredSession browser(String tokenHash, Instant now) {
     return browser(tokenHash, now, false);
   }
 
   public static StoredSession browser(String tokenHash, Instant now, boolean secondFactor) {
-    return new StoredSession(tokenHash, SessionKind.BROWSER, Scope.OWNER, now, now, secondFactor);
+    return new StoredSession(
+        tokenHash, SessionKind.BROWSER, Scope.OWNER, now, now, Optional.empty(), secondFactor);
+  }
+
+  public static StoredSession app(
+      String tokenHash, Scope scope, Instant now, Optional<Instant> expiresAt) {
+    return new StoredSession(tokenHash, SessionKind.APP, scope, now, now, expiresAt, false);
   }
 
   public StoredSession touchedAt(Instant now) {
-    return new StoredSession(tokenHash, kind, scope, createdAt, now, secondFactor);
+    return new StoredSession(tokenHash, kind, scope, createdAt, now, expiresAt, secondFactor);
   }
 }

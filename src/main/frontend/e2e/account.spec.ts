@@ -54,3 +54,42 @@ test('the owner changes the password and signs out everywhere', async ({
   await changePassword(page, NEW_PASSWORD, PASSWORD);
   await expect(page.getByRole('status')).toBeVisible();
 });
+
+const GPX =
+  '<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk><name>Phone ride</name><trkseg>' +
+  '<trkpt lat="59.32" lon="18.07"><time>2026-02-01T08:00:00Z</time></trkpt></trkseg></trk></gpx>';
+const RIDE = {
+  multipart: {
+    file: { name: 'ride.gpx', mimeType: 'application/gpx+xml', buffer: Buffer.from(GPX) },
+  },
+};
+
+test('the owner creates an app password for a script and revokes it', async ({
+  page,
+  playwright,
+  baseURL,
+}) => {
+  await page.goto('/account');
+  await signIn(page, PASSWORD);
+  await expect(page).toHaveURL(`${baseURL}/account`);
+
+  await page.getByLabel('Name').fill('Phone upload');
+  await page.getByLabel('Scope').selectOption('import');
+  await page.getByRole('button', { name: 'Create app password' }).click();
+  const value = (await page.locator('.app-password-value').textContent()) ?? '';
+  expect(value).toMatch(/^[A-Za-z0-9]{6}(-[A-Za-z0-9]{6}){3}$/);
+  const listed = page.getByRole('listitem').filter({ hasText: 'Phone upload' });
+  await expect(listed).toContainText('Import: upload tracks only');
+
+  const script = await playwright.request.newContext({
+    baseURL: baseURL ?? '',
+    extraHTTPHeaders: { Authorization: `Bearer ${value}` },
+  });
+  expect((await script.post('/api/tracks', RIDE)).status()).toBe(201);
+  expect((await script.get('/api/tracks')).status()).toBe(403);
+
+  await page.getByRole('button', { name: 'Revoke Phone upload' }).click();
+  await expect(listed).toHaveCount(0);
+  expect((await script.post('/api/tracks', RIDE)).status()).toBe(401);
+  await script.dispose();
+});

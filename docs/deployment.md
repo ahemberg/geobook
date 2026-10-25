@@ -98,12 +98,40 @@ host than the request's `Host`. Scripts that send neither header are not affecte
 
 Guessing is slow. Each client address may fail to sign in 10 times, then once more
 per minute. A successful login gives those attempts back. Requests with an unknown or
-expired session cookie are limited to 60, then one every 10 seconds. IPv6 clients
+expired session cookie or app password are limited to 60, then one every 10 seconds. IPv6 clients
 share one limit per /64. After 20 failed logins in a row from any address, the owner's
 login is locked for 15 minutes, even with the right password. Limited and locked
 requests get 429. The limits live in memory and reset when Geobook restarts. Behind a
 reverse proxy, set `GEOBOOK_TRUSTED_PROXIES` so the limits see each client's own
 address instead of the proxy's.
+
+### App passwords
+
+A script that calls Geobook should use an app password, not the owner's password.
+Create one under App passwords on the account page. Give it a name, pick a scope
+and, if you want, a last day it works. The value appears once, right after
+creation. Copy it then, because Geobook stores only its SHA-256 hash.
+
+- `import` may upload tracks (`POST /api/tracks` and `POST /api/imports`) and read
+  `GET /api/status`. Nothing else, so it is the one to keep on a phone.
+- `read` may make GET requests only.
+- `*` may do everything the owner can, except change the password, sign out
+  sessions, manage app passwords or manage 2FA.
+
+A request outside the scope gets 403. Send the value as a Bearer token. To upload
+a GPX file:
+
+```sh
+curl -H "Authorization: Bearer OXiV72-wTtiL9-d04jO7-X7XP4p" \
+  -F "file=@ride.gpx" https://geobook.example.org/api/tracks
+```
+
+App passwords have no idle timeout and stop working only at their expiry, when
+one is set. The account page lists each one with its scope, creation time, expiry
+and last use. Last use is updated at most once a minute. Revoke stops one app
+password on the next request and leaves the others and your browser sessions
+alone. Changing the password and signing out everywhere leave app passwords
+working. Public mode ignores Bearer headers.
 
 ### Behind a reverse proxy
 

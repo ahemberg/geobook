@@ -21,6 +21,7 @@
             <Class name="se.geobook.tracker.access.controller.AccountController"/>
             <Class name="se.geobook.tracker.access.controller.AccountPageController"/>
             <Class name="se.geobook.tracker.access.controller.TwoFactorController"/>
+            <Class name="se.geobook.tracker.access.controller.AppPasswordController"/>
         </Or>
         <Bug pattern="SPRING_ENDPOINT"/>
     </Match>
@@ -36,6 +37,11 @@
             <Bug pattern="UNVALIDATED_REDIRECT"/>
             <Bug pattern="SERVLET_QUERY_STRING"/>
         </Or>
+    </Match>
+    <!-- The Authorization header carries the app password, which is checked against the store. -->
+    <Match>
+        <Class name="se.geobook.tracker.access.controller.CredentialFilter"/>
+        <Bug pattern="SERVLET_HEADER"/>
     </Match>
     <!-- Comparing the browser's Sec-Fetch-Site, Origin and Host headers is the cross-origin check. -->
     <Match>

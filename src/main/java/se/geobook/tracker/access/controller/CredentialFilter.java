@@ -8,12 +8,15 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 import se.geobook.tracker.access.domain.Access;
+import se.geobook.tracker.access.domain.Credential;
+import se.geobook.tracker.access.domain.SessionKind;
 import se.geobook.tracker.access.service.BruteForceGuard;
 import se.geobook.tracker.access.service.SessionService;
 
@@ -23,6 +26,8 @@ import se.geobook.tracker.access.service.SessionService;
  * many invalid credentials gets 429 before its credential is even looked at.
  */
 final class CredentialFilter extends OncePerRequestFilter {
+  private static final String BEARER = "Bearer ";
+
   private final SessionService sessions;
   private final BruteForceGuard guard;
   private final ClientConnection connection;
@@ -38,14 +43,14 @@ final class CredentialFilter extends OncePerRequestFilter {
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
-    final Optional<String> token = SessionCookies.read(request);
-    if (token.isPresent()) {
+    final Optional<Credential> credential = credential(request);
+    if (credential.isPresent()) {
       final InetAddress client = connection.address(request);
       if (!guard.admitToken(client)) {
         TooManyAttempts.write(response);
         return;
       }
-      final Optional<Access> access = sessions.resolve(token.get());
+      final Optional<Access> access = sessions.resolve(credential.get());
       if (access.isEmpty()) {
         guard.tokenInvalid(client);
       } else {
@@ -53,6 +58,16 @@ final class CredentialFilter extends OncePerRequestFilter {
       }
     }
     chain.doFilter(request, response);
+  }
+
+  /** A Bearer header wins over the cookie, so a script's scope never widens to the browser's. */
+  private static Optional<Credential> credential(HttpServletRequest request) {
+    final String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+    if (authorization != null && authorization.regionMatches(true, 0, BEARER, 0, BEARER.length())) {
+      return Optional.of(
+          new Credential(SessionKind.APP, authorization.substring(BEARER.length()).strip()));
+    }
+    return SessionCookies.read(request).map(value -> new Credential(SessionKind.BROWSER, value));
   }
 
   private static void signIn(Access access) {

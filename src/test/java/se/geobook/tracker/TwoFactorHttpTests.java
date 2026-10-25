@@ -255,6 +255,67 @@ class TwoFactorHttpTests {
     }
   }
 
+  @Test
+  void appPasswordsWorkWithoutCodeButCannotManageTwoFactor()
+      throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final String cookie = cookie(signIn(client, app, HOME, null));
+      final TotpSecret totp = turnOn(client, app, cookie);
+      final HttpResponse<String> created =
+          send(
+              client,
+              app,
+              "POST",
+              "/api/app-passwords",
+              cookie,
+              MAPPER.writeValueAsString(Map.of("name", "Backup", "scope", "*")),
+              HOME);
+      assertThat(created.statusCode()).isEqualTo(201);
+      final String secret = json(created).get("password").asString();
+
+      assertThat(bearer(client, app, "GET", "/api/tracks", secret, null).statusCode())
+          .isEqualTo(200);
+      assertThat(
+              bearer(client, app, "POST", "/api/account/2fa/setup", secret, passwordBody(PASSWORD))
+                  .statusCode())
+          .isEqualTo(403);
+      assertThat(
+              bearer(
+                      client,
+                      app,
+                      "POST",
+                      "/api/account/2fa/confirm",
+                      secret,
+                      codeBody(totp.codeAt(clock.instant())))
+                  .statusCode())
+          .isEqualTo(403);
+    }
+  }
+
+  private static HttpResponse<String> bearer(
+      HttpClient client,
+      ConfigurableApplicationContext app,
+      String method,
+      String path,
+      String secret,
+      String body)
+      throws IOException, InterruptedException {
+    final HttpRequest.Builder request =
+        HttpRequest.newBuilder(URI.create(base(app) + path))
+            .method(
+                method,
+                body == null
+                    ? HttpRequest.BodyPublishers.noBody()
+                    : HttpRequest.BodyPublishers.ofString(body))
+            .header("Authorization", "Bearer " + secret)
+            .header("X-Forwarded-For", HOME);
+    if (body != null) {
+      request.header("Content-Type", "application/json");
+    }
+    return client.send(request.build(), HttpResponse.BodyHandlers.ofString());
+  }
+
   private TotpSecret turnOn(HttpClient client, ConfigurableApplicationContext app, String cookie)
       throws IOException, InterruptedException {
     final TotpSecret totp =
