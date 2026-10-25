@@ -145,6 +145,28 @@ Caddy sets these headers by default: `reverse_proxy 127.0.0.1:8080` is enough.
 Check the setup by signing in over HTTPS and confirming the `geobook_session`
 cookie is marked Secure in the browser's developer tools.
 
+### Password recovery
+
+If you forget the password, set a new one from a shell on the host:
+
+```sh
+docker compose exec geobook geobook passwd
+```
+
+It prompts twice for the new password, which takes 8 characters to 72 bytes.
+Geobook stores its bcrypt hash and signs out every browser, so sign in again with
+the new password. The running container picks up the change on its next request;
+there is nothing to restart. The command never takes the password as an argument,
+so it stays out of shell history. To script it, pipe the password on stdin:
+
+```sh
+printf '%s\n' "$NEW_PASSWORD" | docker compose exec -T geobook geobook passwd
+```
+
+`docker compose exec geobook geobook` alone lists the available commands. The
+command exits with 0 on success, 1 when the password is rejected and 2 on a usage
+error.
+
 ## Upload limit, map provider and distribution notices
 
 `.env.example` also lists `GEOBOOK_UPLOAD_LIMIT_MB`, a positive whole number that defaults
