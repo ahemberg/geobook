@@ -215,6 +215,17 @@ recovery code is stored as a bcrypt hash. Back up `secret.key` together with the
 database. The stopped-app copy below includes it. A restored database without its
 `secret.key` cannot check codes, and replacing the file stops 2FA sign-in.
 
+If you lose both the authenticator and the recovery code, or `secret.key` is gone,
+turn 2FA off from a shell on the host:
+
+```sh
+docker compose exec geobook geobook passcode off
+```
+
+It deletes the 2FA secret and the recovery code. The running container picks up
+the change on its next request, so sign in with the password alone and turn 2FA on
+again from the account page. Existing sessions stay signed in.
+
 ### Password recovery
 
 If you forget the password, set a new one from a shell on the host:
