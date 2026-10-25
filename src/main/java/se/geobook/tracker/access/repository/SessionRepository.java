@@ -54,4 +54,15 @@ public class SessionRepository {
   public void delete(String tokenHash) {
     jdbc.update("DELETE FROM session WHERE token_hash = ?", tokenHash);
   }
+
+  public void deleteBrowserSessions() {
+    jdbc.update("DELETE FROM session WHERE kind = ?", SessionKind.BROWSER.stored());
+  }
+
+  public void deleteBrowserSessionsExcept(String tokenHash) {
+    jdbc.update(
+        "DELETE FROM session WHERE kind = ? AND token_hash <> ?",
+        SessionKind.BROWSER.stored(),
+        tokenHash);
+  }
 }

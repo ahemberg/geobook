@@ -247,9 +247,14 @@ function AppHeader({
           {uploading ? 'Importing…' : 'Upload GPX / Takeout'}
         </button>
         {signedIn && (
-          <button className="sign-out" onClick={() => void signOut()}>
-            Sign out
-          </button>
+          <>
+            <a className="header-link" href="/account">
+              Account
+            </a>
+            <button className="sign-out" onClick={() => void signOut()}>
+              Sign out
+            </button>
+          </>
         )}
         <input
           ref={fileInput}
