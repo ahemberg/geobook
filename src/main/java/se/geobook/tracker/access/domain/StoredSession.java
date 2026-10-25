@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * A session row. Only the SHA-256 hash of its token is ever stored. {@code secondFactor} is set
+ * A session row. Only the SHA-256 hash of its secret is ever stored. {@code secondFactor} is set
  * when the session was opened with a 2FA code.
  */
 public record StoredSession(

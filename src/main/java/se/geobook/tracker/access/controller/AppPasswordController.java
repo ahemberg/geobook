@@ -76,7 +76,7 @@ final class AppPasswordController {
                 listed.createdAt(),
                 listed.expiresAt(),
                 listed.lastUsedAt(),
-                created.token().value()));
+                created.secret()));
   }
 
   @DeleteMapping("/api/app-passwords/{id}")

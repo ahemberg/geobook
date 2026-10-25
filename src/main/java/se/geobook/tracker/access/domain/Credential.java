@@ -11,7 +11,7 @@ public record Credential(SessionKind kind, String value) {
   public Optional<String> hash() {
     return switch (kind) {
       case BROWSER -> SessionToken.parse(value).map(SessionToken::hash);
-      case APP -> AppPasswordToken.parse(value).map(AppPasswordToken::hash);
+      case APP -> AppPasswordValue.parse(value).map(AppPasswordValue::hash);
     };
   }
 

@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import se.geobook.tracker.access.domain.AppPassword;
-import se.geobook.tracker.access.domain.AppPasswordToken;
+import se.geobook.tracker.access.domain.AppPasswordValue;
 import se.geobook.tracker.access.domain.Scope;
 import se.geobook.tracker.access.repository.SessionRepository;
 
@@ -31,7 +31,7 @@ public class AppPasswordService {
   }
 
   /** A new app password with its secret, which is shown once and never stored. */
-  public record Created(AppPassword password, AppPasswordToken token) {
+  public record Created(AppPassword password, AppPasswordValue value) {
     /** What the owner sees of the new app password. */
     public Summary summary() {
       return Summary.from(password);
@@ -39,7 +39,7 @@ public class AppPasswordService {
 
     /** The plain value to hand to the owner once. */
     public String secret() {
-      return token.value();
+      return value.value();
     }
   }
 
@@ -79,9 +79,9 @@ public class AppPasswordService {
     final AppPassword password =
         new AppPassword(
             HexFormat.of().formatHex(id), validName, validScope, now, expiresAt, Optional.empty());
-    final AppPasswordToken token = AppPasswordToken.generate(random);
-    sessions.insertAppPassword(password, token.hash());
-    return new Created(password, token);
+    final AppPasswordValue value = AppPasswordValue.generate(random);
+    sessions.insertAppPassword(password, value.hash());
+    return new Created(password, value);
   }
 
   public List<AppPassword> list() {

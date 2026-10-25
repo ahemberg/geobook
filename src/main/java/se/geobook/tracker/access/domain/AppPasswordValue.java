@@ -10,7 +10,7 @@ import java.util.zip.CRC32;
  * An app password secret in PhotoPrism's format: 27 characters, four groups of base62 joined by
  * {@code -}, whose last character is a checksum of the rest.
  */
-public record AppPasswordToken(String value) {
+public record AppPasswordValue(String value) {
   private static final String BASE62 =
       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   private static final int LENGTH = 27;
@@ -18,22 +18,22 @@ public record AppPasswordToken(String value) {
   private static final Pattern FORMAT =
       Pattern.compile("[A-Za-z0-9]{6}-[A-Za-z0-9]{6}-[A-Za-z0-9]{6}-[A-Za-z0-9]{6}");
 
-  public AppPasswordToken {
+  public AppPasswordValue {
     if (!valid(value)) {
       throw new IllegalArgumentException("An app password is 27 characters with a checksum.");
     }
   }
 
-  public static AppPasswordToken generate(SecureRandom random) {
+  public static AppPasswordValue generate(SecureRandom random) {
     final StringBuilder value = new StringBuilder(LENGTH);
     for (int index = 0; index < LENGTH - 1; index++) {
       value.append((index + 1) % GROUP == 0 ? '-' : BASE62.charAt(random.nextInt(BASE62.length())));
     }
-    return new AppPasswordToken(value.append(checksum(value.toString())).toString());
+    return new AppPasswordValue(value.append(checksum(value.toString())).toString());
   }
 
-  public static Optional<AppPasswordToken> parse(String value) {
-    return valid(value) ? Optional.of(new AppPasswordToken(value)) : Optional.empty();
+  public static Optional<AppPasswordValue> parse(String value) {
+    return valid(value) ? Optional.of(new AppPasswordValue(value)) : Optional.empty();
   }
 
   public String hash() {
@@ -54,6 +54,6 @@ public record AppPasswordToken(String value) {
 
   @Override
   public String toString() {
-    return "AppPasswordToken[value=<redacted>]";
+    return "AppPasswordValue[value=<redacted>]";
   }
 }
