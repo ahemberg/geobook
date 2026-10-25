@@ -1,13 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { encode } from 'uqr';
-import { request } from './api';
+import { perform, request } from './api';
 
 type Session = { username: string; twoFactor: boolean };
 type Setup = { otpauthUri: string; secret: string };
 type Confirmed = { recoveryCode: string };
 type Stage =
   | { name: 'loading' }
-  | { name: 'off' }
+  | { name: 'off'; turnedOff?: boolean }
   | { name: 'scan'; setup: Setup }
   | { name: 'recovery'; code: string }
   | { name: 'on' };
@@ -16,15 +16,27 @@ function message(failure: unknown) {
   return failure instanceof Error ? failure.message : 'The request could not be completed.';
 }
 
-function post<T>(url: string, body: object) {
-  return request<T>(url, {
+function post<T>(url: string) {
+  return (body: object) =>
+    request<T>(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+}
+
+function turnOff(body: object) {
+  return perform('/api/account/2fa/off', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
 
-/** The account page's 2FA section: password, then QR code and one code, then the recovery code. */
+/**
+ * The account page's 2FA section: password, then QR code and one code, then the recovery code.
+ * While 2FA is on, the password and a current code turn it off.
+ */
 export default function TwoFactor() {
   const [stage, setStage] = useState<Stage>({ name: 'loading' });
   const [error, setError] = useState('');
@@ -36,12 +48,16 @@ export default function TwoFactor() {
       .catch((failure: unknown) => setError(message(failure)));
   }, []);
 
-  function submit<T>(event: FormEvent<HTMLFormElement>, url: string, next: (result: T) => Stage) {
+  function submit<T>(
+    event: FormEvent<HTMLFormElement>,
+    call: (values: object) => Promise<T>,
+    next: (result: T) => Stage,
+  ) {
     event.preventDefault();
     const values = Object.fromEntries(new FormData(event.currentTarget));
     setPending(true);
     setError('');
-    post<T>(url, values)
+    call(values)
       .then((result) => setStage(next(result)))
       .catch((failure: unknown) => setError(message(failure)))
       .finally(() => setPending(false));
@@ -60,9 +76,17 @@ export default function TwoFactor() {
           <form
             className="login-form"
             onSubmit={(event) =>
-              submit<Setup>(event, '/api/account/2fa/setup', (setup) => ({ name: 'scan', setup }))
+              submit(event, post<Setup>('/api/account/2fa/setup'), (setup) => ({
+                name: 'scan',
+                setup,
+              }))
             }
           >
+            {stage.turnedOff && (
+              <p className="notice" role="status">
+                2FA is off. Sign-in asks only for your password.
+              </p>
+            )}
             <p className="hint">
               Sign-in will ask for a code from an authenticator app after your password. App
               passwords keep working without a code.
@@ -80,7 +104,7 @@ export default function TwoFactor() {
           <form
             className="login-form"
             onSubmit={(event) =>
-              submit<Confirmed>(event, '/api/account/2fa/confirm', (confirmed) => ({
+              submit(event, post<Confirmed>('/api/account/2fa/confirm'), (confirmed) => ({
                 name: 'recovery',
                 code: confirmed.recoveryCode,
               }))
@@ -122,10 +146,48 @@ export default function TwoFactor() {
           </>
         )}
         {stage.name === 'on' && (
-          <p className="hint">2FA is on. Sign-in asks for a code from your authenticator app.</p>
+          <TurnOffForm
+            pending={pending}
+            onSubmit={(event) => submit(event, turnOff, () => ({ name: 'off', turnedOff: true }))}
+          />
         )}
       </div>
     </section>
+  );
+}
+
+function TurnOffForm({
+  pending,
+  onSubmit,
+}: {
+  pending: boolean;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <form className="login-form" onSubmit={onSubmit}>
+      <p className="hint">
+        2FA is on. Sign-in asks for a code from your authenticator app. To turn it off, enter your
+        password and a current code.
+      </p>
+      <label>
+        Password
+        <input name="password" type="password" autoComplete="current-password" required />
+      </label>
+      <label>
+        Code from the app
+        <input
+          name="code"
+          autoComplete="one-time-code"
+          inputMode="numeric"
+          pattern="[0-9]{6}"
+          maxLength={6}
+          required
+        />
+      </label>
+      <button className="danger" type="submit" disabled={pending}>
+        {pending ? 'Turning off…' : 'Turn off 2FA'}
+      </button>
+    </form>
   );
 }
 

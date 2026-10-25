@@ -82,17 +82,24 @@ export default function Login({
             <input name="password" type="password" autoComplete="current-password" required />
           </label>
           {askCode && (
-            <label>
-              Authenticator code
-              <input
-                name="code"
-                autoComplete="one-time-code"
-                inputMode="numeric"
-                pattern="[0-9]{6}"
-                maxLength={6}
-                required
-              />
-            </label>
+            <>
+              <label>
+                Authenticator code
+                <input
+                  name="code"
+                  autoComplete="one-time-code"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  pattern="[0-9]{6}|[0-9a-z]{12}"
+                  maxLength={12}
+                  required
+                />
+              </label>
+              <p className="hint">
+                Lost your phone? Enter your recovery code instead. It signs you in once and turns
+                2FA off.
+              </p>
+            </>
           )}
           <button className="primary" type="submit" disabled={pending}>
             {pending ? 'Signing in…' : 'Sign in'}

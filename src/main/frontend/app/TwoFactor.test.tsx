@@ -67,3 +67,36 @@ test('says so when 2FA is already on', async () => {
   expect(await screen.findByText(/2FA is on/)).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Set up 2FA' })).not.toBeInTheDocument();
 });
+
+test('turning 2FA off sends the password and a code, then offers setup again', async () => {
+  const fetch = api({
+    '/api/session': Response.json({ username: 'admin', twoFactor: true }),
+    '/api/account/2fa/off': new Response(null, { status: 204 }),
+  });
+  render(<TwoFactor />);
+  await userEvent.type(await screen.findByLabelText('Password'), 'correct horse battery');
+  await userEvent.type(screen.getByLabelText('Code from the app'), '123456');
+  await userEvent.click(screen.getByRole('button', { name: 'Turn off 2FA' }));
+
+  expect(await screen.findByRole('button', { name: 'Set up 2FA' })).toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('2FA is off');
+  const [url, init] = fetch.mock.calls[1] as unknown as [string, RequestInit];
+  expect(url).toBe('/api/account/2fa/off');
+  expect(JSON.parse(init.body as string)).toEqual({
+    password: 'correct horse battery',
+    code: '123456',
+  });
+});
+
+test('a wrong password or code leaves 2FA on and shows the server message', async () => {
+  api({
+    '/api/session': Response.json({ username: 'admin', twoFactor: true }),
+    '/api/account/2fa/off': Response.json({ message: 'Wrong code.' }, { status: 400 }),
+  });
+  render(<TwoFactor />);
+  await userEvent.type(await screen.findByLabelText('Password'), 'correct horse battery');
+  await userEvent.type(screen.getByLabelText('Code from the app'), '000000');
+  await userEvent.click(screen.getByRole('button', { name: 'Turn off 2FA' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Wrong code.');
+  expect(screen.getByRole('button', { name: 'Turn off 2FA' })).toBeInTheDocument();
+});

@@ -256,6 +256,123 @@ class TwoFactorHttpTests {
   }
 
   @Test
+  void recoveryCodeSignsInOnceAndTurnsTwoFactorOff() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final Enrolment first = enrol(client, app, cookie(signIn(client, app, HOME, null)));
+
+      final HttpResponse<String> recovered = signIn(client, app, HOME, first.recoveryCode());
+      assertThat(recovered.statusCode()).isEqualTo(200);
+      assertThat(recovered.headers().firstValue("Set-Cookie").orElseThrow())
+          .contains("Max-Age=" + Duration.ofDays(14).toSeconds());
+      final String cookie = cookie(recovered);
+      assertThat(json(send(client, app, "GET", "/api/session", cookie, null, HOME)).toString())
+          .isEqualTo("{\"username\":\"admin\",\"twoFactor\":false}");
+      assertTwoFactorCleared(app);
+      assertThat(signIn(client, app, HOME, null).statusCode()).isEqualTo(200);
+
+      final Enrolment second = enrol(client, app, cookie);
+      final HttpResponse<String> reused = signIn(client, app, HOME, first.recoveryCode());
+      assertThat(reused.statusCode()).isEqualTo(401);
+      assertThat(reused.body()).isEqualTo("{\"message\":\"Wrong code.\",\"codeRequired\":true}");
+      assertThat(signIn(client, app, HOME, first.totp().codeAt(clock.instant())).statusCode())
+          .isEqualTo(401);
+      assertThat(signIn(client, app, HOME, second.totp().codeAt(clock.instant())).statusCode())
+          .isEqualTo(200);
+      assertThat(signIn(client, app, HOME, second.recoveryCode()).statusCode()).isEqualTo(200);
+      assertThat(signIn(client, app, HOME, second.recoveryCode()).statusCode()).isEqualTo(200);
+      assertThat(json(send(client, app, "GET", "/api/session", cookie, null, HOME)).toString())
+          .contains("\"twoFactor\":false");
+    }
+  }
+
+  @Test
+  void recoveryCodeStillNeedsTheRightPassword() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final Enrolment enrolment = enrol(client, app, cookie(signIn(client, app, HOME, null)));
+      final HttpResponse<String> wrongPassword =
+          signIn(client, app, HOME, "wrong password", enrolment.recoveryCode());
+      assertThat(wrongPassword.statusCode()).isEqualTo(401);
+      assertThat(wrongPassword.body()).isEqualTo("{\"message\":\"Wrong username or password.\"}");
+      assertThat(signIn(client, app, HOME, null).statusCode()).isEqualTo(401);
+      assertThat(signIn(client, app, HOME, enrolment.recoveryCode()).statusCode()).isEqualTo(200);
+    }
+  }
+
+  @Test
+  void ownerTurnsTwoFactorOffWithPasswordAndCurrentCode() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final String setupCookie = cookie(signIn(client, app, HOME, null));
+      final TotpSecret totp = turnOn(client, app, setupCookie);
+      final String cookie = cookie(signIn(client, app, HOME, totp.codeAt(clock.instant())));
+      final String wrongCode = totp.codeAt(clock.instant().plusSeconds(120));
+
+      final HttpResponse<String> wrongPassword =
+          send(
+              client,
+              app,
+              "POST",
+              "/api/account/2fa/off",
+              cookie,
+              offBody("wrong", totp.codeAt(clock.instant())),
+              HOME);
+      assertThat(wrongPassword.statusCode()).isEqualTo(400);
+      assertThat(wrongPassword.body())
+          .isEqualTo("{\"message\":\"The current password is wrong.\"}");
+      final HttpResponse<String> wrong =
+          send(
+              client,
+              app,
+              "POST",
+              "/api/account/2fa/off",
+              cookie,
+              offBody(PASSWORD, wrongCode),
+              HOME);
+      assertThat(wrong.statusCode()).isEqualTo(400);
+      assertThat(wrong.body()).isEqualTo("{\"message\":\"Wrong code.\"}");
+      assertThat(json(send(client, app, "GET", "/api/session", cookie, null, HOME)).toString())
+          .contains("\"twoFactor\":true");
+      assertThat(signIn(client, app, HOME, null).statusCode()).isEqualTo(401);
+
+      final HttpResponse<String> off =
+          send(
+              client,
+              app,
+              "POST",
+              "/api/account/2fa/off",
+              cookie,
+              offBody(PASSWORD, totp.codeAt(clock.instant())),
+              HOME);
+      assertThat(off.statusCode()).isEqualTo(204);
+      assertThat(json(send(client, app, "GET", "/api/session", cookie, null, HOME)).toString())
+          .isEqualTo("{\"username\":\"admin\",\"twoFactor\":false}");
+      assertTwoFactorCleared(app);
+      assertThat(
+              send(
+                      client,
+                      app,
+                      "POST",
+                      "/api/account/2fa/off",
+                      cookie,
+                      offBody(PASSWORD, totp.codeAt(clock.instant())),
+                      HOME)
+                  .body())
+          .isEqualTo("{\"message\":\"2FA is off.\"}");
+
+      final HttpResponse<String> passwordOnly = signIn(client, app, HOME, null);
+      assertThat(passwordOnly.statusCode()).isEqualTo(200);
+      assertThat(passwordOnly.headers().firstValue("Set-Cookie").orElseThrow())
+          .contains("Max-Age=" + Duration.ofDays(14).toSeconds());
+      final String fresh = cookie(passwordOnly);
+      clock.advance(Duration.ofDays(8));
+      assertThat(send(client, app, "GET", "/api/tracks", fresh, null, HOME).statusCode())
+          .isEqualTo(401);
+    }
+  }
+
+  @Test
   void appPasswordsWorkWithoutCodeButCannotManageTwoFactor()
       throws IOException, InterruptedException {
     try (HttpClient client = HttpClient.newHttpClient();
@@ -290,6 +407,17 @@ class TwoFactorHttpTests {
                       codeBody(totp.codeAt(clock.instant())))
                   .statusCode())
           .isEqualTo(403);
+      assertThat(
+              bearer(
+                      client,
+                      app,
+                      "POST",
+                      "/api/account/2fa/off",
+                      secret,
+                      offBody(PASSWORD, totp.codeAt(clock.instant())))
+                  .statusCode())
+          .isEqualTo(403);
+      assertThat(signIn(client, app, HOME, null).statusCode()).isEqualTo(401);
     }
   }
 
@@ -316,7 +444,14 @@ class TwoFactorHttpTests {
     return client.send(request.build(), HttpResponse.BodyHandlers.ofString());
   }
 
+  private record Enrolment(TotpSecret totp, String recoveryCode) {}
+
   private TotpSecret turnOn(HttpClient client, ConfigurableApplicationContext app, String cookie)
+      throws IOException, InterruptedException {
+    return enrol(client, app, cookie).totp();
+  }
+
+  private Enrolment enrol(HttpClient client, ConfigurableApplicationContext app, String cookie)
       throws IOException, InterruptedException {
     final TotpSecret totp =
         new TotpSecret(
@@ -331,18 +466,27 @@ class TwoFactorHttpTests {
                         HOME))
                     .get("secret")
                     .asString()));
+    final HttpResponse<String> confirmed =
+        send(
+            client,
+            app,
+            "POST",
+            "/api/account/2fa/confirm",
+            cookie,
+            codeBody(totp.codeAt(clock.instant())),
+            HOME);
+    assertThat(confirmed.statusCode()).isEqualTo(200);
+    return new Enrolment(totp, json(confirmed).get("recoveryCode").asString());
+  }
+
+  private static void assertTwoFactorCleared(ConfigurableApplicationContext app) {
     assertThat(
-            send(
-                    client,
-                    app,
-                    "POST",
-                    "/api/account/2fa/confirm",
-                    cookie,
-                    codeBody(totp.codeAt(clock.instant())),
-                    HOME)
-                .statusCode())
-        .isEqualTo(200);
-    return totp;
+            app.getBean(JdbcTemplate.class)
+                .queryForMap(
+                    "SELECT totp_secret, recovery_code_hash, two_factor_activated_at FROM owner")
+                .values())
+        .hasSize(3)
+        .containsOnlyNulls();
   }
 
   private ConfigurableApplicationContext start() {
@@ -375,6 +519,10 @@ class TwoFactorHttpTests {
 
   private static String passwordBody(String value) {
     return MAPPER.writeValueAsString(Map.of("password", value));
+  }
+
+  private static String offBody(String password, String code) {
+    return MAPPER.writeValueAsString(Map.of("password", password, "code", code));
   }
 
   private static String codeBody(String value) {

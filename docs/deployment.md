@@ -209,6 +209,12 @@ towards the same limits and lockout as wrong passwords. While 2FA is on, session
 opened with a code last twice as long: four weeks at most and two weeks idle by
 default.
 
+If you lose the phone, enter the recovery code in place of a code at sign-in. It
+works once: it signs you in and turns 2FA off, so you can set it up again on the
+new phone. To turn 2FA off yourself, use the account page with your password and a
+current code. Turning 2FA off forgets the secret and the recovery code, and new
+sessions get the normal lifetimes again.
+
 On first start Geobook creates `secret.key` in the data directory, readable only by
 its own user. It encrypts the 2FA secret in the database with that key; the
 recovery code is stored as a bcrypt hash. Back up `secret.key` together with the

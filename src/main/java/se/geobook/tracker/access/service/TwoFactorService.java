@@ -105,6 +105,27 @@ public class TwoFactorService {
         && owners.recoveryCodeHash().map(hash -> hasher.matches(code, hash)).orElse(false);
   }
 
+  /**
+   * Turns 2FA off for the owner, who proves it with the password and a current code.
+   *
+   * @throws WrongPasswordException when the password does not match
+   * @throws IllegalStateException when 2FA is off
+   * @throws IllegalArgumentException when the code is wrong
+   */
+  @Transactional
+  public void turnOff(String password, String code) {
+    if (!account.matchesCurrent(password)) {
+      throw new WrongPasswordException();
+    }
+    if (!active()) {
+      throw new IllegalStateException("2FA is off.");
+    }
+    if (!codeMatches(code)) {
+      throw new IllegalArgumentException("Wrong code.");
+    }
+    turnOff();
+  }
+
   /** Turns 2FA off and forgets the secret and recovery code. Sessions are left alone. */
   public void turnOff() {
     owners.clearTwoFactor();

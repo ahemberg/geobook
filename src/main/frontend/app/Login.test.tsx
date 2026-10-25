@@ -75,3 +75,30 @@ test('a right password with 2FA on asks for the code and sends it with the passw
     next: null,
   });
 });
+
+test('the code field also takes the 12-character recovery code', async () => {
+  window.history.replaceState(null, '', '/login');
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(
+      Response.json(
+        { message: 'Enter the code from your authenticator app.', codeRequired: true },
+        { status: 401 },
+      ),
+    )
+    .mockResolvedValueOnce(Response.json({ username: 'admin', next: '/map' }));
+  vi.stubGlobal('fetch', fetch);
+  const navigate = vi.fn();
+  render(<Login navigate={navigate} />);
+  await signIn('correct horse battery');
+  expect(await screen.findByText(/recovery code/)).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText('Authenticator code'), 'abc123def456');
+  await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+  await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/map'));
+  expect(JSON.parse((fetch.mock.calls[1] as [string, RequestInit])[1].body as string)).toEqual({
+    username: 'admin',
+    password: 'correct horse battery',
+    code: 'abc123def456',
+    next: null,
+  });
+});

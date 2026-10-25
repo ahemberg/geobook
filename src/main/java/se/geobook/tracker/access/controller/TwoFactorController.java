@@ -42,6 +42,13 @@ final class TwoFactorController {
     }
   }
 
+  record TurnOff(String password, String code) {
+    @Override
+    public String toString() {
+      return "TurnOff[<redacted>]";
+    }
+  }
+
   record Failure(String message) {}
 
   @PostMapping("/api/account/2fa/setup")
@@ -56,6 +63,14 @@ final class TwoFactorController {
             Objects.requireNonNullElse(input.code(), "").strip(),
             SessionCookies.read(request).orElse(null));
     return new Confirmed(recovery.value());
+  }
+
+  @PostMapping("/api/account/2fa/off")
+  ResponseEntity<Void> turnOff(@RequestBody TurnOff input) {
+    twoFactor.turnOff(
+        Objects.requireNonNullElse(input.password(), ""),
+        Objects.requireNonNullElse(input.code(), "").strip());
+    return ResponseEntity.noContent().build();
   }
 
   @ExceptionHandler({

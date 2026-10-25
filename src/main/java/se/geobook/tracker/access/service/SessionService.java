@@ -69,8 +69,9 @@ public class SessionService {
 
   /**
    * Creates a new session for the right credentials. A wrong username or password gives the same
-   * answer. While 2FA is on, a right password also needs a current code. Wrong passwords and codes
-   * count towards the brute-force limits, and only a complete login refunds them.
+   * answer. While 2FA is on, a right password also needs a current code. The recovery code works in
+   * place of a code once: it signs in and turns 2FA off. Wrong passwords and codes count towards
+   * the brute-force limits, and only a complete login refunds them.
    */
   public SignInResult signIn(String username, String password, String code, InetAddress client) {
     if (!guard.admitLogin(client)) {
@@ -85,9 +86,17 @@ public class SessionService {
       return new SignInResult.CodeRequired();
     }
     if (secondFactor && !twoFactor.codeMatches(code.strip())) {
-      guard.loginFailed();
-      return new SignInResult.WrongCode();
+      if (!twoFactor.recoveryCodeMatches(code.strip())) {
+        guard.loginFailed();
+        return new SignInResult.WrongCode();
+      }
+      twoFactor.turnOff();
+      return open(client, false);
     }
+    return open(client, secondFactor);
+  }
+
+  private SignInResult open(InetAddress client, boolean secondFactor) {
     guard.loginSucceeded(client);
     final SessionToken token = SessionToken.generate(random);
     sessions.insert(StoredSession.browser(token.hash(), clock.instant(), secondFactor));
