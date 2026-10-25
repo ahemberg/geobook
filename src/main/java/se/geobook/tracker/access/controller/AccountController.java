@@ -33,7 +33,8 @@ final class AccountController {
     account.changePassword(
         Objects.requireNonNullElse(input.currentPassword(), ""),
         Objects.requireNonNullElse(input.newPassword(), ""),
-        SessionCookies.token(request));
+        SessionCookies.token(request),
+        connection.client(request));
     return ResponseEntity.noContent().build();
   }
 

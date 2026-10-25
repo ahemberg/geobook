@@ -31,6 +31,7 @@ class AccountHttpTests {
   private static final String PASSWORD = "correct horse battery";
   private static final String NEW_PASSWORD = "staple tram ticket";
   private static final String OWNER_PASSWORD = "--GEOBOOK_OWNER_PASSWORD=" + PASSWORD;
+  private static final String LIMITED = "{\"message\":\"Too many attempts. Try again later.\"}";
   private static final JsonMapper MAPPER = JsonMapper.builder().build();
   private static final Pattern TOKEN_COOKIE = Pattern.compile("geobook_session=([^;]*)");
 
@@ -87,6 +88,35 @@ class AccountHttpTests {
       assertThat(send(client, app, "GET", "/api/tracks", other, null).statusCode()).isEqualTo(200);
       assertThat(signIn(client, app, PASSWORD).statusCode()).isEqualTo(200);
       assertThat(signIn(client, app, NEW_PASSWORD).statusCode()).isEqualTo(401);
+    }
+  }
+
+  @Test
+  void wrongCurrentPasswordsShareTheFailedLoginLimit() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start(OWNER_PASSWORD)) {
+      final String current = cookie(signIn(client, app, PASSWORD));
+      final String wrong = change("wrong password", NEW_PASSWORD);
+      for (int attempt = 0; attempt < 9; attempt++) {
+        assertThat(send(client, app, "PUT", "/api/account/password", current, wrong).statusCode())
+            .isEqualTo(400);
+      }
+      assertThat(
+              send(client, app, "PUT", "/api/account/password", current, change(PASSWORD, PASSWORD))
+                  .statusCode())
+          .isEqualTo(204);
+      for (int attempt = 0; attempt < 10; attempt++) {
+        assertThat(send(client, app, "PUT", "/api/account/password", current, wrong).statusCode())
+            .isEqualTo(400);
+      }
+      final HttpResponse<String> limited =
+          send(
+              client, app, "PUT", "/api/account/password", current, change(PASSWORD, NEW_PASSWORD));
+      assertThat(limited.statusCode()).isEqualTo(429);
+      assertThat(limited.body()).isEqualTo(LIMITED);
+      assertThat(signIn(client, app, PASSWORD).statusCode()).isEqualTo(429);
+      assertThat(send(client, app, "GET", "/api/tracks", current, null).statusCode())
+          .isEqualTo(200);
     }
   }
 

@@ -14,9 +14,11 @@ import se.geobook.tracker.access.service.TwoFactorService;
 @RestController
 final class TwoFactorController {
   private final TwoFactorService twoFactor;
+  private final ClientConnection connection;
 
-  TwoFactorController(TwoFactorService twoFactor) {
+  TwoFactorController(TwoFactorService twoFactor, ClientConnection connection) {
     this.twoFactor = twoFactor;
+    this.connection = connection;
   }
 
   record Start(String password) {
@@ -48,23 +50,27 @@ final class TwoFactorController {
   }
 
   @PostMapping("/api/account/2fa/setup")
-  TwoFactorSetup start(@RequestBody Start input) {
-    return twoFactor.start(Objects.requireNonNullElse(input.password(), ""));
+  TwoFactorSetup start(@RequestBody Start input, HttpServletRequest request) {
+    return twoFactor.start(
+        Objects.requireNonNullElse(input.password(), ""), connection.client(request));
   }
 
   @PostMapping("/api/account/2fa/confirm")
   Confirmed confirm(@RequestBody Confirm input, HttpServletRequest request) {
     final RecoveryCode recovery =
         twoFactor.confirm(
-            Objects.requireNonNullElse(input.code(), "").strip(), SessionCookies.token(request));
+            Objects.requireNonNullElse(input.code(), "").strip(),
+            SessionCookies.token(request),
+            connection.client(request));
     return new Confirmed(recovery.value());
   }
 
   @PostMapping("/api/account/2fa/off")
-  ResponseEntity<Void> turnOff(@RequestBody TurnOff input) {
+  ResponseEntity<Void> turnOff(@RequestBody TurnOff input, HttpServletRequest request) {
     twoFactor.turnOff(
         Objects.requireNonNullElse(input.password(), ""),
-        Objects.requireNonNullElse(input.code(), "").strip());
+        Objects.requireNonNullElse(input.code(), "").strip(),
+        connection.client(request));
     return ResponseEntity.noContent().build();
   }
 }

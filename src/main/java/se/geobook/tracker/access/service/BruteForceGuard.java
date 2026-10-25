@@ -17,7 +17,8 @@ import se.geobook.tracker.access.domain.TokenBucket;
  * per client, and failed logins from anywhere also count towards locking the owner's login.
  *
  * <p>A login attempt calls {@link #admitLogin} before checking anything, then exactly one of {@link
- * #loginFailed} or {@link #loginSucceeded}. A request carrying a session cookie or app password
+ * #loginFailed} or {@link #loginSucceeded}. Account changes that check the password or a code do
+ * the same through {@link #admitAccountChange}. A request carrying a session cookie or app password
  * calls {@link #admitCredential} before resolving it and {@link #credentialResolved} when it
  * resolves.
  */
@@ -40,6 +41,18 @@ public class BruteForceGuard {
   public boolean admitLogin(ClientKey client) {
     final Instant now = clock.instant();
     return !lockout.get().locked(now) && take(logins, RateLimit.FAILED_LOGINS, client, now);
+  }
+
+  /**
+   * {@link #admitLogin} for an account change that checks the password or a 2FA code, so those
+   * checks cannot be used to guess either.
+   *
+   * @throws TooManyAttemptsException when the client is limited or the owner's login is locked
+   */
+  void admitAccountChange(ClientKey client) {
+    if (!admitLogin(client)) {
+      throw new TooManyAttemptsException();
+    }
   }
 
   /** A wrong password, username or second factor. The admitted attempt stays used. */

@@ -102,8 +102,9 @@ Guessing is slow. Each client address may fail to sign in 10 times, then once mo
 per minute. A successful login gives those attempts back. Requests with an unknown or
 expired session cookie or app password are limited to 60, then one every 10 seconds. IPv6 clients
 share one limit per /64. After 20 failed logins in a row from any address, the owner's
-login is locked for 15 minutes, even with the right password. Limited and locked
-requests get 429. The limits live in memory and reset when Geobook restarts. Behind a
+login is locked for 15 minutes, even with the right password. A wrong current password
+or 2FA code on the account page counts as a failed login too, so a stolen session
+cannot be used to guess either. Limited and locked requests get 429. The limits live in memory and reset when Geobook restarts. Behind a
 reverse proxy, set `GEOBOOK_TRUSTED_PROXIES` so the limits see each client's own
 address instead of the proxy's.
 

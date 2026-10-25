@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import se.geobook.tracker.access.domain.ClientKey;
 import se.geobook.tracker.access.domain.RecoveryCode;
 import se.geobook.tracker.access.domain.SessionToken;
 import se.geobook.tracker.access.domain.TotpSecret;
@@ -24,6 +25,7 @@ public class TwoFactorService {
   private final SessionRepository sessions;
   private final AccountService account;
   private final PasswordHasher hasher;
+  private final BruteForceGuard guard;
   private final SecretBox box;
   private final Clock clock;
   private final SecureRandom random = new SecureRandom();
@@ -33,12 +35,14 @@ public class TwoFactorService {
       SessionRepository sessions,
       AccountService account,
       PasswordHasher hasher,
+      BruteForceGuard guard,
       SecretBox box,
       Clock clock) {
     this.owners = owners;
     this.sessions = sessions;
     this.account = account;
     this.hasher = hasher;
+    this.guard = guard;
     this.box = box;
     this.clock = clock;
   }
@@ -50,17 +54,17 @@ public class TwoFactorService {
   /**
    * Creates a new pending secret, replacing any earlier unconfirmed one.
    *
-   * @throws WrongPasswordException when the password does not match
    * @throws IllegalStateException when 2FA is already on
+   * @throws TooManyAttemptsException when the client failed too many checks
+   * @throws WrongPasswordException when the password does not match
    */
   @Transactional
-  public TwoFactorSetup start(String password) {
-    if (!account.matchesCurrent(password)) {
-      throw new WrongPasswordException();
-    }
+  public TwoFactorSetup start(String password, ClientKey client) {
     if (active()) {
       throw new IllegalStateException("2FA is already on.");
     }
+    account.checkPassword(password, client);
+    guard.loginSucceeded(client);
     final TotpSecret secret = TotpSecret.generate(random);
     owners.startTwoFactor(box.seal(secret.bytes()));
     return new TwoFactorSetup(
@@ -72,19 +76,22 @@ public class TwoFactorService {
    * as having passed the second factor from now on.
    *
    * @throws IllegalStateException when 2FA is already on or no setup was started
+   * @throws TooManyAttemptsException when the client failed too many checks
    * @throws IllegalArgumentException when the code is wrong
    */
   @Transactional
-  public RecoveryCode confirm(String code, Optional<SessionToken> token) {
+  public RecoveryCode confirm(String code, Optional<SessionToken> token, ClientKey client) {
     if (active()) {
       throw new IllegalStateException("2FA is already on.");
     }
     final TotpSecret secret =
         pendingOrActiveSecret()
             .orElseThrow(() -> new IllegalStateException("Start the 2FA setup first."));
+    guard.admitAccountChange(client);
     if (!accept(secret, code)) {
-      throw new IllegalArgumentException("Wrong code.");
+      throw wrongCode();
     }
+    guard.loginSucceeded(client);
     final RecoveryCode recovery = RecoveryCode.generate(random);
     owners.activateTwoFactor(hasher.hashSecret(recovery.value()), clock.instant());
     token.ifPresent(parsed -> sessions.markSecondFactor(parsed.hash()));
@@ -114,27 +121,32 @@ public class TwoFactorService {
   /**
    * Turns 2FA off for the owner, who proves it with the password and a current code.
    *
-   * @throws WrongPasswordException when the password does not match
    * @throws IllegalStateException when 2FA is off
+   * @throws TooManyAttemptsException when the client failed too many checks
+   * @throws WrongPasswordException when the password does not match
    * @throws IllegalArgumentException when the code is wrong
    */
   @Transactional
-  public void turnOff(String password, String code) {
-    if (!account.matchesCurrent(password)) {
-      throw new WrongPasswordException();
-    }
+  public void turnOff(String password, String code, ClientKey client) {
     if (!active()) {
       throw new IllegalStateException("2FA is off.");
     }
+    account.checkPassword(password, client);
     if (!acceptCode(code)) {
-      throw new IllegalArgumentException("Wrong code.");
+      throw wrongCode();
     }
+    guard.loginSucceeded(client);
     turnOff();
   }
 
   /** Turns 2FA off and forgets the secret and recovery code. Sessions are left alone. */
   public void turnOff() {
     owners.clearTwoFactor();
+  }
+
+  private IllegalArgumentException wrongCode() {
+    guard.loginFailed();
+    return new IllegalArgumentException("Wrong code.");
   }
 
   private Optional<TotpSecret> pendingOrActiveSecret() {

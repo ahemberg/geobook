@@ -272,6 +272,83 @@ class TwoFactorHttpTests {
   }
 
   @Test
+  void wrongPasswordsAndCodesInTwoFactorSettingsCountTowardsTheLimits()
+      throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final String cookie = cookie(signIn(client, app, HOME, null));
+      final String wrongPassword = passwordBody("wrong password");
+      for (int attempt = 0; attempt < 10; attempt++) {
+        assertThat(setup(client, app, cookie, "198.51.100.1", wrongPassword).statusCode())
+            .isEqualTo(400);
+      }
+      final HttpResponse<String> limitedSetup =
+          setup(client, app, cookie, "198.51.100.1", passwordBody(PASSWORD));
+      assertThat(limitedSetup.statusCode()).isEqualTo(429);
+      assertThat(limitedSetup.body()).isEqualTo(LIMITED);
+
+      final HttpResponse<String> started =
+          setup(client, app, cookie, "198.51.100.2", passwordBody(PASSWORD));
+      assertThat(started.statusCode()).isEqualTo(200);
+      final TotpSecret totp = new TotpSecret(base32(json(started).get("secret").asString()));
+      final String wrongCode = codeBody(totp.codeAt(clock.instant().plusSeconds(120)));
+      for (int attempt = 0; attempt < 10; attempt++) {
+        assertThat(
+                send(client, app, "POST", "/api/account/2fa/confirm", cookie, wrongCode, HOME)
+                    .statusCode())
+            .isEqualTo(400);
+      }
+      final String rightCode = codeBody(totp.codeAt(clock.instant()));
+      assertThat(
+              send(client, app, "POST", "/api/account/2fa/confirm", cookie, rightCode, HOME)
+                  .statusCode())
+          .isEqualTo(429);
+      assertThat(
+              send(
+                      client,
+                      app,
+                      "POST",
+                      "/api/account/2fa/confirm",
+                      cookie,
+                      rightCode,
+                      "203.0.113.2")
+                  .statusCode())
+          .isEqualTo(200);
+
+      final String wrongOff = offBody(PASSWORD, totp.codeAt(clock.instant().plusSeconds(120)));
+      for (int attempt = 0; attempt < 20; attempt++) {
+        assertThat(
+                send(
+                        client,
+                        app,
+                        "POST",
+                        "/api/account/2fa/off",
+                        cookie,
+                        attempt % 2 == 0 ? wrongOff : offBody("wrong password", "123456"),
+                        "198.51.100." + (attempt % 4 + 3))
+                    .statusCode())
+            .isEqualTo(400);
+      }
+      clock.advance(Duration.ofSeconds(30));
+      assertThat(signIn(client, app, "198.51.100.9", totp.codeAt(clock.instant())).statusCode())
+          .isEqualTo(429);
+      clock.advance(Duration.ofMinutes(15));
+      assertThat(signIn(client, app, "198.51.100.9", totp.codeAt(clock.instant())).statusCode())
+          .isEqualTo(200);
+    }
+  }
+
+  private static HttpResponse<String> setup(
+      HttpClient client,
+      ConfigurableApplicationContext app,
+      String cookie,
+      String from,
+      String body)
+      throws IOException, InterruptedException {
+    return send(client, app, "POST", "/api/account/2fa/setup", cookie, body, from);
+  }
+
+  @Test
   void sessionsOpenedWithCodeLastTwiceAsLong() throws IOException, InterruptedException {
     try (HttpClient client = HttpClient.newHttpClient();
         ConfigurableApplicationContext app = start()) {
