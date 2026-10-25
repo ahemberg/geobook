@@ -7,7 +7,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Locale;
 import java.util.Set;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -26,17 +25,14 @@ final class CrossOriginFilter extends OncePerRequestFilter {
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
-    if (SAFE_METHODS.contains(request.getMethod()) || bearer(request) || sameOrigin(request)) {
+    if (SAFE_METHODS.contains(request.getMethod())
+        || BearerHeader.read(request).isPresent()
+        || sameOrigin(request)) {
       chain.doFilter(request, response);
       return;
     }
     ErrorResponses.write(
         response, HttpServletResponse.SC_FORBIDDEN, "Cross-origin request refused.");
-  }
-
-  private static boolean bearer(HttpServletRequest request) {
-    final String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
-    return authorization != null && authorization.toLowerCase(Locale.ROOT).startsWith("bearer ");
   }
 
   private static boolean sameOrigin(HttpServletRequest request) {

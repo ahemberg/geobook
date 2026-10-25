@@ -1,6 +1,5 @@
 package se.geobook.tracker.access.service;
 
-import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
@@ -12,7 +11,6 @@ import se.geobook.tracker.access.domain.AuthMode;
 import se.geobook.tracker.access.domain.ClientKey;
 import se.geobook.tracker.access.domain.Credential;
 import se.geobook.tracker.access.domain.Owner;
-import se.geobook.tracker.access.domain.PasswordSetting;
 import se.geobook.tracker.access.domain.SessionKind;
 import se.geobook.tracker.access.domain.SessionLifetime;
 import se.geobook.tracker.access.domain.SessionToken;
@@ -56,7 +54,12 @@ public class SessionService {
 
   /** The cookie lifetime for a new session, doubled while 2FA is on. */
   public Duration maxAge() {
-    return (twoFactor.active() ? settings.lifetime().doubled() : settings.lifetime()).maxAge();
+    return lifetime(true).maxAge();
+  }
+
+  /** Doubled for a session opened with a 2FA code, but only while 2FA is still on. */
+  private SessionLifetime lifetime(boolean secondFactor) {
+    return secondFactor && twoFactor.active() ? settings.lifetime().doubled() : settings.lifetime();
   }
 
   public boolean twoFactorActive() {
@@ -104,18 +107,9 @@ public class SessionService {
   }
 
   private boolean matches(String username, String password) {
-    if (password.getBytes(StandardCharsets.UTF_8).length > PasswordSetting.MAX_BYTES) {
-      return false;
-    }
     final Owner owner = owners.owner();
-    final boolean valid;
-    if (owner.username().equals(username) && owner.passwordHash().isPresent()) {
-      valid = hasher.matches(password, owner.passwordHash().get());
-    } else {
-      hasher.waste(password);
-      valid = false;
-    }
-    return valid;
+    return hasher.matchesOwner(
+        password, owner.username().equals(username) ? owner.passwordHash() : Optional.empty());
   }
 
   /**
@@ -133,10 +127,7 @@ public class SessionService {
     }
     final StoredSession session = found.get();
     final Instant now = clock.instant();
-    final SessionLifetime lifetime =
-        session.secondFactor() && twoFactor.active()
-            ? settings.lifetime().doubled()
-            : settings.lifetime();
+    final SessionLifetime lifetime = lifetime(session.secondFactor());
     if (!lifetime.allows(session, now)) {
       if (session.kind() == SessionKind.BROWSER) {
         sessions.delete(session.tokenHash());

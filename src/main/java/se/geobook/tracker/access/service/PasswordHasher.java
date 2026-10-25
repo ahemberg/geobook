@@ -1,5 +1,7 @@
 package se.geobook.tracker.access.service;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 import se.geobook.tracker.access.domain.PasswordSetting;
@@ -27,7 +29,18 @@ class PasswordHasher {
     return encoder.matches(password, hash);
   }
 
-  void waste(String password) {
-    encoder.matches(password, decoy);
+  /**
+   * Whether a password typed by the owner matches the stored hash. Over 72 bytes never matches,
+   * because bcrypt would ignore the rest. Without a hash it still takes as long as a comparison.
+   */
+  boolean matchesOwner(String password, Optional<String> hash) {
+    if (password.getBytes(StandardCharsets.UTF_8).length > PasswordSetting.MAX_BYTES) {
+      return false;
+    }
+    if (hash.isEmpty()) {
+      encoder.matches(password, decoy);
+      return false;
+    }
+    return encoder.matches(password, hash.get());
   }
 }

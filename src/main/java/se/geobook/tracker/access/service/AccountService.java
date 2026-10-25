@@ -1,6 +1,5 @@
 package se.geobook.tracker.access.service;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,7 +64,6 @@ public class AccountService {
   }
 
   boolean matchesCurrent(String password) {
-    return password.getBytes(StandardCharsets.UTF_8).length <= PasswordSetting.MAX_BYTES
-        && owners.owner().passwordHash().map(hash -> hasher.matches(password, hash)).orElse(false);
+    return hasher.matchesOwner(password, owners.owner().passwordHash());
   }
 }
