@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -19,6 +20,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,6 +32,8 @@ import org.springframework.boot.web.server.context.WebServerApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import se.geobook.tracker.access.domain.TotpSecret;
+import se.geobook.tracker.cli.GeobookCli;
+import se.geobook.tracker.cli.Terminal;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -421,6 +425,41 @@ class TwoFactorHttpTests {
     }
   }
 
+  @Test
+  void passcodeOffLetsOwnerSignInWithPasswordOnly() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final String cookie = cookie(signIn(client, app, HOME, null));
+      turnOn(client, app, cookie);
+      assertThat(signIn(client, app, HOME, null).statusCode()).isEqualTo(401);
+
+      final CapturedTerminal terminal = new CapturedTerminal();
+      assertThat(
+              GeobookCli.run(terminal, "passcode", "off", "--geobook.data-directory=" + directory))
+          .isZero();
+      assertThat(terminal.output()).contains("2FA is off");
+
+      final HttpResponse<String> passwordOnly = signIn(client, app, HOME, null);
+      assertThat(passwordOnly.statusCode()).isEqualTo(200);
+      assertThat(json(send(client, app, "GET", "/api/session", cookie(passwordOnly), null, HOME)))
+          .hasToString("{\"username\":\"admin\",\"twoFactor\":false}");
+    }
+  }
+
+  @Test
+  void passcodeWithoutOffIsUsageError() {
+    final CapturedTerminal terminal = new CapturedTerminal();
+    assertThat(
+            GeobookCli.run(
+                terminal,
+                "passcode",
+                "on",
+                "--geobook.data-directory=" + directory,
+                OWNER_PASSWORD))
+        .isEqualTo(2);
+    assertThat(terminal.errors()).contains("geobook passcode off");
+  }
+
   private static HttpResponse<String> bearer(
       HttpClient client,
       ConfigurableApplicationContext app,
@@ -589,6 +628,40 @@ class TwoFactorHttpTests {
   private static String base(ConfigurableApplicationContext app) {
     return "http://localhost:"
         + Objects.requireNonNull(((WebServerApplicationContext) app).getWebServer()).getPort();
+  }
+
+  /** Records what a subcommand prints; it never prompts. */
+  private static final class CapturedTerminal implements Terminal {
+    private final ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
+    private final ByteArrayOutputStream errBytes = new ByteArrayOutputStream();
+
+    @Override
+    public boolean interactive() {
+      return false;
+    }
+
+    @Override
+    public Optional<String> readSecret(String prompt) {
+      return Optional.empty();
+    }
+
+    @Override
+    public PrintStream out() {
+      return new PrintStream(outBytes, true, StandardCharsets.UTF_8);
+    }
+
+    @Override
+    public PrintStream err() {
+      return new PrintStream(errBytes, true, StandardCharsets.UTF_8);
+    }
+
+    String output() {
+      return outBytes.toString(StandardCharsets.UTF_8);
+    }
+
+    String errors() {
+      return errBytes.toString(StandardCharsets.UTF_8);
+    }
   }
 
   /** A clock the journeys move forward instead of sleeping. */
