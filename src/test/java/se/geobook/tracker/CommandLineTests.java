@@ -41,6 +41,13 @@ class CommandLineTests {
   private static final String NEW_PASSWORD = "new staple of mine";
   private static final JsonMapper MAPPER = JsonMapper.builder().build();
   private static final Pattern TOKEN_COOKIE = Pattern.compile("geobook_session=([^;]*)");
+  private static final Pattern APP_PASSWORD =
+      Pattern.compile("^([A-Za-z0-9]{6}(?:-[A-Za-z0-9]{6}){3})$", Pattern.MULTILINE);
+  private static final Pattern APP_PASSWORD_ID = Pattern.compile("id ([0-9a-f]{12})");
+  private static final String GPX =
+      "<gpx xmlns=\"http://www.topografix.com/GPX/1/1\"><trk><name>Commute</name><trkseg>"
+          + "<trkpt lat=\"59.32\" lon=\"18.07\"><time>2026-02-01T08:00:00Z</time></trkpt>"
+          + "</trkseg></trk></gpx>";
 
   @TempDir Path directory;
 
@@ -111,10 +118,124 @@ class CommandLineTests {
   }
 
   @Test
+  void authAddPrintsImportPasswordOnceAndRmRevokesItByName()
+      throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final ScriptedTerminal added = new ScriptedTerminal(false);
+      assertThat(run(added, "auth", "add", "Phone upload", "import")).isZero();
+      final String secret = appPassword(added.output());
+      assertThat(added.output()).contains("Phone upload", "import", "not shown again");
+
+      assertThat(upload(client, app, secret).statusCode()).isEqualTo(201);
+      assertThat(bearer(client, app, "/api/tracks", secret).statusCode()).isEqualTo(403);
+
+      final ScriptedTerminal listed = new ScriptedTerminal(false);
+      assertThat(run(listed, "auth", "ls")).isZero();
+      assertThat(listed.output())
+          .contains("NAME", "SCOPE", "CREATED", "EXPIRES", "LAST USED", "Phone upload", "import")
+          .contains("never")
+          .doesNotContain(secret);
+
+      final ScriptedTerminal removed = new ScriptedTerminal(false);
+      assertThat(run(removed, "auth", "rm", "Phone upload")).isZero();
+      assertThat(removed.output()).contains("Revoked");
+      assertThat(upload(client, app, secret).statusCode()).isEqualTo(401);
+
+      final ScriptedTerminal empty = new ScriptedTerminal(false);
+      assertThat(run(empty, "auth", "ls")).isZero();
+      assertThat(empty.output()).contains("No app passwords").doesNotContain("Phone upload");
+    }
+  }
+
+  @Test
+  void authAddWithExpiryCreatesReadPasswordThatRmRevokesById()
+      throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final ScriptedTerminal added = new ScriptedTerminal(false);
+      assertThat(run(added, "auth", "add", "Dashboard", "read", "2099-12-31T12:00:00Z")).isZero();
+      final String secret = appPassword(added.output());
+      final Matcher idMatch = APP_PASSWORD_ID.matcher(added.output());
+      assertThat(idMatch.find()).isTrue();
+
+      assertThat(bearer(client, app, "/api/tracks", secret).statusCode()).isEqualTo(200);
+      assertThat(upload(client, app, secret).statusCode()).isEqualTo(403);
+
+      final ScriptedTerminal listed = new ScriptedTerminal(false);
+      assertThat(run(listed, "auth", "ls")).isZero();
+      assertThat(listed.output())
+          .contains(idMatch.group(1), "Dashboard", "read", "2099-12-31T12:00:00Z");
+      assertThat(listed.output().lines().filter(line -> line.contains("Dashboard")).findFirst())
+          .hasValueSatisfying(line -> assertThat(line).doesNotContain("never"));
+
+      assertThat(run(new ScriptedTerminal(false), "auth", "rm", idMatch.group(1))).isZero();
+      assertThat(bearer(client, app, "/api/tracks", secret).statusCode()).isEqualTo(401);
+    }
+  }
+
+  @Test
+  void authAddAcceptsAllScopeAndLastDay() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final ScriptedTerminal added = new ScriptedTerminal(false);
+      assertThat(run(added, "auth", "add", "Backup", "*", "2099-12-31")).isZero();
+      final String secret = appPassword(added.output());
+      assertThat(added.output()).containsAnyOf("expires 2099-12-31", "expires 2100-01-01");
+
+      assertThat(upload(client, app, secret).statusCode()).isEqualTo(201);
+      assertThat(bearer(client, app, "/api/tracks", secret).statusCode()).isEqualTo(200);
+      assertThat(bearer(client, app, "/api/app-passwords", secret).statusCode()).isEqualTo(403);
+    }
+  }
+
+  @Test
+  void authRejectsInvalidInput() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final ScriptedTerminal noVerb = new ScriptedTerminal(false);
+      assertThat(run(noVerb, "auth")).isEqualTo(2);
+      assertThat(noVerb.errors()).contains("auth add", "auth ls", "auth rm");
+
+      final ScriptedTerminal missingScope = new ScriptedTerminal(false);
+      assertThat(run(missingScope, "auth", "add", "Phone")).isEqualTo(2);
+      assertThat(missingScope.errors()).contains("auth add <name> <scope> [expiry]");
+
+      final ScriptedTerminal badScope = new ScriptedTerminal(false);
+      assertThat(run(badScope, "auth", "add", "Phone", "owner")).isEqualTo(1);
+      assertThat(badScope.errors()).contains("The scope must be import, read or *.");
+
+      final ScriptedTerminal badExpiry = new ScriptedTerminal(false);
+      assertThat(run(badExpiry, "auth", "add", "Phone", "read", "soon")).isEqualTo(2);
+      assertThat(badExpiry.errors()).contains("expiry");
+
+      final ScriptedTerminal pastExpiry = new ScriptedTerminal(false);
+      assertThat(run(pastExpiry, "auth", "add", "Phone", "read", "2000-01-01")).isEqualTo(1);
+      assertThat(pastExpiry.errors()).contains("The expiry must be in the future.");
+
+      final ScriptedTerminal unknown = new ScriptedTerminal(false);
+      assertThat(run(unknown, "auth", "rm", "nothing")).isEqualTo(1);
+      assertThat(unknown.errors()).contains("No app password");
+
+      final String first = addAppPassword("Twin", "read");
+      final String second = addAppPassword("Twin", "read");
+      final ScriptedTerminal ambiguous = new ScriptedTerminal(false);
+      assertThat(run(ambiguous, "auth", "rm", "Twin")).isEqualTo(1);
+      assertThat(ambiguous.errors()).contains("2 app passwords are named Twin");
+      assertThat(bearer(client, app, "/api/tracks", first).statusCode()).isEqualTo(200);
+      assertThat(bearer(client, app, "/api/tracks", second).statusCode()).isEqualTo(200);
+
+      final ScriptedTerminal listed = new ScriptedTerminal(false);
+      assertThat(run(listed, "auth", "ls")).isZero();
+      assertThat(listed.output().lines().filter(line -> line.contains("Twin"))).hasSize(2);
+    }
+  }
+
+  @Test
   void helpListsSubcommandsAndUnknownCommandIsUsageError() {
     final ScriptedTerminal help = new ScriptedTerminal(false);
     assertThat(run(help, "help")).isZero();
-    assertThat(help.output()).contains("Usage: geobook <command>", "passwd");
+    assertThat(help.output()).contains("Usage: geobook <command>", "passwd", "auth");
 
     final ScriptedTerminal unknown = new ScriptedTerminal(false);
     assertThat(run(unknown, "nonsense")).isEqualTo(2);
@@ -162,6 +283,46 @@ class CommandLineTests {
     return client.send(
         HttpRequest.newBuilder(URI.create(base(app) + "/api/session"))
             .header("Cookie", cookie)
+            .build(),
+        HttpResponse.BodyHandlers.ofString());
+  }
+
+  private String addAppPassword(String name, String scope) {
+    final ScriptedTerminal added = new ScriptedTerminal(false);
+    assertThat(run(added, "auth", "add", name, scope)).isZero();
+    return appPassword(added.output());
+  }
+
+  private static String appPassword(String output) {
+    final Matcher matcher = APP_PASSWORD.matcher(output);
+    assertThat(matcher.find()).as(output).isTrue();
+    return matcher.group(1);
+  }
+
+  private static HttpResponse<String> bearer(
+      HttpClient client, ConfigurableApplicationContext app, String path, String secret)
+      throws IOException, InterruptedException {
+    return client.send(
+        HttpRequest.newBuilder(URI.create(base(app) + path))
+            .header("Authorization", "Bearer " + secret)
+            .build(),
+        HttpResponse.BodyHandlers.ofString());
+  }
+
+  private static HttpResponse<String> upload(
+      HttpClient client, ConfigurableApplicationContext app, String secret)
+      throws IOException, InterruptedException {
+    final String body =
+        "--fixture\r\n"
+            + "Content-Disposition: form-data; name=\"file\"; filename=\"commute.gpx\"\r\n"
+            + "Content-Type: application/gpx+xml\r\n\r\n"
+            + GPX
+            + "\r\n--fixture--\r\n";
+    return client.send(
+        HttpRequest.newBuilder(URI.create(base(app) + "/api/tracks"))
+            .header("Content-Type", "multipart/form-data; boundary=fixture")
+            .header("Authorization", "Bearer " + secret)
+            .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
             .build(),
         HttpResponse.BodyHandlers.ofString());
   }

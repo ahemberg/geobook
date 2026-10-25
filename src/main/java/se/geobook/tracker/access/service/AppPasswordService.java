@@ -31,7 +31,36 @@ public class AppPasswordService {
   }
 
   /** A new app password with its secret, which is shown once and never stored. */
-  public record Created(AppPassword password, AppPasswordToken token) {}
+  public record Created(AppPassword password, AppPasswordToken token) {
+    /** What the owner sees of the new app password. */
+    public Summary summary() {
+      return Summary.from(password);
+    }
+
+    /** The plain value to hand to the owner once. */
+    public String secret() {
+      return token.value();
+    }
+  }
+
+  /** An app password as plain values, for callers outside the access feature's domain. */
+  public record Summary(
+      String id,
+      String name,
+      String scope,
+      Instant createdAt,
+      Optional<Instant> expiresAt,
+      Optional<Instant> lastUsedAt) {
+    static Summary from(AppPassword password) {
+      return new Summary(
+          password.id(),
+          password.name(),
+          password.scope().stored(),
+          password.createdAt(),
+          password.expiresAt(),
+          password.lastUsedAt());
+    }
+  }
 
   /**
    * Creates an app password.
@@ -57,6 +86,10 @@ public class AppPasswordService {
 
   public List<AppPassword> list() {
     return sessions.appPasswords();
+  }
+
+  public List<Summary> summaries() {
+    return list().stream().map(Summary::from).toList();
   }
 
   /** Revokes one app password and reports whether it existed. */

@@ -133,6 +133,22 @@ password on the next request and leaves the others and your browser sessions
 alone. Changing the password and signing out everywhere leave app passwords
 working. Public mode ignores Bearer headers.
 
+App passwords can also be managed from a shell inside the container:
+
+```sh
+docker compose exec geobook geobook auth add "Phone upload" import
+docker compose exec geobook geobook auth add Backup '*' 2027-06-30
+docker compose exec geobook geobook auth ls
+docker compose exec geobook geobook auth rm "Phone upload"
+```
+
+`auth add` takes a name, a scope and an optional expiry, and prints the value once.
+The expiry is a last day, which ends at midnight in the container's time zone, or
+an ISO instant such as `2027-06-30T12:00:00Z`. Quote `*` so the shell does not
+expand it. `auth ls` shows each app password's id, name, scope, creation time,
+expiry and last use, never the value. `auth rm` revokes one by id or by name. When
+two share a name, use the id. The running server sees the change on its next request.
+
 ### Behind a reverse proxy
 
 Put Geobook behind an HTTPS reverse proxy before exposing it to the internet. List
