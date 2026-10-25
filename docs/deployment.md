@@ -66,7 +66,9 @@ and page loads go to `/login` and come back to the requested page after sign-in.
 - `password`, the default, requires the owner to sign in.
 - `public` turns login off. Anyone who can reach the port can read, upload and
   delete the whole collection, so use it only on a network you trust. The login
-  page and sign-out action disappear, and `/login` redirects to the map.
+  page and sign-out action disappear, and `/login` redirects to the map. The
+  account page, `/api/account/...` and `/api/app-passwords/...` answer 404, so
+  nobody can create an app password without the owner's credentials.
 
 The owner's username is `GEOBOOK_OWNER_USER`, `admin` by default.
 `GEOBOOK_OWNER_PASSWORD` sets the first password. It takes 8 characters to 72 bytes

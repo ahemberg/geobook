@@ -1,6 +1,7 @@
 package se.geobook.tracker.access.controller;
 
 import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -8,6 +9,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import se.geobook.tracker.access.domain.AuthMode;
@@ -16,7 +18,8 @@ import se.geobook.tracker.access.service.SessionService;
 
 /**
  * Spring Security owns the filter chain (ADR 0004). Everything is denied unless opened here, so
- * endpoints added later need a session too. Public mode opens every path.
+ * endpoints added later need a session too. Public mode opens every path except the account and app
+ * passwords, which answer 404 there.
  */
 @Configuration(proxyBeanMethods = false)
 // Subcommands run without a web server and need no filter chain.
@@ -40,7 +43,22 @@ class SecurityConfiguration {
         .addFilterBefore(new PlainHttpWarning(connection), AnonymousAuthenticationFilter.class)
         .addFilterBefore(new CrossOriginFilter(), AnonymousAuthenticationFilter.class);
     if (sessions.mode() == AuthMode.PUBLIC) {
-      http.authorizeHttpRequests(requests -> requests.anyRequest().permitAll());
+      // Without a login there is no account, and an app password would be a credential nobody
+      // needed to mint.
+      final AuthenticationEntryPoint notFound =
+          (request, response, exception) ->
+              ErrorResponses.write(response, HttpServletResponse.SC_NOT_FOUND, "Not found.");
+      http.exceptionHandling(handling -> handling.authenticationEntryPoint(notFound))
+          .authorizeHttpRequests(
+              requests ->
+                  requests
+                      .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR)
+                      .permitAll()
+                      .requestMatchers(
+                          "/account", "/account.html", "/api/account/**", "/api/app-passwords/**")
+                      .denyAll()
+                      .anyRequest()
+                      .permitAll());
       return http.build();
     }
     final ScopeAuthorization scopes = new ScopeAuthorization();

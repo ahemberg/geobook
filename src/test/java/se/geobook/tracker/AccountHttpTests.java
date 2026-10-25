@@ -123,10 +123,48 @@ class AccountHttpTests {
         assertThat(page.body()).contains("<title>Account | Geobook</title>");
       }
       try (ConfigurableApplicationContext app = start("--GEOBOOK_AUTH_MODE=public")) {
-        final HttpResponse<String> page = send(client, app, "GET", "/account", null, null);
-        assertThat(page.statusCode()).isEqualTo(302);
-        assertThat(location(page)).endsWith("/map");
+        assertThat(send(client, app, "GET", "/account", null, null).statusCode()).isEqualTo(404);
+        assertThat(send(client, app, "GET", "/account.html", null, null).statusCode())
+            .isEqualTo(404);
       }
+    }
+  }
+
+  @Test
+  void accountAndAppPasswordEndpointsAreNotFoundInPublicMode()
+      throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start("--GEOBOOK_AUTH_MODE=public")) {
+      final Map<String, String> requests =
+          Map.of(
+              "GET /api/app-passwords",
+              "",
+              "POST /api/app-passwords",
+              MAPPER.writeValueAsString(Map.of("name", "Backup", "scope", "*")),
+              "DELETE /api/app-passwords/0123456789ab",
+              "",
+              "PUT /api/account/password",
+              change(PASSWORD, NEW_PASSWORD),
+              "DELETE /api/account/sessions",
+              "",
+              "POST /api/account/2fa/setup",
+              MAPPER.writeValueAsString(Map.of("password", PASSWORD)),
+              "POST /api/account/2fa/confirm",
+              MAPPER.writeValueAsString(Map.of("code", "123456")),
+              "POST /api/account/2fa/off",
+              "{}");
+      for (Map.Entry<String, String> request : requests.entrySet()) {
+        final String[] line = request.getKey().split(" ");
+        final String body = request.getValue().isEmpty() ? null : request.getValue();
+        final HttpResponse<String> response = send(client, app, line[0], line[1], null, body);
+        assertThat(response.statusCode()).as(request.getKey()).isEqualTo(404);
+        assertThat(response.body()).as(request.getKey()).isEqualTo("{\"message\":\"Not found.\"}");
+      }
+      assertThat(
+              app.getBean(JdbcTemplate.class)
+                  .queryForObject("SELECT count(*) FROM session", Integer.class))
+          .isZero();
+      assertThat(send(client, app, "GET", "/api/tracks", null, null).statusCode()).isEqualTo(200);
     }
   }
 
