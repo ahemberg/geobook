@@ -96,6 +96,15 @@ and DELETE requests with 403 when the browser's `Sec-Fetch-Site` header says the
 from another site, or when it has no such header and its `Origin` names a different
 host than the request's `Host`. Scripts that send neither header are not affected.
 
+Guessing is slow. Each client address may fail to sign in 10 times, then once more
+per minute. A successful login gives those attempts back. Requests with an unknown or
+expired session cookie are limited to 60, then one every 10 seconds. IPv6 clients
+share one limit per /64. After 20 failed logins in a row from any address, the owner's
+login is locked for 15 minutes, even with the right password. Limited and locked
+requests get 429. The limits live in memory and reset when Geobook restarts. Behind a
+reverse proxy, set `GEOBOOK_TRUSTED_PROXIES` so the limits see each client's own
+address instead of the proxy's.
+
 ### Behind a reverse proxy
 
 Put Geobook behind an HTTPS reverse proxy before exposing it to the internet. List

@@ -3,7 +3,6 @@ package se.geobook.tracker.access.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Objects;
-import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -12,7 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import se.geobook.tracker.access.domain.NextPath;
-import se.geobook.tracker.access.domain.SessionToken;
+import se.geobook.tracker.access.domain.SignInResult;
 import se.geobook.tracker.access.service.SessionService;
 
 @RestController
@@ -41,17 +40,25 @@ final class SessionController {
   @PostMapping("/api/session")
   ResponseEntity<?> signIn(
       @RequestBody SignIn input, HttpServletRequest request, HttpServletResponse response) {
-    final Optional<SessionToken> token =
+    final SignInResult result =
         sessions.signIn(
             Objects.requireNonNullElse(input.username(), ""),
-            Objects.requireNonNullElse(input.password(), ""));
-    if (token.isEmpty()) {
-      return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-          .body(new Failure("Wrong username or password."));
-    }
-    SessionCookies.read(request).ifPresent(sessions::signOut);
-    SessionCookies.issue(response, token.get(), sessions.maxAge(), connection.secure(request));
-    return ResponseEntity.ok(new SignedIn(input.username(), NextPath.resolve(input.next())));
+            Objects.requireNonNullElse(input.password(), ""),
+            connection.address(request));
+    return switch (result) {
+      case SignInResult.Limited _ ->
+          ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+              .body(new Failure(TooManyAttempts.MESSAGE));
+      case SignInResult.Rejected _ ->
+          ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+              .body(new Failure("Wrong username or password."));
+      case SignInResult.SignedIn signedIn -> {
+        SessionCookies.read(request).ifPresent(sessions::signOut);
+        SessionCookies.issue(
+            response, signedIn.token(), sessions.maxAge(), connection.secure(request));
+        yield ResponseEntity.ok(new SignedIn(input.username(), NextPath.resolve(input.next())));
+      }
+    };
   }
 
   @GetMapping("/api/session")
