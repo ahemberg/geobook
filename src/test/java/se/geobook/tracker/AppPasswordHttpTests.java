@@ -295,6 +295,24 @@ class AppPasswordHttpTests {
   }
 
   @Test
+  void invalidBearerValuesCountInTheInvalidTokenLimit() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start(OWNER_PASSWORD)) {
+      final String secret = secret(create(client, app, signIn(client, app), "Script", "read"));
+      for (int attempt = 0; attempt < 60; attempt++) {
+        assertThat(bearer(client, app, "GET", "/api/tracks", "OXiV72-wTtiL9-d04jO7-X7XP4p"))
+            .extracting(HttpResponse::statusCode)
+            .isEqualTo(401);
+      }
+      assertThat(bearer(client, app, "GET", "/api/tracks", "not-a-token").statusCode())
+          .isEqualTo(429);
+      assertThat(bearer(client, app, "GET", "/api/tracks", secret).statusCode()).isEqualTo(429);
+      clock.advance(Duration.ofSeconds(10));
+      assertThat(bearer(client, app, "GET", "/api/tracks", secret).statusCode()).isEqualTo(200);
+    }
+  }
+
+  @Test
   void bearerRequestsAreExemptFromTheCrossSiteCheck() throws IOException, InterruptedException {
     try (HttpClient client = HttpClient.newHttpClient();
         ConfigurableApplicationContext app = start(OWNER_PASSWORD)) {

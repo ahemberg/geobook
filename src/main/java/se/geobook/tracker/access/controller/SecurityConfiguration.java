@@ -1,6 +1,7 @@
 package se.geobook.tracker.access.controller;
 
 import jakarta.servlet.DispatcherType;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -10,6 +11,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import se.geobook.tracker.access.domain.AuthMode;
+import se.geobook.tracker.access.service.BruteForceGuard;
 import se.geobook.tracker.access.service.SessionService;
 
 /**
@@ -17,10 +19,15 @@ import se.geobook.tracker.access.service.SessionService;
  * endpoints added later need a session too. Public mode opens every path.
  */
 @Configuration(proxyBeanMethods = false)
+// Subcommands run without a web server and need no filter chain.
+@ConditionalOnWebApplication
 class SecurityConfiguration {
   @Bean
   SecurityFilterChain filterChain(
-      HttpSecurity http, SessionService sessions, ClientConnection connection) {
+      HttpSecurity http,
+      SessionService sessions,
+      BruteForceGuard guard,
+      ClientConnection connection) {
     http.csrf(AbstractHttpConfigurer::disable)
         .formLogin(AbstractHttpConfigurer::disable)
         .httpBasic(AbstractHttpConfigurer::disable)
@@ -37,7 +44,8 @@ class SecurityConfiguration {
       return http.build();
     }
     final ScopeAuthorization scopes = new ScopeAuthorization();
-    http.addFilterBefore(new CredentialFilter(sessions), AnonymousAuthenticationFilter.class)
+    http.addFilterBefore(
+            new CredentialFilter(sessions, guard, connection), AnonymousAuthenticationFilter.class)
         .exceptionHandling(
             handling ->
                 handling

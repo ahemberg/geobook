@@ -1,5 +1,6 @@
 package se.geobook.tracker.access.service;
 
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -15,6 +16,7 @@ import se.geobook.tracker.access.domain.PasswordSetting;
 import se.geobook.tracker.access.domain.SessionKind;
 import se.geobook.tracker.access.domain.SessionLifetime;
 import se.geobook.tracker.access.domain.SessionToken;
+import se.geobook.tracker.access.domain.SignInResult;
 import se.geobook.tracker.access.domain.StoredSession;
 import se.geobook.tracker.access.repository.OwnerRepository;
 import se.geobook.tracker.access.repository.SessionRepository;
@@ -26,6 +28,7 @@ public class SessionService {
   private final OwnerRepository owners;
   private final SessionRepository sessions;
   private final PasswordHasher hasher;
+  private final BruteForceGuard guard;
   private final Clock clock;
   private final SecureRandom random = new SecureRandom();
 
@@ -34,11 +37,13 @@ public class SessionService {
       OwnerRepository owners,
       SessionRepository sessions,
       PasswordHasher hasher,
+      BruteForceGuard guard,
       Clock clock) {
     this.settings = settings;
     this.owners = owners;
     this.sessions = sessions;
     this.hasher = hasher;
+    this.guard = guard;
     this.clock = clock;
   }
 
@@ -55,11 +60,26 @@ public class SessionService {
   }
 
   /**
-   * Creates a new session for the right credentials. Any wrong part gives the same empty answer.
+   * Creates a new session for the right credentials. Any wrong part gives the same answer, and too
+   * many wrong answers from the client or in a row limit further attempts.
    */
-  public Optional<SessionToken> signIn(String username, String password) {
+  public SignInResult signIn(String username, String password, InetAddress client) {
+    if (!guard.admitLogin(client)) {
+      return new SignInResult.Limited();
+    }
+    if (!matches(username, password)) {
+      guard.loginFailed();
+      return new SignInResult.Rejected();
+    }
+    guard.loginSucceeded(client);
+    final SessionToken token = SessionToken.generate(random);
+    sessions.insert(StoredSession.browser(token.hash(), clock.instant()));
+    return new SignInResult.SignedIn(token);
+  }
+
+  private boolean matches(String username, String password) {
     if (password.getBytes(StandardCharsets.UTF_8).length > PasswordSetting.MAX_BYTES) {
-      return Optional.empty();
+      return false;
     }
     final Owner owner = owners.owner();
     final boolean valid;
@@ -69,12 +89,7 @@ public class SessionService {
       hasher.waste(password);
       valid = false;
     }
-    if (!valid) {
-      return Optional.empty();
-    }
-    final SessionToken token = SessionToken.generate(random);
-    sessions.insert(StoredSession.browser(token.hash(), clock.instant()));
-    return Optional.of(token);
+    return valid;
   }
 
   /**

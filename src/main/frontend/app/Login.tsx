@@ -15,6 +15,7 @@ async function signIn(form: FormData): Promise<string> {
     throw new Error('Geobook could not be reached. Check the connection and try again.');
   });
   if (response.status === 401) throw new Error('Wrong username or password.');
+  if (response.status === 429) throw new Error('Too many attempts. Try again later.');
   if (!response.ok) throw new Error('Signing in failed. Please try again.');
   return ((await response.json()) as SignedIn).next;
 }

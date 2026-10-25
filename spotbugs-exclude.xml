@@ -58,7 +58,10 @@
     </Match>
     <!-- InetAddress is immutable. -->
     <Match>
-        <Class name="se.geobook.tracker.access.domain.TrustedProxies$Block"/>
+        <Or>
+            <Class name="se.geobook.tracker.access.domain.TrustedProxies$Block"/>
+            <Class name="se.geobook.tracker.access.domain.ClientKey"/>
+        </Or>
         <Or>
             <Bug pattern="EI_EXPOSE_REP"/>
             <Bug pattern="EI_EXPOSE_REP2"/>

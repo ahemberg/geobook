@@ -96,6 +96,15 @@ and DELETE requests with 403 when the browser's `Sec-Fetch-Site` header says the
 from another site, or when it has no such header and its `Origin` names a different
 host than the request's `Host`. Scripts that send neither header are not affected.
 
+Guessing is slow. Each client address may fail to sign in 10 times, then once more
+per minute. A successful login gives those attempts back. Requests with an unknown or
+expired session cookie or app password are limited to 60, then one every 10 seconds. IPv6 clients
+share one limit per /64. After 20 failed logins in a row from any address, the owner's
+login is locked for 15 minutes, even with the right password. Limited and locked
+requests get 429. The limits live in memory and reset when Geobook restarts. Behind a
+reverse proxy, set `GEOBOOK_TRUSTED_PROXIES` so the limits see each client's own
+address instead of the proxy's.
+
 ### App passwords
 
 A script that calls Geobook should use an app password, not the owner's password.
@@ -172,6 +181,28 @@ server {
 Caddy sets these headers by default: `reverse_proxy 127.0.0.1:8080` is enough.
 Check the setup by signing in over HTTPS and confirming the `geobook_session`
 cookie is marked Secure in the browser's developer tools.
+
+### Password recovery
+
+If you forget the password, set a new one from a shell on the host:
+
+```sh
+docker compose exec geobook geobook passwd
+```
+
+It prompts twice for the new password, which takes 8 characters to 72 bytes.
+Geobook stores its bcrypt hash and signs out every browser, so sign in again with
+the new password. The running container picks up the change on its next request;
+there is nothing to restart. The command never takes the password as an argument,
+so it stays out of shell history. To script it, pipe the password on stdin:
+
+```sh
+printf '%s\n' "$NEW_PASSWORD" | docker compose exec -T geobook geobook passwd
+```
+
+`docker compose exec geobook geobook` alone lists the available commands. The
+command exits with 0 on success, 1 when the password is rejected and 2 on a usage
+error.
 
 ## Upload limit, map provider and distribution notices
 
