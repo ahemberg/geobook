@@ -75,7 +75,7 @@ public class TwoFactorService {
    * @throws IllegalArgumentException when the code is wrong
    */
   @Transactional
-  public RecoveryCode confirm(String code, String token) {
+  public RecoveryCode confirm(String code, Optional<SessionToken> token) {
     if (active()) {
       throw new IllegalStateException("2FA is already on.");
     }
@@ -87,7 +87,7 @@ public class TwoFactorService {
     }
     final RecoveryCode recovery = RecoveryCode.generate(random);
     owners.activateTwoFactor(hasher.hashSecret(recovery.value()), clock.instant());
-    SessionToken.parse(token).ifPresent(parsed -> sessions.markSecondFactor(parsed.hash()));
+    token.ifPresent(parsed -> sessions.markSecondFactor(parsed.hash()));
     return recovery;
   }
 

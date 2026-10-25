@@ -1,6 +1,7 @@
 package se.geobook.tracker.access.service;
 
 import java.time.Clock;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import se.geobook.tracker.access.domain.PasswordSetting;
@@ -35,16 +36,16 @@ public class AccountService {
    * @throws IllegalArgumentException when the new password is too short or too long
    */
   @Transactional
-  public void changePassword(String currentPassword, String newPassword, String keptToken) {
+  public void changePassword(
+      String currentPassword, String newPassword, Optional<SessionToken> keptToken) {
     if (!matchesCurrent(currentPassword)) {
       throw new WrongPasswordException();
     }
     final PasswordSetting.Plain password = new PasswordSetting.Plain(newPassword);
     owners.setPassword(hasher.hash(password), clock.instant());
-    SessionToken.parse(keptToken)
-        .ifPresentOrElse(
-            token -> sessions.deleteBrowserSessionsExcept(token.hash()),
-            sessions::deleteBrowserSessions);
+    keptToken.ifPresentOrElse(
+        token -> sessions.deleteBrowserSessionsExcept(token.hash()),
+        sessions::deleteBrowserSessions);
   }
 
   /**

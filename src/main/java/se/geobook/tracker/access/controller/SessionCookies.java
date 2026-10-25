@@ -30,6 +30,11 @@ final class SessionCookies {
         .findFirst();
   }
 
+  /** The cookie's session token, or empty when there is no cookie or it cannot be a token. */
+  static Optional<SessionToken> token(HttpServletRequest request) {
+    return read(request).flatMap(SessionToken::parse);
+  }
+
   static void issue(
       HttpServletResponse response, SessionToken token, Duration maxAge, boolean secure) {
     response.addHeader(HttpHeaders.SET_COOKIE, cookie(token.value(), maxAge, secure));

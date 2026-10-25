@@ -56,8 +56,7 @@ final class TwoFactorController {
   Confirmed confirm(@RequestBody Confirm input, HttpServletRequest request) {
     final RecoveryCode recovery =
         twoFactor.confirm(
-            Objects.requireNonNullElse(input.code(), "").strip(),
-            SessionCookies.read(request).orElse(null));
+            Objects.requireNonNullElse(input.code(), "").strip(), SessionCookies.token(request));
     return new Confirmed(recovery.value());
   }
 
