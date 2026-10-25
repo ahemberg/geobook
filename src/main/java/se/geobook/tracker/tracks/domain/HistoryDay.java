@@ -1,7 +1,9 @@
 package se.geobook.tracker.tracks.domain;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -91,6 +93,7 @@ public record HistoryDay(
         ordered.stream()
             .filter(fix -> Objects.equals(device, fix.device()))
             .filter(fix -> fix.accuracy() == null || fix.accuracy() <= ACCURACY_METRES)
+            .filter(fix -> !atNullIsland(fix.point()))
             .toList();
     return removeSpikes(accurate);
   }
@@ -130,6 +133,11 @@ public record HistoryDay(
     return kept;
   }
 
+  // Google writes 0°, 0° when a fix has no real position.
+  private static boolean atNullIsland(Recording.Point point) {
+    return point.latitude().signum() == 0 && point.longitude().signum() == 0;
+  }
+
   private static boolean tooFast(Recording.Point first, Recording.Point last) {
     Duration elapsed = Duration.between(first.time(), last.time());
     double seconds = elapsed.getSeconds() + elapsed.getNano() / 1_000_000_000.0;
@@ -150,21 +158,32 @@ public record HistoryDay(
     return 6_371_000 * 2 * Math.asin(Math.sqrt(Math.clamp(haversine, 0, 1)));
   }
 
-  // Unresolved dates stay in the original; assigning UTC would invent a local history date.
-  // Each local date needs its own fix list.
+  // Assigning UTC would invent a local history date, so dates come from a real zone or stay
+  // unresolved. Each local date needs its own fix list.
   public static List<HistoryDay> split(List<LocationFix> fixes) {
     return split(fixes, List.of());
   }
 
   @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
   public static List<HistoryDay> split(List<LocationFix> fixes, List<PlaceVisit> placeVisits) {
+    List<ZonedTime> zoned = new ArrayList<>();
+    List<LocationFix> offshore = new ArrayList<>();
     Map<String, List<LocationFix>> dates = new TreeMap<>();
     for (LocationFix fix : fixes) {
       Recording.Point point = fix.point();
-      String date =
+      PointLocalTime.Attribution local =
           PointLocalTime.resolve(
-                  point.latitude().doubleValue(), point.longitude().doubleValue(), point.time())
-              .localDate();
+              point.latitude().doubleValue(), point.longitude().doubleValue(), point.time());
+      if (local.localDate() == null) {
+        offshore.add(fix);
+      } else {
+        zoned.add(new ZonedTime(point.time(), ZoneId.of(local.timezone())));
+        dates.computeIfAbsent(local.localDate(), ignored -> new ArrayList<>()).add(fix);
+      }
+    }
+    zoned.sort(Comparator.comparing(ZonedTime::time));
+    for (LocationFix fix : offshore) {
+      String date = nearestDate(zoned, fix.point().time());
       if (date != null) {
         dates.computeIfAbsent(date, ignored -> new ArrayList<>()).add(fix);
       }
@@ -172,6 +191,9 @@ public record HistoryDay(
     Map<String, List<PlaceVisit>> visits = new TreeMap<>();
     for (PlaceVisit visit : placeVisits) {
       String date = visit.localDate();
+      if (date == null) {
+        date = nearestDate(zoned, visit.startTime());
+      }
       if (date != null) {
         visits.computeIfAbsent(date, ignored -> new ArrayList<>()).add(visit);
       }
@@ -186,5 +208,35 @@ public record HistoryDay(
                     dates.getOrDefault(date, List.of()),
                     visits.getOrDefault(date, List.of())))
         .toList();
+  }
+
+  private record ZonedTime(Instant time, ZoneId zone) {}
+
+  // Fixes at sea fall in nautical Etc zones; the closest fix on land in time gives the local date.
+  private static String nearestDate(List<ZonedTime> zoned, Instant time) {
+    if (zoned.isEmpty()) {
+      return null;
+    }
+    int low = 0;
+    int high = zoned.size() - 1;
+    while (low < high) {
+      int middle = (low + high) >>> 1;
+      if (zoned.get(middle).time().isBefore(time)) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    ZonedTime nearest = zoned.get(low);
+    if (low > 0) {
+      ZonedTime before = zoned.get(low - 1);
+      if (Duration.between(before.time(), time)
+              .abs()
+              .compareTo(Duration.between(nearest.time(), time).abs())
+          < 0) {
+        nearest = before;
+      }
+    }
+    return time.atZone(nearest.zone()).toLocalDate().toString();
   }
 }

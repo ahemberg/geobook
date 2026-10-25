@@ -97,7 +97,23 @@ public class TrackImporter {
             "complete", tracks.size(), tracks.size(), filename, null, originalId, List.of(), null));
   }
 
-  // Every day sends its own immutable progress result.
+  private static List<String> historyWarnings(int unresolved, int skippedVisits) {
+    return java.util.stream.Stream.of(
+            unresolved == 0
+                ? null
+                : unresolved
+                    + " fixes or place visits have unresolved local dates and remain only in the"
+                    + " original export.",
+            skippedVisits == 0
+                ? null
+                : skippedVisits
+                    + " place visits have no position or duration and remain only in the original"
+                    + " export.")
+        .filter(java.util.Objects::nonNull)
+        .toList();
+  }
+
+  // Every day sends its own immutable progress result; archive warnings arrive once at the end.
   @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
   private void importHistory(String filename, byte[] bytes, Progress progress)
       throws java.io.IOException {
@@ -111,13 +127,7 @@ public class TrackImporter {
               - days.stream().mapToInt(day -> day.keptFixCount() + day.droppedFixCount()).sum()
               + history.placeVisits().size()
               - days.stream().mapToInt(day -> day.placeVisits().size()).sum();
-      warnings =
-          unresolved == 0
-              ? List.of()
-              : List.of(
-                  unresolved
-                      + " fixes or place visits have unresolved local dates and remain only in the"
-                      + " original export.");
+      warnings = historyWarnings(unresolved, history.skippedVisits());
     } catch (IllegalArgumentException exception) {
       progress.send(
           new ImportEvent(
@@ -146,7 +156,7 @@ public class TrackImporter {
     OriginalExport.Source source = collection.retainOriginal(filename, bytes);
     progress.send(
         new ImportEvent(
-            "progress", 0, days.size(), filename, null, source.id(), warnings, null, HISTORY));
+            "progress", 0, days.size(), filename, null, source.id(), List.of(), null, HISTORY));
     int created = 0;
     int updated = 0;
     int unchanged = 0;
@@ -167,7 +177,7 @@ public class TrackImporter {
                 day.date(),
                 imported.trackId(),
                 source.id(),
-                warnings,
+                List.of(),
                 null,
                 HISTORY));
       } catch (IllegalArgumentException exception) {
@@ -179,7 +189,7 @@ public class TrackImporter {
                 day.date(),
                 null,
                 source.id(),
-                warnings,
+                List.of(),
                 exception.getMessage(),
                 HISTORY));
       } catch (org.springframework.dao.DataAccessException exception) {
@@ -191,7 +201,7 @@ public class TrackImporter {
                 day.date(),
                 null,
                 source.id(),
-                warnings,
+                List.of(),
                 "The history day could not be saved. Check server storage and retry.",
                 HISTORY));
       }

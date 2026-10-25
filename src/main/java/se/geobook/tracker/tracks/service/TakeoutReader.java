@@ -39,7 +39,7 @@ final class TakeoutReader {
             || bytes[0] == (byte) 0x1f && bytes[1] == (byte) 0x8b);
   }
 
-  record History(List<LocationFix> fixes, List<PlaceVisit> placeVisits) {
+  record History(List<LocationFix> fixes, List<PlaceVisit> placeVisits, int skippedVisits) {
     History {
       fixes = List.copyOf(fixes);
       placeVisits = List.copyOf(placeVisits);
@@ -48,7 +48,7 @@ final class TakeoutReader {
 
   static History read(byte[] bytes) {
     List<LocationFix> fixes = new ArrayList<>();
-    List<PlaceVisit> visits = new ArrayList<>();
+    Visits visits = new Visits(new ArrayList<>(), new ArrayList<>());
     try (InputStream input = new ByteArrayInputStream(bytes)) {
       if (bytes[0] == ZIP_SIGNATURE) {
         readZip(input, fixes, visits);
@@ -58,15 +58,47 @@ final class TakeoutReader {
     } catch (IOException | tools.jackson.core.JacksonException exception) {
       throw new IllegalArgumentException(UNREADABLE, exception);
     }
-    if (fixes.isEmpty() && visits.isEmpty()) {
+    if (fixes.isEmpty() && visits.kept().isEmpty()) {
       throw new IllegalArgumentException(
           "The archive contains no usable Google location history. Choose a Takeout ZIP or TGZ"
               + " containing location records or named place visits.");
     }
-    return new History(fixes, visits);
+    List<PlaceVisit> placed =
+        visits.unplaced().stream()
+            .map(visit -> visit.placeAt(fixes))
+            .filter(java.util.Objects::nonNull)
+            .toList();
+    List<PlaceVisit> kept = new ArrayList<>(visits.kept());
+    kept.addAll(placed);
+    return new History(fixes, kept, visits.unplaced().size() - placed.size());
   }
 
-  private static void readZip(InputStream input, List<LocationFix> fixes, List<PlaceVisit> visits)
+  private record Visits(List<PlaceVisit> kept, List<Unplaced> unplaced) {}
+
+  /** A named visit without coordinates, as left by some Timeline edits, or without a duration. */
+  private record Unplaced(String name, Instant start, Instant end) {
+    private static final java.time.Duration MARGIN = java.time.Duration.ofMinutes(15);
+
+    // The phone's own fix closest to the middle of the stay stands in for the place.
+    PlaceVisit placeAt(List<LocationFix> fixes) {
+      if (start == null) {
+        return null;
+      }
+      Instant middle = start.plus(java.time.Duration.between(start, end).dividedBy(2));
+      return fixes.stream()
+          .filter(fix -> !fix.point().time().isBefore(start.minus(MARGIN)))
+          .filter(fix -> !fix.point().time().isAfter(end.plus(MARGIN)))
+          .min(
+              java.util.Comparator.comparing(
+                  fix -> java.time.Duration.between(fix.point().time(), middle).abs()))
+          .map(
+              fix ->
+                  new PlaceVisit(name, fix.point().latitude(), fix.point().longitude(), start, end))
+          .orElse(null);
+    }
+  }
+
+  private static void readZip(InputStream input, List<LocationFix> fixes, Visits visits)
       throws IOException {
     try (ZipInputStream archive = new ZipInputStream(input)) {
       for (java.util.zip.ZipEntry entry = archive.getNextEntry();
@@ -79,7 +111,7 @@ final class TakeoutReader {
     }
   }
 
-  private static void readTar(InputStream input, List<LocationFix> fixes, List<PlaceVisit> visits)
+  private static void readTar(InputStream input, List<LocationFix> fixes, Visits visits)
       throws IOException {
     try (TarArchiveInputStream archive = new TarArchiveInputStream(new GZIPInputStream(input))) {
       for (TarArchiveEntry entry = archive.getNextEntry();
@@ -92,7 +124,7 @@ final class TakeoutReader {
     }
   }
 
-  private static void readEntry(InputStream input, List<LocationFix> fixes, List<PlaceVisit> visits)
+  private static void readEntry(InputStream input, List<LocationFix> fixes, Visits visits)
       throws IOException {
     // Entry names are deliberately irrelevant, including the name of the records file itself.
     int first;
@@ -136,7 +168,7 @@ final class TakeoutReader {
 
   /** The monthly semantic schema is independent of the raw fixes schema. */
   private static final class SemanticVisits {
-    private static void readTimeline(JsonParser parser, List<PlaceVisit> visits) {
+    private static void readTimeline(JsonParser parser, Visits visits) {
       while (parser.nextToken() != JsonToken.END_ARRAY) {
         if (parser.currentToken() != JsonToken.START_OBJECT) {
           throw new IllegalArgumentException(UNREADABLE);
@@ -145,10 +177,7 @@ final class TakeoutReader {
           String name = parser.currentName();
           JsonToken token = parser.nextToken();
           if ("placeVisit".equals(name) && token == JsonToken.START_OBJECT) {
-            PlaceVisit visit = readVisit(parser);
-            if (visit != null) {
-              visits.add(visit);
-            }
+            readVisit(parser, visits);
           } else {
             parser.skipChildren();
           }
@@ -157,15 +186,21 @@ final class TakeoutReader {
     }
 
     private record VisitLocation(String name, BigDecimal latitude, BigDecimal longitude) {
-      PlaceVisit visit(VisitTimes times) {
+      void addTo(Visits visits, VisitTimes times) {
         if (name() == null || name().isBlank()) {
-          return null;
+          return;
         }
-        if (latitude() == null || longitude() == null || times == null || !times.valid()) {
-          throw new IllegalArgumentException(
-              "A Google place visit is missing a valid position or duration.");
+        if (times == null || !times.valid()) {
+          visits.unplaced().add(new Unplaced(name.strip(), null, null));
+          return;
         }
-        return new PlaceVisit(name.strip(), latitude, longitude, times.start(), times.end());
+        if (latitude() == null || longitude() == null) {
+          visits.unplaced().add(new Unplaced(name.strip(), times.start(), times.end()));
+          return;
+        }
+        visits
+            .kept()
+            .add(new PlaceVisit(name.strip(), latitude, longitude, times.start(), times.end()));
       }
     }
 
@@ -175,7 +210,7 @@ final class TakeoutReader {
       }
     }
 
-    private static PlaceVisit readVisit(JsonParser parser) {
+    private static void readVisit(JsonParser parser, Visits visits) {
       VisitLocation location = null;
       VisitTimes times = null;
       try {
@@ -195,7 +230,9 @@ final class TakeoutReader {
             "A Google place visit has an invalid position or timestamp.", exception);
       }
       // Unnamed inferred locations are not named place visits.
-      return location == null ? null : location.visit(times);
+      if (location != null) {
+        location.addTo(visits, times);
+      }
     }
 
     private static VisitLocation readVisitLocation(JsonParser parser) {
