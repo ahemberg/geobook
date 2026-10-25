@@ -35,8 +35,6 @@ final class SessionController {
 
   record Session(String username, boolean twoFactor) {}
 
-  record Failure(String message) {}
-
   /** A 401 telling the login page to ask for the 2FA code. */
   record CodeNeeded(String message, boolean codeRequired) {}
 

@@ -5,12 +5,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.Objects;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import se.geobook.tracker.access.service.AccountService;
-import se.geobook.tracker.access.service.WrongPasswordException;
 
 @RestController
 final class AccountController {
@@ -29,8 +27,6 @@ final class AccountController {
     }
   }
 
-  record Failure(String message) {}
-
   @PutMapping("/api/account/password")
   ResponseEntity<Void> changePassword(
       @RequestBody PasswordChange input, HttpServletRequest request) {
@@ -46,10 +42,5 @@ final class AccountController {
     account.signOutEverywhere();
     SessionCookies.clear(response, connection.secure(request));
     return ResponseEntity.noContent().build();
-  }
-
-  @ExceptionHandler({WrongPasswordException.class, IllegalArgumentException.class})
-  ResponseEntity<Failure> invalid(RuntimeException exception) {
-    return ResponseEntity.badRequest().body(new Failure(exception.getMessage()));
   }
 }

@@ -7,11 +7,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Set;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
@@ -32,10 +30,8 @@ final class CrossOriginFilter extends OncePerRequestFilter {
       chain.doFilter(request, response);
       return;
     }
-    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-    response.setCharacterEncoding(StandardCharsets.UTF_8);
-    response.getWriter().write("{\"message\":\"Cross-origin request refused.\"}");
+    ErrorResponses.write(
+        response, HttpServletResponse.SC_FORBIDDEN, "Cross-origin request refused.");
   }
 
   private static boolean bearer(HttpServletRequest request) {

@@ -3,10 +3,8 @@ package se.geobook.tracker.access.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.function.Supplier;
-import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
@@ -40,11 +38,9 @@ final class ScopeAuthorization
   public void handle(
       HttpServletRequest request, HttpServletResponse response, AccessDeniedException exception)
       throws IOException {
-    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-    response.setCharacterEncoding(StandardCharsets.UTF_8);
-    response
-        .getWriter()
-        .write("{\"message\":\"This app password's scope does not allow this request.\"}");
+    ErrorResponses.write(
+        response,
+        HttpServletResponse.SC_FORBIDDEN,
+        "This app password's scope does not allow this request.");
   }
 }

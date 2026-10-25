@@ -6,7 +6,6 @@ import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,8 +57,6 @@ final class AppPasswordController {
     }
   }
 
-  record Failure(String message) {}
-
   @GetMapping("/api/app-passwords")
   List<Listed> list() {
     return appPasswords.list().stream().map(Listed::from).toList();
@@ -87,10 +84,5 @@ final class AppPasswordController {
     return appPasswords.revoke(id)
         ? ResponseEntity.noContent().build()
         : ResponseEntity.notFound().build();
-  }
-
-  @ExceptionHandler(IllegalArgumentException.class)
-  ResponseEntity<Failure> invalid(IllegalArgumentException exception) {
-    return ResponseEntity.badRequest().body(new Failure(exception.getMessage()));
   }
 }

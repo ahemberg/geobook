@@ -3,14 +3,12 @@ package se.geobook.tracker.access.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Objects;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import se.geobook.tracker.access.domain.RecoveryCode;
 import se.geobook.tracker.access.domain.TwoFactorSetup;
 import se.geobook.tracker.access.service.TwoFactorService;
-import se.geobook.tracker.access.service.WrongPasswordException;
 
 /** 2FA management. Lives under {@code /api/account}, which only browser sessions may use. */
 @RestController
@@ -49,8 +47,6 @@ final class TwoFactorController {
     }
   }
 
-  record Failure(String message) {}
-
   @PostMapping("/api/account/2fa/setup")
   TwoFactorSetup start(@RequestBody Start input) {
     return twoFactor.start(Objects.requireNonNullElse(input.password(), ""));
@@ -71,14 +67,5 @@ final class TwoFactorController {
         Objects.requireNonNullElse(input.password(), ""),
         Objects.requireNonNullElse(input.code(), "").strip());
     return ResponseEntity.noContent().build();
-  }
-
-  @ExceptionHandler({
-    WrongPasswordException.class,
-    IllegalArgumentException.class,
-    IllegalStateException.class
-  })
-  ResponseEntity<Failure> invalid(RuntimeException exception) {
-    return ResponseEntity.badRequest().body(new Failure(exception.getMessage()));
   }
 }
