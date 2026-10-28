@@ -99,9 +99,10 @@ format that Geobook does not read yet.
 - **Storage.** Everything lives in the data directory: a SQLite database and
   your original files. Put it on a local disk, not a network share, and run only
   one Geobook against it.
-- **Updates.** Change `GEOBOOK_IMAGE` to the new version and run
-  `docker compose up -d`. Check the [release notes](docs/release-notes.md) first.
-  See [manual updates](docs/deployment.md#explicit-manual-updates).
+- **Updates.** Check the [release notes](docs/release-notes.md), back up, and copy
+  the new release's `compose.yaml`. Add any new `.env.example` settings to your
+  existing `.env`, change `GEOBOOK_IMAGE`, then pull and recreate the container.
+  Follow the [manual update steps](docs/deployment.md#explicit-manual-updates).
 - **Backups.** Stop the container and copy the data directory. See
   [copy and restore](docs/deployment.md#stopped-app-copy-and-restore).
 

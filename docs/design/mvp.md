@@ -1,18 +1,24 @@
 # Geobook MVP design
 
-Approved on 12 October 2026. Travel timetable is the selected direction for the complete desktop and mobile MVP. This brief complements the [build specification](https://github.com/ahemberg/geobook/issues/23) and [product context](../../PRODUCT.md).
+Approved on 12 October 2026 and implemented. This brief records the original
+desktop and mobile MVP decisions. [DESIGN.md](../../DESIGN.md) describes the current
+interface, including the later history and sign-in flows. See also the
+[build specification](https://github.com/ahemberg/geobook/issues/23) and
+[product context](../../PRODUCT.md).
 
 The [selected desktop sketch](../../.impeccable/mocks/decision/pick.html) demonstrates the direction with synthetic tracks and schematic geography. It is a static composition reference. The implemented app uses detailed OpenStreetMap tiles. App screens use code-first development; the saved image-mockup preference applies to future landing and showcase pages.
 
 ## Purpose and visual direction
 
-Geobook opens directly into recorded travel. The detailed map leads; the track library helps the owner choose recordings, and date and country filters explain what is visible. Uploaded tracks immediately appear on the map.
+After sign-in, Geobook opens into recorded travel. The map shows the collection;
+the library selects recordings, and date and country filters control which
+portions appear. Uploaded tracks immediately appear on the map.
 
 Use a blue header, white panels, pale blue selection states and readable Source Sans 3 typography. Compact rows align dates and names for scanning hundreds of recordings. Each track's saved colour connects its library entry, map line and elevation plot. Warnings and errors have explicit labels, separate from track colours.
 
 ## Desktop and mobile workspace
 
-On desktop, the searchable, newest-first library sits beside the map. The library scrolls independently; browsing tracks must not scroll the map out of view. Keep the library, map and selected track's elevation plot visible together within the viewport. The header provides Map, Countries, Original exports, Settings and Upload GPX. Clearly distinguish filtered portions from an opened complete recording.
+On desktop, the searchable, newest-first library sits beside the map. The library scrolls independently; browsing tracks must not scroll the map out of view. Keep the library, map and selected track's elevation plot visible together within the viewport. The header provides Map, Countries, Original exports and Upload GPX / Takeout, with Account and Sign out in password mode. Gap settings sit in the scope strip. Clearly distinguish filtered portions from an opened complete recording.
 
 The layout revision agreed during the 12 October 2026 design interview keeps compact track rows with name, recorded date, saved colour and visibility control. Remove point counts and the repeated "Open complete recording" text from rows. Show the date once: when a saved name already communicates the recorded date, omit the duplicate date label without changing the saved name. Otherwise show the recorded date separately. Ordinary names should fit in a two-line row, with the full name accessible when shortened. Editing stays available through an options control.
 
@@ -41,9 +47,12 @@ Implementation uses the agreed React/Vite, Leaflet and Spring Boot/SQLite stack.
 
 The docked layout has been rendered and reviewed on desktop and mobile. Browser tests cover viewport fit, independent library scrolling, plot scrubbing, mobile selection and scroll restoration, and the supporting flows. [DESIGN.md](../../DESIGN.md) records the implemented system.
 
-## Implementation handoff
+## Implementation record
 
-Start with [Upload one GPX track and see it on the map](https://github.com/ahemberg/geobook/issues/24). Deliver that working path in this visual direction, then continue through the implementation tickets and their dependencies. Use the approved integration-first Spring Boot, Vitest and Playwright test strategy from the build specification.
+The MVP tickets beginning with [the first GPX import](https://github.com/ahemberg/geobook/issues/24)
+are complete. [MVP acceptance](../mvp-acceptance.md) records the original release
+checks. Use the Spring Boot, Vitest and Playwright workflow in
+[HELP.md](../../HELP.md) when changing the app.
 
 ## Local design tooling
 
