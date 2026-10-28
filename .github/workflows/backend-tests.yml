@@ -36,7 +36,7 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Test release tooling
+      - name: Test CI scripts
         run: python3 -m unittest discover -s scripts
 
       - name: Run all checks, tests, and builds
