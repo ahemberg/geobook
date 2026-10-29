@@ -13,7 +13,8 @@ loopback default unless you have read that section. Back up before changing rele
 
 Install Docker Engine with the Compose plugin. Use a published release image, or
 build one yourself. Published images are at `ghcr.io/ahemberg/geobook:VERSION`,
-for example `ghcr.io/ahemberg/geobook:0.1.0`. See [releasing](releasing.md) for how
+for example `ghcr.io/ahemberg/geobook:0.0.1`. The [README quick start](../README.md#quick-start)
+downloads the Compose and environment files for that release. See [releasing](releasing.md) for how
 they are built. To build from a reviewed release tag or commit instead, use JDK 27
 and the repository's Maven wrapper:
 
@@ -98,7 +99,7 @@ and DELETE requests with 403 when the browser's `Sec-Fetch-Site` header says the
 from another site, or when it has no such header and its `Origin` names a different
 host than the request's `Host`. Scripts that send neither header are not affected.
 
-Guessing is slow. Each client address may fail to sign in 10 times, then once more
+Each client address may fail to sign in 10 times, then once more
 per minute. A successful login gives those attempts back. Requests with an unknown or
 expired session cookie or app password are limited to 60, then one every 10 seconds. IPv6 clients
 share one limit per /64. After 20 failed logins in a row from any address, the owner's
@@ -125,7 +126,7 @@ A request outside the scope gets 403. Send the value as a Bearer token. To uploa
 a GPX file:
 
 ```sh
-curl -H "Authorization: Bearer OXiV72-wTtiL9-d04jO7-X7XP4p" \
+curl -H "Authorization: Bearer $GEOBOOK_APP_PASSWORD" \
   -F "file=@ride.gpx" https://geobook.example.org/api/tracks
 ```
 
@@ -299,6 +300,13 @@ Vite proxy is not part of the deployment.
 Read the [release notes](release-notes.md) first. Some releases need a setting
 before they start, such as the owner password.
 
+Keep the previous image, `compose.yaml` and `.env` with a stopped-app backup as
+described below. Keep the data path unchanged. Review Compose changes against
+your local customizations and add any new settings from the release's
+`.env.example` to your existing `.env`; keep its current passwords and paths.
+
+### Update from a source build
+
 Build and test the chosen release before stopping the running application. Select
 an actual reviewed release tag or full commit ID, not a moving branch or `latest`:
 
@@ -311,7 +319,9 @@ version=$(git rev-parse --short=12 HEAD)
 docker build --tag "geobook:$version" .
 ```
 
-Keep the previous image and record its exact tag with a stopped-app backup as below.
+Use `compose.yaml` from the checked-out release. If you run Compose from a separate
+deployment directory, replace that directory's `compose.yaml` with the release's
+copy before running the update commands there.
 Set `GEOBOOK_IMAGE` in `.env` to the new explicit tag, keeping the data path unchanged.
 Then replace the container:
 
@@ -326,9 +336,32 @@ run an older image against a database migrated by a newer release unless that
 release explicitly supports it. Rollback means restoring the stopped-app backup
 and running its matching image.
 
-To update from a published image, set `GEOBOOK_IMAGE` to the new exact version,
-such as `ghcr.io/ahemberg/geobook:0.2.0`, or its manifest digest. Run
-`docker compose pull`, then the replacement command. Avoid `latest` in `.env`.
+### Update from a published image
+
+Replace `compose.yaml` with the one from the chosen release tag before recreating
+the container. For example, to fetch the file for `v0.0.1`:
+
+```bash
+release=v0.0.1 # Set this to the release you are installing.
+curl -fsSL -o compose.yaml.new \
+  "https://raw.githubusercontent.com/ahemberg/geobook/$release/compose.yaml"
+diff -u compose.yaml compose.yaml.new
+```
+
+`diff` exits with 1 when the files differ. Review those changes, keep any local
+customizations, then replace `compose.yaml` with the reviewed file. A failed
+download leaves the deployed file intact.
+
+Set `GEOBOOK_IMAGE` to the matching exact version, such as
+`ghcr.io/ahemberg/geobook:0.0.1`, or its manifest digest. Run:
+
+```bash
+docker compose pull
+docker compose up -d --force-recreate
+docker compose logs -f geobook
+```
+
+Check saved controls and original downloads as for a source update. Avoid `latest` in `.env`.
 It moves when a newer stable version is published, so a later pull would upgrade
 without you choosing to. Nothing in Geobook updates an installation automatically.
 
@@ -336,6 +369,9 @@ without you choosing to. Nothing in Geobook updates an installation automaticall
 
 Choose a backup destination outside the data directory, with sufficient free space.
 Record the running image tag/digest, commit and configured UID/GID with the copy.
+Keep `compose.yaml` and `.env` alongside it with the same restricted access as the
+data, because `.env` may contain a password. Restore those settings with the
+matching image if you roll back.
 Use the actual configured data path in these commands. Stop cleanly and check that
 no other process is using the directory:
 
@@ -401,7 +437,7 @@ CI runs Maven/frontend quality checks, then the same container and browser check
 on native `ubuntu-24.04` x86-64 and `ubuntu-24.04-arm` ARM64 runners. An ARM runner
 pass validates driver and resource compatibility, but is not a Raspberry Pi measurement.
 
-See [MVP acceptance](mvp-acceptance.md) for the final measured release checks and
+See [MVP acceptance](mvp-acceptance.md) for the 12 October 2026 checks and
 remaining limits, and [deployment validation](deployment-validation.md) for the
 earlier issue #32 observations. The separate 500-track/five-million-point workload
 is documented in [the benchmark guide](../benchmarks/README.md).

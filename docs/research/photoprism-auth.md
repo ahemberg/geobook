@@ -1,5 +1,11 @@
 # How PhotoPrism does authentication
 
+Historical research for [Geobook's owner-login spec](https://github.com/ahemberg/geobook/issues/86).
+The upstream findings below describe the sources at the time of the investigation.
+Geobook's decisions are recorded in [ADR 0003](../adr/0003-one-owner-signs-in-with-a-session-cookie.md)
+and [ADR 0004](../adr/0004-spring-security-with-own-session-store.md). For current
+configuration and recovery commands, use [deployment](../deployment.md).
+
 Research for copying PhotoPrism's login system into geobook. Researched 2026-10-25.
 
 Sources are PhotoPrism's Go source on the default branch, pinned to commit [`70e20b5`](https://github.com/photoprism/photoprism/tree/70e20b5e033f29e4d53b0eb34de44856806637d1) (2026-10-24), the docs at docs.photoprism.app, and the edition pages on photoprism.app.

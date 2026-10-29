@@ -93,22 +93,17 @@ components:
     padding: "12px 16px"
 ---
 
-# Design System: Geobook
+# Geobook design
 
 ## Overview
 
-**Creative North Star: "Travel timetable"**
+The Travel timetable design puts a detailed travel map beside a compact library.
+A blue header, white panels and pale blue selection states separate navigation,
+saved recordings and the active selection. Source Sans 3 is used throughout.
 
-Geobook puts a detailed travel map beside a compact library. A blue header anchors the page; white panels and pale blue selection keep saved recordings easy to scan. Source Sans 3 carries headings, controls and recording details.
-
-This system records the rendered upload, date-filter, track-library controls, point inspection, playback, elevation plot, gap settings, country visit review and original-export archive, including confirmed removal. The [approved MVP brief](docs/design/mvp.md) records the approved MVP direction.
-
-**Key Characteristics:**
-
-- Independently scrolling library beside the map on desktop; a collapsible library on mobile.
-- Selected recording plot docked below the map within the viewport.
-- Saved track colours connect library swatches and map geometry.
-- Flat panels, visible dividers and labelled controls.
+This document describes the implemented map, recording and history-day controls,
+country review, original-export archive, sign-in and account pages. The
+[MVP brief](docs/design/mvp.md) records the original design decisions.
 
 ## Colors
 
@@ -126,7 +121,7 @@ Use `surface` for panels, `ink` for text, `muted` for supporting text, `line` fo
 
 Notices have separate informational, success, error and warning fills. Error and warning text use their matching text tokens. Explicit messages carry the meaning. `focus` marks keyboard focus; focus on the blue header uses white. Destructive controls use `error-text` for text and borders, with `error-background` on hover. Header navigation uses `blue-hover` for hover and the current page.
 
-**The Saved Colour Rule.** A track's saved colour connects its swatch and map geometry; status colours describe application feedback.
+A track's saved colour connects its swatch and map geometry. Status colours describe application feedback.
 
 ## Typography
 
@@ -146,7 +141,7 @@ Countries places confirmed summaries beside country-day review on desktop and st
 
 The archive replaces the map workspace with a full-width list padded by 24px. File details sit opposite their download and removal actions. On mobile, padding becomes 20px vertically and 16px horizontally, and each row stacks its actions beneath the file details. Long filenames wrap.
 
-## Elevation & Depth
+## Panels and shadows
 
 The workspace uses flat white panels and single-pixel dividers. The floating fit control and tile-failure notice use the soft shadow `0 2px 8px #20312d24`. Date and gap-setting popovers use `0 8px 32px #20312d30` to separate them from the map. Removal dialogs use a translucent dark blue backdrop to separate the confirmation from the page. Leaflet supplies its own map-control frame. The app declares no custom transitions or animations.
 
@@ -158,11 +153,11 @@ Buttons, form controls and the current scope label share the control radius. Lib
 
 ### Buttons
 
-Ordinary buttons have a white fill and a single-pixel border. Primary buttons use blue; Upload GPX uses white with blue text in the header. Hover changes the fill. Disabled upload controls retain their shape at 0.65 opacity with a waiting cursor. Keyboard focus uses a 3px outline offset by 3px. Links stay underlined and thicken their underline on hover.
+Ordinary buttons have a white fill and a single-pixel border. Primary buttons use blue; Upload GPX / Takeout uses white with blue text in the header. Hover changes the fill. Disabled upload controls retain their shape at 0.65 opacity with a waiting cursor. Keyboard focus uses a 3px outline offset by 3px. Links stay underlined and thicken their underline on hover.
 
 ### Header and scope
 
-The header contains the Geobook wordmark, Map, Countries and Original exports buttons and Upload GPX aligned to the right. Navigation uses white text, a filled hover state and `aria-current` for the selected page. The scope strip appears in Map and Countries and contains Recorded travel, a date button showing the applied range or All time, a Recording gaps disclosure, the selected country with an All countries action when scoped, and the matching track count.
+The header contains the Geobook wordmark, Map, Countries and Original exports buttons, and Upload GPX / Takeout. Signed-in owners also see Account and Sign out. Navigation uses white text, a filled hover state and `aria-current` for the selected page. The scope strip appears in Map and Countries and contains Recorded travel, a date button showing the applied range or All time, a Recording gaps disclosure, the selected country with an All countries action when scoped, and the matching recorded-track count.
 
 The date button opens a bounded, scrollable panel with labelled native date fields, a year selector, All time, Apply dates and Close dates. Applying or closing returns focus to the date button; Escape also closes it. Dates are inclusive and use local time at each point. All time includes points with unknown dates. Recording gaps opens a matching panel for the saved gap threshold and optional dashed map connections. Form controls use white fills, outlined borders and the shared focus treatment. The upload button opens a hidden native file input.
 
@@ -181,6 +176,29 @@ Rows contain an independent visibility checkbox, a selection button and a labell
 Search filters the library by name. Edit expands an inline form with name and native colour inputs, Save changes and Cancel. Visibility saves independently of an editing draft. A failed save keeps the previous saved choice and shows its error beneath the row. Closing the editor restores focus to Edit, or to search if a renamed track no longer matches.
 
 The expanded editor also exposes Delete track. Its confirmation explains that original exports stay in the archive. Successful deletion returns focus to the track library.
+
+### Google history
+
+Google history has a separate collapsible library section, grouped by year.
+Collection and year checkboxes control map display while retaining each day's
+visibility choice. Rows show a local history date and inferred place names, and
+use a striped square swatch to distinguish them from recordings. Search also
+matches dates and place names.
+
+History lines are lighter than recorded tracks. Selecting a day opens a details
+panel with the local time span, kept and dropped fix counts, named place visits
+and original downloads. Selecting a visit pans the map to it. The panel labels
+the source as Google history and has no playback controls or elevation plot.
+
+### Sign-in and account
+
+The sign-in page uses a compact form with labelled username and password fields.
+When 2FA is enabled, the form also asks for an authenticator or recovery code.
+Failed sign-in stays in the form with an error message.
+
+Account has separate sections for changing the password, signing out sessions,
+app passwords and 2FA. New app passwords and recovery codes are shown once.
+Public mode hides account and sign-out controls.
 
 ### Original exports and removal
 
@@ -202,17 +220,10 @@ Selected map lines are 5px wide; other lines are 3px and dim to 0.5 opacity whil
 
 Upload and loading feedback use full-width notice strips. Tile failure uses a warning above the map attribution with a Retry tiles button. Status messages and alerts retain their accessible roles. First use shows a short explanation and a primary file chooser in the library.
 
-## Do's and Don'ts
+## Design constraints
 
-### Do:
-
-- Do preserve the saved track colour across the library and map.
-- Do keep keyboard focus, map attribution and labelled touch controls visible.
-- Do keep compact track names readable and the full saved name accessible.
-- Do keep the map visible while the track list or recording details scroll.
-- Do use synthetic recordings in public examples.
-
-### Don't:
-
-- Don't substitute schematic geography for the application's detailed map.
-- Don't use track colour alone to communicate an error or warning.
+- Preserve saved track colours across the library and map. Use labelled messages for errors and warnings.
+- Keep keyboard focus, map attribution and labelled touch controls visible.
+- Keep compact track names readable and the full saved name accessible.
+- Keep the map visible while the track list or recording details scroll.
+- Use synthetic recordings in public examples and detailed geography in the application.
