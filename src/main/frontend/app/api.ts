@@ -62,17 +62,38 @@ export type MapConfig = {
   uploadLimitMb: number;
 };
 
-export async function request<T>(url: string, options?: RequestInit): Promise<T> {
+export type Status = { authMode: 'password' | 'public' };
+
+/** Fetches from Geobook and sends the browser to the login page when the session has ended. */
+export async function send(url: string, options?: RequestInit): Promise<Response> {
   const response = await fetch(url, options);
-  if (!response.ok) {
-    const error: unknown = await response.json().catch(() => null);
-    throw new Error(
-      error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
-        ? error.message
-        : 'The request could not be completed. Please try again.',
-    );
+  if (response.status === 401) {
+    const here = `${window.location.pathname}${window.location.search}`;
+    window.location.assign(`/login?next=${encodeURIComponent(here)}`);
+    throw new Error('Your session has ended. Sign in to continue.');
   }
+  return response;
+}
+
+export async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const response = await send(url, options);
+  if (!response.ok) throw await failure(response);
   return response.json() as Promise<T>;
+}
+
+/** Sends a request whose success has no body, such as 204 No Content. */
+export async function perform(url: string, options?: RequestInit): Promise<void> {
+  const response = await send(url, options);
+  if (!response.ok) throw await failure(response);
+}
+
+async function failure(response: Response): Promise<Error> {
+  const error: unknown = await response.json().catch(() => null);
+  return new Error(
+    error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+      ? error.message
+      : 'The request could not be completed. Please try again.',
+  );
 }
 
 export type Country = {

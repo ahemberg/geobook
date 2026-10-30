@@ -13,4 +13,61 @@
         <Class name="se.geobook.tracker.web.controller.FrontendController"/>
         <Bug pattern="SPRING_ENDPOINT"/>
     </Match>
+    <Match>
+        <Or>
+            <Class name="se.geobook.tracker.access.controller.SessionController"/>
+            <Class name="se.geobook.tracker.access.controller.StatusController"/>
+            <Class name="se.geobook.tracker.access.controller.LoginPageController"/>
+            <Class name="se.geobook.tracker.access.controller.AccountController"/>
+            <Class name="se.geobook.tracker.access.controller.AccountPageController"/>
+            <Class name="se.geobook.tracker.access.controller.TwoFactorController"/>
+            <Class name="se.geobook.tracker.access.controller.AppPasswordController"/>
+        </Or>
+        <Bug pattern="SPRING_ENDPOINT"/>
+    </Match>
+    <!-- The session cookie is HttpOnly, SameSite=Strict and holds only a random token. -->
+    <Match>
+        <Class name="se.geobook.tracker.access.controller.SessionCookies"/>
+        <Bug pattern="COOKIE_USAGE"/>
+    </Match>
+    <!-- The redirect always targets /login; the query only becomes a NextPath-validated parameter. -->
+    <Match>
+        <Class name="se.geobook.tracker.access.controller.SignInEntryPoint"/>
+        <Or>
+            <Bug pattern="UNVALIDATED_REDIRECT"/>
+            <Bug pattern="SERVLET_QUERY_STRING"/>
+        </Or>
+    </Match>
+    <!-- The Authorization header carries the app password, which is checked against the store. -->
+    <Match>
+        <Class name="se.geobook.tracker.access.controller.BearerHeader"/>
+        <Bug pattern="SERVLET_HEADER"/>
+    </Match>
+    <!-- Error bodies are fixed messages written as application/json, never request input. -->
+    <Match>
+        <Class name="se.geobook.tracker.access.controller.ErrorResponses"/>
+        <Bug pattern="XSS_SERVLET"/>
+    </Match>
+    <!-- Comparing the browser's Sec-Fetch-Site, Origin and Host headers is the cross-origin check. -->
+    <Match>
+        <Class name="se.geobook.tracker.access.controller.CrossOriginFilter"/>
+        <Or>
+            <Bug pattern="SERVLET_HEADER"/>
+            <Bug pattern="SERVLET_SERVER_NAME"/>
+            <Bug pattern="IMPROPER_UNICODE"/>
+        </Or>
+    </Match>
+    <!-- The logged value is InetAddress.getHostAddress(), which cannot contain line breaks. -->
+    <Match>
+        <Class name="se.geobook.tracker.access.controller.PlainHttpWarning"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+    <!-- InetAddress is immutable. -->
+    <Match>
+        <Class name="se.geobook.tracker.access.domain.TrustedProxies$Block"/>
+        <Or>
+            <Bug pattern="EI_EXPOSE_REP"/>
+            <Bug pattern="EI_EXPOSE_REP2"/>
+        </Or>
+    </Match>
 </FindBugsFilter>

@@ -7,6 +7,9 @@ the container by hand, as described in [deployment](deployment.md#explicit-manua
 
 ## Cut a release
 
+Move the Unreleased section of [release notes](release-notes.md) under the new
+version, and copy it into the GitHub Release. Upgrade steps go first.
+
 Pick a commit that is already on `main`. Tag it with `v` and a semantic version,
 such as `v0.1.0` for a stable release or `v0.2.0-rc.1` for a prerelease:
 
@@ -17,8 +20,10 @@ git push origin v0.1.0
 ```
 
 Creating the tag on the GitHub Release page works the same way. Target `main` or
-a commit in its history, then publish the release. Draft releases create no tag,
-so nothing runs until you publish.
+a commit in its history, then publish the release. A new tag entered on a draft
+release is not published until the release is published. Creating or pushing a
+tag separately starts the workflow even if its release is still a draft. See
+[GitHub's release instructions](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository).
 
 The workflow then:
 
@@ -34,6 +39,10 @@ The workflow then:
 5. For stable versions, points `latest` at the highest stable version in the registry.
 
 Any failed step stops publication.
+
+The image tag and OCI version label use the release version. The application's
+startup log and JAR manifest still use the Maven SNAPSHOT version; [issue #101](https://github.com/ahemberg/geobook/issues/101)
+tracks correcting that.
 
 ## Versions are immutable
 
@@ -75,5 +84,5 @@ to `ahemberg/geobook` and that the repository has write access under
 
 Geobook is MIT licensed. The licence is in `LICENSE` at the repository root and at
 `/app/LICENSE` in the image. Third-party notices ship unchanged. See
-[map provider and distribution notices](deployment.md#map-provider-and-distribution-notices)
+[map provider and distribution notices](deployment.md#upload-limit-map-provider-and-distribution-notices)
 for where to find them.

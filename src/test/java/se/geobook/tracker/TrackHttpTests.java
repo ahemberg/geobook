@@ -2420,7 +2420,9 @@ class TrackHttpTests {
         .run(
             java.util.stream.Stream.concat(
                     java.util.stream.Stream.of(
-                        "--server.port=0", "--geobook.data-directory=" + directory),
+                        "--server.port=0",
+                        "--geobook.data-directory=" + directory,
+                        "--GEOBOOK_AUTH_MODE=public"),
                     java.util.Arrays.stream(settings))
                 .toArray(String[]::new));
   }

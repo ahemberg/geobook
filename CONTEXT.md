@@ -30,3 +30,11 @@ A calendar date on which travel was recorded, interpreted in the local time at e
 The exact file supplied for import, preserved as it was uploaded. An original export may contain several tracks, and the same track may appear in several original exports.
 
 Changes to a track's name, colour, or visibility do not change its original exports.
+
+**Owner**:
+The one person who signs in to a Geobook instance and owns its whole collection. An instance has exactly one owner.
+_Avoid_: Admin, user, account
+
+**App password**:
+A separate credential the owner creates for a program that calls Geobook without a browser, limited in what it may do and revocable on its own.
+_Avoid_: API key, token

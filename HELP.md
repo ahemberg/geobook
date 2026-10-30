@@ -1,19 +1,23 @@
-# Getting Started
+# Development and behaviour
 
 ## Build checks
 
-Set `JAVA_HOME` to a JDK 27 installation and run `./mvnw verify` from the project root.
+Run `./mvnw -v` from the project root and check that it reports Java 27, then run
+`./mvnw verify`. If you use jenv, register your JDK 27 installation; `.java-version`
+selects it for this checkout and its worktrees. If Maven reports a different JDK
+than `java -version`, refresh an inherited setting with
+`export JAVA_HOME="$(jenv javahome)"`. Without a version manager, set `JAVA_HOME`
+to your JDK 27 installation.
 Maven installs the pinned Node and npm versions,
 runs `npm ci`, checks and builds the frontend, and runs the backend tests and analysis.
 Backend tests use temporary real SQLite databases and need no Docker.
-The root `.java-version` selects Java 27 for local Java version managers.
 Maven Enforcer checks the JDK before any formatting, frontend work, or compilation.
 Java versions outside 27 fail immediately with instructions to set `JAVA_HOME`.
 
 `./mvnw package` also enforces all static checks. Spotless and Checkstyle run during
 `validate`; PMD and SpotBugs run during `prepare-package`. They check both main and
 test Java sources. SpotBugs includes Find Security Bugs and checks all bug categories.
-PMD enables the same eight categories as Tergo, without its application-specific exceptions.
+PMD checks all eight rule categories with the repository's exclusions.
 HTTP journey tests allow multiple assertions to verify related response and persistence behavior.
 The SpotBugs filter excludes only the informational endpoint inventories for
 TrackController and FrontendController.
@@ -32,6 +36,8 @@ and fail on violations; they do not rewrite source files.
 From `src/main/frontend`, run `npm ci` and `npm run build`. The build runs Prettier,
 ESLint with zero warnings, TypeScript, Fallow and Vitest before Vite. Use `npm run check`
 for analysis and frontend tests or `npm run format` to apply Prettier's formatting.
+Run `npm ci` separately in each worktree. Give each checkout its own `node_modules`;
+symlinking another checkout's directory lets `npm ci` delete that checkout's dependencies.
 ESLint uses TypeScript's project service to reject unhandled promises, misused async callbacks,
 and unsafe `any` operations. TypeScript also enables `noUncheckedIndexedAccess` and
 `exactOptionalPropertyTypes`.
@@ -60,16 +66,20 @@ It covers versioned builds, local SSD mounts, manual updates and stopped-app cop
 Build with `./mvnw verify`, then run:
 
 ```bash
-java -jar target/tracker-0.0.1-SNAPSHOT.jar --geobook.data-directory=/path/to/local-data
+GEOBOOK_OWNER_PASSWORD='choose a password' \
+  java -jar target/tracker-0.0.1-SNAPSHOT.jar --geobook.data-directory=/path/to/local-data
 ```
 
-Open http://localhost:8080. Spring Boot serves the frontend and API together.
+Open http://localhost:8080 and sign in as `admin`. Spring Boot serves the frontend and API together.
+The first start needs `GEOBOOK_OWNER_PASSWORD`; later starts keep the stored password.
+`GEOBOOK_AUTH_MODE=public` turns login off. See [authentication](docs/deployment.md#authentication).
 The data directory defaults to `./data`. Startup creates it and applies versioned Flyway
 migrations. SQLite uses WAL, FULL synchronization, foreign keys and a five-second busy timeout.
 Run one application instance per data directory on a local disk. Keep that directory when restarting.
 
-Choose several GPX 1.0/1.1 files or a collection export. Each file can contain multiple
-tracks, with a default upload limit of 512 MB and 250,000 points per track. The browser
+Choose several GPX 1.0/1.1 files or a collection export with Upload GPX / Takeout.
+Each GPX file can contain multiple tracks, with a default upload limit of 512 MB
+and 250,000 points per track. The browser
 sends files one at a time, shows per-track progress and retains the batch results until
 the next upload.
 Valid tracks import even when a sibling has invalid measurements. Malformed XML rejects
@@ -91,16 +101,20 @@ Oversized requests return HTTP 413 with the configured limit and save no tracks 
 
 `POST /api/imports` accepts repeated multipart `file` parts within the configured total
 request limit and streams newline-delimited JSON. Events report `progress`, `imported`, `duplicate`, `failed`
-and `complete`, with completed/total track counts, track/original IDs and warnings. Each file
-ends with `complete` or a file-level `failed` event with total zero. Keep reverse-proxy response
+and `complete`, with completed/total item counts, track/original IDs and warnings.
+History days also report `updated`; their completion event includes created,
+updated and unchanged counts. File-wide history warnings arrive once on completion.
+Each file ends with `complete` or a file-level `failed` event with total zero.
+Keep reverse-proxy response
 buffering disabled for this endpoint. The single-track `POST /api/tracks` response remains
 available and now includes a `duplicate` flag. Interrupted uploads may already have saved
 tracks; reuploading the same files safely resumes by skipping those duplicates.
 
 Original retention and each complete track use short serialized SQLite transactions. Parsing,
 validation, content hashing and progress delivery run outside the track write transaction.
-Collection reads remain available during import. The current overview still reads unsimplified
-geometry; large-collection performance work remains in #31.
+Collection reads remain available during import. Overviews use stored simplified
+geometry; selecting a track loads its full recorded points. The [benchmark guide](benchmarks/README.md)
+describes the workload and measurements.
 
 The library orders tracks by their earliest recorded timestamp, newest first, with untimed
 tracks last and newer imports first for ties. Search matches track names without case sensitivity.
@@ -127,19 +141,21 @@ Configure an OSM-based raster provider through Spring properties or their enviro
 
 Keep attribution visible and follow the selected provider's usage policy. The browser fetches
 tiles directly and uses normal HTTP caching; there is no bulk download or offline prefetch.
-The app has no login and is intended for the agreed LAN/VPN deployment.
 
-For backend development, run `./mvnw spring-boot:run`. For frontend development, run
+For backend development, run `GEOBOOK_AUTH_MODE=public ./mvnw spring-boot:run`, or set
+`GEOBOOK_OWNER_PASSWORD` and sign in. For frontend development, run
 `npm run dev` in `src/main/frontend`; Vite proxies API requests to port 8080.
 
 After building the JAR, run `npm run test:e2e` from `src/main/frontend`. First install
 Chromium with `npx playwright install chromium`. Tests launch the real packaged application
 with temporary SQLite, exercise desktop and touch mobile, and stub only external tiles.
+The journeys run in public mode on port 18080. `login.spec.ts` runs against a second,
+password-mode instance on port 18081.
 GitHub's backend check runs these tests after the Maven build.
 
 ## Security checks
 
-Run a local secret scan from the project root, even before Git initialization:
+Scan the working files from the project root, even before Git initialization:
 
 ```bash
 docker run --rm --user "$(id -u):$(id -g)" --volume "${PWD}:/repo:ro" \
@@ -147,7 +163,8 @@ docker run --rm --user "$(id -u):$(id -g)" --volume "${PWD}:/repo:ro" \
 ```
 
 Gitleaks uses its default detection rules and excludes generated output and downloaded dependencies.
-CI scans the full checked-out Git history, including secrets removed in later commits.
+This command scans files on disk. CI scans the full checked-out Git history,
+including secrets removed in later commits.
 Reports redact secrets. A finding fails the security job.
 
 GitHub Dependency Review runs on pull requests and rejects newly introduced high or critical
@@ -156,13 +173,13 @@ graph to be enabled. Existing vulnerabilities still need maintenance through Dep
 
 ## GitHub repository settings
 
-These settings are prepared for the future public repository. Files alone do not activate them.
-After the first push and CI run, enable the dependency graph and Dependabot alerts under
-Settings > Advanced Security. Replace `OWNER/REPO` below with the repository name:
+The repository includes settings for native secret scanning and required checks.
+Files alone do not activate them. Maintainers can enable the dependency graph and
+Dependabot alerts under Settings > Advanced Security, then apply these settings:
 
 ```bash
-gh api --method PATCH repos/OWNER/REPO --input .github/security-settings.json
-gh api --method POST repos/OWNER/REPO/rulesets --input .github/required-checks.json
+gh api --method PATCH repos/ahemberg/geobook --input .github/security-settings.json
+gh api --method POST repos/ahemberg/geobook/rulesets --input .github/required-checks.json
 ```
 
 The first command enables native secret scanning and push protection. The second requires
@@ -170,7 +187,7 @@ The first command enables native secret scanning and push protection. The second
 `Container checks (arm64)`, `Secret scan`, and `Dependency review` on the default branch,
 with the branch up to date before merging. It accepts checks only from GitHub Actions and grants
 no bypasses. The ruleset can also be imported through Settings > Rules > Rulesets.
-Create it once; subsequent changes should update the existing ruleset rather than create duplicates.
+Check for an existing ruleset before creating one. Update that ruleset for later changes.
 
 See [typed ESLint](https://typescript-eslint.io/getting-started/typed-linting/),
 [Maven Enforcer](https://maven.apache.org/enforcer/enforcer-rules/requireJavaVersion.html),
@@ -200,12 +217,11 @@ source links and attribution limits are served at `/notices/timezones.md` and li
 from recording details. Current geographic boundaries do not reconstruct historical
 borders. Overlaps and generic ocean zones remain unresolved.
 
-On first startup after this update, Flyway attributes existing points in a
+When upgrading a database that predates point-local dates, Flyway attributes existing points in a
 transaction. Allow the migration to finish before using the application. Later
 resource updates do not automatically rewrite those results. Pi memory use and
 large-collection timings, including a runnable synthetic workload, are recorded in the
-[benchmark guide](benchmarks/README.md). Repeat those checks before the final MVP release.
-
+[benchmark guide](benchmarks/README.md). Repeat the relevant checks for a new release.
 
 ## Country visits
 
@@ -240,7 +256,33 @@ and the reproduction command are at `/notices/countries.md`.
 Review decisions survive restart and duplicate import. Summaries derive from live
 track evidence instead of cached totals, so recording removal must delete its
 points and relationships and cannot leave a stored summary contribution behind.
-Pi startup, memory and large-collection timings remain release checks in #31.
+Pi startup, memory and large-collection checks are documented in
+[MVP acceptance](docs/mvp-acceptance.md) and the [benchmark guide](benchmarks/README.md).
+
+## Google location history
+
+Upload a Google Takeout ZIP or gzip-compressed tar archive with Upload GPX / Takeout.
+Geobook reads `Records.json` and the Semantic Location History files. It does not
+read the phone's on-device `Timeline.json` export.
+
+Each local date becomes a history day, separate from recorded tracks. Re-importing
+a newer archive updates those days and keeps their saved names, colours and
+visibility. The original archives remain downloadable unchanged. Import feedback
+reports created, updated and unchanged days, plus any warnings.
+
+Google history has its own library section, grouped by year. Its collection and
+year checkboxes control map visibility without changing the individual day
+choices. Search matches dates, day names and place names. Selecting a day shows
+its kept/dropped fix counts and named place visits; selecting a place pans the
+map to it. A day may have visits without a line. History days have no playback or
+elevation, and a place visit alone does not count as country-visit evidence.
+
+Import keeps the device with the most fixes for each day, discards fixes with
+reported accuracy worse than 200 metres and positions at 0°, 0°, and removes
+isolated out-and-back spikes above 300 km/h. History lines break at gaps over
+30 minutes or jumps over 2 km. These rules are independent of the saved recording
+gap settings. Country suggestions use the retained fixes and still need review.
+
 ## Playback and recording gaps
 
 Open a complete recording to play or pause it, choose 1x, 10x, 100x or 1000x,
