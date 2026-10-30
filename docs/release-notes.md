@@ -6,6 +6,8 @@
   keeping existing `.env` settings during an update.
 - Release images report their own version in the startup log instead of
   `0.0.1-SNAPSHOT`.
+- A local build now writes `target/tracker.jar` instead of
+  `target/tracker-0.0.1-SNAPSHOT.jar`.
 
 ## 0.0.1, 25 October 2026
 
