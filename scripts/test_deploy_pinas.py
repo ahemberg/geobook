@@ -16,7 +16,10 @@ FAKES = {
         cd "$HOME"
         exec bash -c "$*"
         """,
-    "sudo": 'exec "$@"',
+    "sudo": """
+        if [ "$1" = cp ] && [ -n "${FAKE_BACKUP_FAILS:-}" ]; then exit 1; fi
+        exec "$@"
+        """,
     "gh": 'echo "$FAKE_CI_RUNS"',
     "curl": """
         case "$*" in
@@ -178,6 +181,17 @@ class DeployPinasTest(unittest.TestCase):
         self.assertIn("amd64", result.stdout)
         self.assertNotIn("docker compose stop", self.calls_log())
         self.assertEqual(self.backups(), [])
+
+    def test_failed_backup_restarts_the_old_container_without_switching(self):
+        self.env["FAKE_BACKUP_FAILS"] = "1"
+
+        result = self.deploy()
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("docker compose start", self.calls_log())
+        self.assertNotIn("docker compose up", self.calls_log())
+        self.assertIn("GEOBOOK_IMAGE=geobook:old", (self.home / "geobook/.env").read_text())
+        self.assertNotIn("Roll back:", result.stdout)
 
     def test_failed_startup_keeps_the_backup_and_prints_the_rollback(self):
         self.env["FAKE_STARTUP"] = "APPLICATION FAILED TO START"

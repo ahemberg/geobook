@@ -405,7 +405,7 @@ until the copy finishes.
 ## pinas
 
 The owner's Raspberry Pi, reached over SSH as `pinas`, runs Compose from `~/geobook`
-with its data in `~/geobook/data`. Deploy a merged commit from a clean checkout of it:
+with its data in `~/geobook/data`. Check out a merged commit in a clean working tree and deploy it:
 
 ```bash
 git switch --detach COMMIT
@@ -420,8 +420,8 @@ builds `geobook:<sha>` there and refuses an image that is not arm64. Then it sho
 `Started TrackerApplication`.
 
 The smoke test runs on the Pi with a read-only app password that it revokes afterwards.
-The script then records the deployment in `~/geobook/deployment.json` and the release
-directory. It prints the backup path, the track and history day counts and a rollback
+The script then records the deployment in `~/geobook/deployment.json` and copies that
+file to the release directory. It prints the backup path, the track and history day counts and a rollback
 command that restores the backup with the previous image. A failed startup or smoke
 test keeps the backup and prints the same rollback command.
 

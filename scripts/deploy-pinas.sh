@@ -71,7 +71,11 @@ set -euo pipefail
 cd ~/geobook
 docker compose stop
 sudo mkdir -p "backups/$1"
-sudo cp -a data .env compose.yaml "backups/$1/"
+if ! sudo cp -a data .env compose.yaml "backups/$1/"; then
+  echo "The backup failed, so the old container is starting again." >&2
+  docker compose start
+  exit 1
+fi
 EOF
 backup="~/geobook/backups/$name"
 rollback="ssh $host 'cd ~/geobook && docker compose stop && sudo mv data data-failed-$stamp"
