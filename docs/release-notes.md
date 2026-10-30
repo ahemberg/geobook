@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Deployment instructions now cover replacing the release's `compose.yaml` and
+  keeping existing `.env` settings during an update.
+
+## 0.0.1, 25 October 2026
+
+Published as a prerelease. Includes GPX import and playback, Google Takeout
+history days, country review and original-export downloads.
+
 ### Owner login
 
 Geobook now asks the owner to sign in. See [authentication](deployment.md#authentication).

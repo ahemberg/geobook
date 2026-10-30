@@ -1,5 +1,9 @@
 # Deployment validation for issue #32
 
+Historical observations from 12 October 2026. For the current installation and
+update procedure, use [deployment](deployment.md). These measurements do not
+validate later releases.
+
 ## Development host, 2026-10-12
 
 The first local Compose smoke pass used Linux x86-64 on an Intel Core i5-10300H
@@ -32,7 +36,7 @@ upload-to-map and saved-control journeys on desktop and touch-mobile viewports.
 The PR's `Container checks (amd64)` and `Container checks (arm64)` jobs build the
 same Dockerfile on native GitHub runners and execute the Compose smoke test with
 Playwright. Their logs retain startup, first-import and memory observations.
-Both checks must pass for this change. Use the linked PR's checks as the evidence
+Both checks must pass for a release candidate. Use that candidate's PR checks as the evidence
 for the exact commit being released; a configured workflow alone is not a pass.
 
 ## Raspberry Pi gate at the time of issue #32
