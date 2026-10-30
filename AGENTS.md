@@ -15,3 +15,7 @@ Use the five default triage labels. Read `docs/agents/triage-labels.md` before t
 ### Domain docs
 
 Use a single-context layout. Read `docs/agents/domain.md` before exploring the codebase.
+
+### Review standards
+
+`docs/agents/review-standards.md` is the standards source for `/code-review` and any other code review. Read it before reviewing a diff.
