@@ -27,6 +27,7 @@ def main():
     parser.add_argument("image")
     parser.add_argument("--replacement-image", help="Verified compatible image for the update check")
     parser.add_argument("--browser", action="store_true")
+    parser.add_argument("--version", help="Version the application must report at startup")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="geobook-container-") as temporary:
         data = Path(temporary) / "data"
@@ -91,6 +92,9 @@ def main():
             compose("up", "-d", "--pull", "never")
             ready()
             print(f"Fresh startup ready in {time.monotonic() - started:.2f}s", flush=True)
+            if args.version:
+                assert f"Starting TrackerApplication v{args.version} " in compose(
+                    "logs", "--no-color", "geobook"), f"Startup log does not report v{args.version}"
             assert json.loads(request("/api/tracks")) == []
             assert b'<div id="root">' in request("/map")
             config = json.loads(request("/api/map-config"))
