@@ -33,6 +33,7 @@ class SummarizeTest(unittest.TestCase):
                              "warnings": [], "message": "A place visit has no position."}])
         self.assertEqual(report.problems, ["failed: takeout.tgz: A place visit has no position.",
                                            "the import stream has no complete event"])
+        self.assertEqual(report.days, 0)
         report = summarize([PROGRESS, day("2017-01-24", "failed", message="Not saved."),
                             complete()])
         self.assertEqual(report.problems, ["failed: 2017-01-24: Not saved."])

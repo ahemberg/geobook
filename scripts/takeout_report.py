@@ -34,7 +34,7 @@ def summarize(events):
                 + ([] if completes else ["the import stream has no complete event"]))
     return Report(
         statuses=statuses,
-        days=sum(event["status"] not in ARCHIVE_STATUSES for event in events),
+        days=sum(sum((event.get("summary") or {}).values()) for event in completes),
         warnings=[warning for event in completes for warning in event.get("warnings") or []],
         problems=problems)
 
