@@ -155,17 +155,18 @@ GitHub's backend check runs these tests after the Maven build.
 
 ## Security checks
 
-Scan the working files from the project root, even before Git initialization:
+Run the secret scan before pushing:
 
 ```bash
-docker run --rm --user "$(id -u):$(id -g)" --volume "${PWD}:/repo:ro" \
-  ghcr.io/gitleaks/gitleaks:v8.30.1 dir --redact --config /repo/.gitleaks.toml /repo
+python3 scripts/gitleaks.py
 ```
 
-Gitleaks uses its default detection rules and excludes generated output and downloaded dependencies.
-This command scans files on disk. CI scans the full checked-out Git history,
-including secrets removed in later commits.
-Reports redact secrets. A finding fails the security job.
+The script runs Gitleaks in Docker against every local branch and tag, including secrets
+removed in later commits. The CI `Secret scan` job runs the same script, so both use the
+image version pinned in the script and the rules in `.gitleaks.toml`. Uncommitted files are
+not scanned. Gitleaks uses its default detection rules and excludes generated output and
+downloaded dependencies. Reports redact secrets. A finding exits non-zero and fails the
+security job.
 
 GitHub Dependency Review runs on pull requests and rejects newly introduced high or critical
 vulnerabilities in runtime, development, and unknown dependency scopes. It requires the dependency
