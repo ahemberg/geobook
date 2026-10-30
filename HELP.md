@@ -161,12 +161,13 @@ Run the secret scan before pushing:
 python3 scripts/gitleaks.py
 ```
 
-The script runs Gitleaks in Docker against every local branch and tag, including secrets
-removed in later commits. The CI `Secret scan` job runs the same script, so both use the
-image version pinned in the script and the rules in `.gitleaks.toml`. Uncommitted files are
-not scanned. Gitleaks uses its default detection rules and excludes generated output and
-downloaded dependencies. Reports redact secrets. A finding exits non-zero and fails the
-security job.
+The script needs Docker. It runs Gitleaks over the history of every ref, so it also finds
+secrets that later commits removed. The CI `Secret scan` job runs the same script, so local
+and CI scans share one image pin and `.gitleaks.toml`. Locally every ref includes the stash,
+other worktrees' branches, and remote-tracking branches, so a local scan can fail on history
+that CI never sees. The scan skips uncommitted files. Gitleaks uses its default detection
+rules and excludes generated output and downloaded dependencies. Reports redact secrets.
+A finding exits non-zero and fails the security job.
 
 GitHub Dependency Review runs on pull requests and rejects newly introduced high or critical
 vulnerabilities in runtime, development, and unknown dependency scopes. It requires the dependency

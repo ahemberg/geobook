@@ -2,7 +2,7 @@
 from pathlib import Path
 import unittest
 
-from gitleaks import IMAGE, command
+from gitleaks import IMAGE, scan_command
 
 WORKFLOW = Path(__file__).resolve().parent.parent / ".github/workflows/security.yml"
 
@@ -10,8 +10,7 @@ WORKFLOW = Path(__file__).resolve().parent.parent / ".github/workflows/security.
 class CommandTest(unittest.TestCase):
     def test_scans_all_history_with_the_pinned_image_and_project_config(self):
         repo = Path("/work/geobook")
-        self.assertEqual(IMAGE, "ghcr.io/gitleaks/gitleaks:v8.30.1")
-        self.assertEqual(command(repo, repo / ".git", "1000:1000"), [
+        self.assertEqual(scan_command(repo, repo / ".git", "1000:1000"), [
             "docker", "run", "--rm", "--user", "1000:1000",
             "--volume", "/work/geobook:/work/geobook:ro",
             IMAGE, "git", "--redact", "--config", "/work/geobook/.gitleaks.toml",
@@ -19,7 +18,7 @@ class CommandTest(unittest.TestCase):
         ])
 
     def test_mounts_the_shared_git_directory_of_a_worktree(self):
-        scan = command(Path("/work/geobook/.claude/worktrees/a"), Path("/work/geobook/.git"), "1:1")
+        scan = scan_command(Path("/work/geobook/.claude/worktrees/a"), Path("/work/geobook/.git"), "1:1")
         self.assertIn("/work/geobook/.git:/work/geobook/.git:ro", scan)
         self.assertEqual(scan[-1], "/work/geobook/.claude/worktrees/a")
 

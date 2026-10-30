@@ -8,7 +8,7 @@ import sys
 IMAGE = "ghcr.io/gitleaks/gitleaks:v8.30.1"
 
 
-def command(toplevel, git_common_dir, user):
+def scan_command(toplevel, git_common_dir, user):
     mounts = [toplevel] if git_common_dir.is_relative_to(toplevel) else [toplevel, git_common_dir]
     volumes = [arg for path in mounts for arg in ["--volume", f"{path}:{path}:ro"]]
     return ["docker", "run", "--rm", "--user", user, *volumes,
@@ -23,7 +23,7 @@ def git_path(*args):
 
 
 def main():
-    scan = command(git_path("--show-toplevel"), git_path("--git-common-dir"),
+    scan = scan_command(git_path("--show-toplevel"), git_path("--git-common-dir"),
                    f"{os.getuid()}:{os.getgid()}")
     sys.exit(subprocess.run(scan, check=False).returncode)
 
