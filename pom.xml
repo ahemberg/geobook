@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>se.geobook</groupId>
 	<artifactId>tracker</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>${revision}</version>
 	<name/>
 	<description/>
 	<url/>
@@ -30,6 +30,7 @@
 		<url/>
 	</scm>
 	<properties>
+		<revision>0.0.1-SNAPSHOT</revision>
 		<java.version>27</java.version>
 		<enforcer.version>3.6.3</enforcer.version>
 		<frontend-maven-plugin.version>2.0.2</frontend-maven-plugin.version>
@@ -102,6 +103,7 @@
 	</dependencies>
 
 	<build>
+		<finalName>${project.artifactId}</finalName>
 		<resources>
 			<resource>
 				<directory>src/main/resources</directory>
