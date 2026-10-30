@@ -40,9 +40,10 @@ The workflow then:
 
 Any failed step stops publication.
 
-The image tag and OCI version label use the release version. The application's
-startup log and JAR manifest still use the Maven SNAPSHOT version; [issue #101](https://github.com/ahemberg/geobook/issues/101)
-tracks correcting that.
+The image tag, OCI version label, JAR manifest and startup log all use the release
+version. The workflow passes it to Maven as `-Drevision=0.1.0`, and the container
+check fails if the startup log reports anything else. Builds outside a release
+keep the `0.0.1-SNAPSHOT` version from `pom.xml`.
 
 ## Versions are immutable
 

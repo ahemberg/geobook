@@ -14,12 +14,12 @@ recording shape or geographic distribution.
 
 ## Run it
 
-Build with JDK 27 using `./mvnw verify`. Copy `target/tracker-0.0.1-SNAPSHOT.jar` and
+Build with JDK 27 using `./mvnw verify`. Copy `target/tracker.jar` and
 `benchmarks/collection.py` to the Pi. Choose a new directory on its local SSD, outside any
 existing collection, and an unused LAN port. Start one server for that database:
 
 ```sh
-java -Xmx2g -jar tracker-0.0.1-SNAPSHOT.jar \
+java -Xmx2g -jar tracker.jar \
   --server.port=18081 --geobook.data-directory=/path/on/ssd/benchmark-data \
   > server.log 2>&1 &
 benchmark_pid=$!

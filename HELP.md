@@ -67,7 +67,7 @@ Build with `./mvnw verify`, then run:
 
 ```bash
 GEOBOOK_OWNER_PASSWORD='choose a password' \
-  java -jar target/tracker-0.0.1-SNAPSHOT.jar --geobook.data-directory=/path/to/local-data
+  java -jar target/tracker.jar --geobook.data-directory=/path/to/local-data
 ```
 
 Open http://localhost:8080 and sign in as `admin`. Spring Boot serves the frontend and API together.
@@ -92,7 +92,7 @@ Identical upload bytes reuse the original. Original downloads are byte-for-byte 
 Upgrades index existing recordings without merging or deleting duplicates created by older releases.
 
 Set `GEOBOOK_UPLOAD_LIMIT_MB` to a positive whole number to change the upload limit,
-for example `GEOBOOK_UPLOAD_LIMIT_MB=256 java -jar target/tracker-0.0.1-SNAPSHOT.jar`.
+for example `GEOBOOK_UPLOAD_LIMIT_MB=256 java -jar target/tracker.jar`.
 The equivalent Spring property is `geobook.upload-limit-mb`. MB means 1,048,576 bytes.
 The limit applies to each file and the complete multipart request, including its headers.
 The empty library shows the configured limit from `/api/map-config` as `uploadLimitMb`.
