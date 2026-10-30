@@ -21,3 +21,15 @@ If a needed concept is missing, reconsider the term or note the gap for domain-m
 
 If a proposal contradicts an ADR, identify the ADR and explain why
 the decision should be reconsidered.
+
+## Location history imports
+
+Before finishing any Takeout or history import change, run `scripts/takeout-smoke.sh [archive]`.
+It imports a real Google Takeout archive. The default is `google-timeline.tar.gz` in the main checkout's root, which worktrees use too.
+The script skips when the file is missing.
+Never commit the archive or any other real location data.
+
+## Worktrees
+
+In a new worktree, run `npm ci` in `src/main/frontend`.
+Never symlink `node_modules` from another checkout. The Maven build runs `npm ci`, which deletes the contents of the link target.
