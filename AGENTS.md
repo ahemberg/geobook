@@ -1,7 +1,3 @@
-# Writing
-
-Always read and apply `/home/alex/.agents/skills/unslop/SKILL.md` when writing any response or prose. Apply it on every turn.
-
 ## Agent skills
 
 ### Issue tracker
@@ -15,3 +11,7 @@ Use the five default triage labels. Read `docs/agents/triage-labels.md` before t
 ### Domain docs
 
 Use a single-context layout. Read `docs/agents/domain.md` before exploring the codebase.
+
+### Review standards
+
+Review diffs against `docs/agents/review-standards.md`, the standards source for `/code-review`. Read it before reviewing a diff.
