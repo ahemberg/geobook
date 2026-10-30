@@ -7,7 +7,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 checkout="$(cd "$(git -C "$root" rev-parse --path-format=absolute --git-common-dir)/.." && pwd)"
 archive="${1:-$checkout/google-timeline.tar.gz}"
-jar="$root/target/tracker-0.0.1-SNAPSHOT.jar"
+jar="$root/target/tracker.jar"
 
 if [[ ! -f "$archive" ]]; then
   echo "Skipping Takeout smoke import: $archive not found."
