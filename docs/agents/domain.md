@@ -25,7 +25,8 @@ the decision should be reconsidered.
 ## Location history imports
 
 Before finishing any Takeout or history import change, run `scripts/takeout-smoke.sh [archive]`.
-It imports a real Google Takeout archive, `google-timeline.tar.gz` at the repo root by default, and skips when the file is missing.
+It imports a real Google Takeout archive. The default is `google-timeline.tar.gz` in the main checkout's root, which worktrees use too.
+The script skips when the file is missing.
 Never commit the archive or any other real location data.
 
 ## Worktrees
