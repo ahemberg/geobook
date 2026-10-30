@@ -18,4 +18,4 @@ Use a single-context layout. Read `docs/agents/domain.md` before exploring the c
 
 ### Review standards
 
-`docs/agents/review-standards.md` is the standards source for `/code-review` and any other code review. Read it before reviewing a diff.
+Review diffs against `docs/agents/review-standards.md`, the standards source for `/code-review`. Read it before reviewing a diff.

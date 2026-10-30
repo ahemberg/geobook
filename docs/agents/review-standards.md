@@ -1,6 +1,6 @@
 # Review standards
 
-Rules a reviewer checks a diff against. Each rule is a hard standard: cite it by its heading when the diff breaks it. Each one names the incident that motivated it.
+Rules a reviewer checks a diff against. Each rule is a hard standard. Cite it by its heading when the diff breaks it. Each rule names the incident that motivated it.
 
 ## Importing external data
 
@@ -14,7 +14,7 @@ Incident: one named place visit without coordinates ("Norrmalm", 24 Jan 2017) re
 
 ### Warn once
 
-Send a warning about the whole file once per file, on its `complete` event. Per-item events carry only warnings about that item.
+Send a warning about the whole file once per file, on its `complete` event. An event for one history day or track carries only warnings about that day or track.
 
 Incident: the Takeout's archive warnings rode on each of 3,026 day events, and the UI printed every copy (#81).
 
@@ -28,7 +28,7 @@ Incident: the UI reloaded the overview after every imported day and aborted abou
 
 When a record lacks a field but its neighbours supply it, recover the field and keep the record. Set a record aside only after recovery fails, and count it as in "Skip bad records". Examples:
 
-- a local date taken from the nearest fix in time that has a real time zone;
-- a place visit position taken from the fix nearest the middle of the stay.
+- a local date taken from the nearest fix in time that lies on land, in a named time zone;
+- a place visit position taken from the fix nearest the middle of the stay, within 15 minutes of the visit.
 
-Incident: 31 fixes at sea got no local date, and place visits without coordinates were set aside, though nearby fixes supplied both (#81).
+Incident: the importer gave 31 fixes at sea no local date and set aside place visits without coordinates, though nearby fixes supplied both (#81).
