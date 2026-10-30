@@ -1,7 +1,3 @@
-# Writing
-
-Always read and apply `/home/alex/.agents/skills/unslop/SKILL.md` when writing any response or prose. Apply it on every turn.
-
 ## Agent skills
 
 ### Issue tracker
