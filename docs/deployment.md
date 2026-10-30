@@ -402,6 +402,29 @@ Adjust ownership to your configured UID/GID. Verify saved controls and original
 downloads before removing the pre-restore directory. Keep all instances stopped
 until the copy finishes.
 
+## pinas
+
+The owner's Raspberry Pi, reached over SSH as `pinas`, runs Compose from `~/geobook`
+with its data in `~/geobook/data`. Check out a merged commit in a clean working tree and deploy it:
+
+```bash
+git switch --detach COMMIT
+scripts/deploy-pinas.sh COMMIT
+```
+
+The script builds the jar with JDK 27. It skips tests when the backend checks already
+passed in CI for that commit. It copies the build files to `~/geobook/releases/<sha>/`,
+builds `geobook:<sha>` there and refuses an image that is not arm64. Then it shows any
+`compose.yaml` changes, stops the app and backs up `data`, `.env` and `compose.yaml` to
+`~/geobook/backups/pre-<sha>-<UTC time>/`. It starts the new image and waits for
+`Started TrackerApplication`.
+
+The smoke test runs on the Pi with a read-only app password that it revokes afterwards.
+The script then records the deployment in `~/geobook/deployment.json` and copies that
+file to the release directory. It prints the backup path, the track and history day counts and a rollback
+command that restores the backup with the previous image. A failed startup or smoke
+test keeps the backup and prints the same rollback command.
+
 ## Deployment checks and release evidence
 
 After building an image, run the isolated smoke test. It creates a temporary bind

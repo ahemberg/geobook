@@ -67,7 +67,7 @@ Build with `./mvnw verify`, then run:
 
 ```bash
 GEOBOOK_OWNER_PASSWORD='choose a password' \
-  java -jar target/tracker-0.0.1-SNAPSHOT.jar --geobook.data-directory=/path/to/local-data
+  java -jar target/tracker.jar --geobook.data-directory=/path/to/local-data
 ```
 
 Open http://localhost:8080 and sign in as `admin`. Spring Boot serves the frontend and API together.
@@ -92,7 +92,7 @@ Identical upload bytes reuse the original. Original downloads are byte-for-byte 
 Upgrades index existing recordings without merging or deleting duplicates created by older releases.
 
 Set `GEOBOOK_UPLOAD_LIMIT_MB` to a positive whole number to change the upload limit,
-for example `GEOBOOK_UPLOAD_LIMIT_MB=256 java -jar target/tracker-0.0.1-SNAPSHOT.jar`.
+for example `GEOBOOK_UPLOAD_LIMIT_MB=256 java -jar target/tracker.jar`.
 The equivalent Spring property is `geobook.upload-limit-mb`. MB means 1,048,576 bytes.
 The limit applies to each file and the complete multipart request, including its headers.
 The empty library shows the configured limit from `/api/map-config` as `uploadLimitMb`.
@@ -155,17 +155,19 @@ GitHub's backend check runs these tests after the Maven build.
 
 ## Security checks
 
-Scan the working files from the project root, even before Git initialization:
+Run the secret scan before pushing:
 
 ```bash
-docker run --rm --user "$(id -u):$(id -g)" --volume "${PWD}:/repo:ro" \
-  ghcr.io/gitleaks/gitleaks:v8.30.1 dir --redact --config /repo/.gitleaks.toml /repo
+python3 scripts/gitleaks.py
 ```
 
-Gitleaks uses its default detection rules and excludes generated output and downloaded dependencies.
-This command scans files on disk. CI scans the full checked-out Git history,
-including secrets removed in later commits.
-Reports redact secrets. A finding fails the security job.
+The script needs Docker. It runs Gitleaks over the history of every ref, so it also finds
+secrets that later commits removed. The CI `Secret scan` job runs the same script, so local
+and CI scans share one image pin and `.gitleaks.toml`. Locally every ref includes the stash,
+other worktrees' branches, and remote-tracking branches, so a local scan can fail on history
+that CI never sees. The scan skips uncommitted files. Gitleaks uses its default detection
+rules and excludes generated output and downloaded dependencies. Reports redact secrets.
+A finding exits non-zero and fails the security job.
 
 GitHub Dependency Review runs on pull requests and rejects newly introduced high or critical
 vulnerabilities in runtime, development, and unknown dependency scopes. It requires the dependency

@@ -5,6 +5,11 @@ on:
   push:
     branches: ['**']
   workflow_call:
+    inputs:
+      version:
+        description: Release version for the JAR. Empty keeps the pom's SNAPSHOT version.
+        type: string
+        default: ''
   workflow_dispatch:
 
 permissions:
@@ -40,7 +45,9 @@ jobs:
         run: python3 -m unittest discover -s scripts
 
       - name: Run all checks, tests, and builds
-        run: ./mvnw -B verify
+        env:
+          VERSION: ${{ inputs.version }}
+        run: ./mvnw -B verify ${VERSION:+"-Drevision=$VERSION"}
 
       - name: Install browser for full-app tests
         working-directory: src/main/frontend
@@ -67,7 +74,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: packaged-application
-          path: target/tracker-0.0.1-SNAPSHOT.jar
+          path: target/tracker.jar
           retention-days: 3
 
   container:
@@ -109,7 +116,9 @@ jobs:
         run: docker build --tag geobook:test .
 
       - name: Test Compose persistence and bundled browser journeys
-        run: python3 scripts/container-smoke.py geobook:test --browser
+        env:
+          VERSION: ${{ inputs.version }}
+        run: python3 scripts/container-smoke.py geobook:test --browser ${VERSION:+--version "$VERSION"}
 
       - name: Upload browser reports on failure
         if: failure()

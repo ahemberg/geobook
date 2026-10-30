@@ -6,7 +6,7 @@ import { join } from 'node:path';
 const externalURL = process.env['GEOBOOK_TEST_URL'];
 const baseURL = externalURL ?? 'http://127.0.0.1:18080';
 const loginURL = 'http://127.0.0.1:18081';
-const jar = 'java -jar ../../../target/tracker-0.0.1-SNAPSHOT.jar';
+const jar = 'java -jar ../../../target/tracker.jar';
 const dataDirectory = () => mkdtempSync(join(tmpdir(), 'geobook-browser-'));
 const login = /(login|account)\.spec\.ts/;
 
