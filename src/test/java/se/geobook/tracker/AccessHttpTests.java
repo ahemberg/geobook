@@ -234,6 +234,10 @@ class AccessHttpTests {
       final HttpResponse<String> map = send(client, app, "GET", "/map", cookie);
       assertThat(map.statusCode()).isEqualTo(200);
       assertThat(map.body()).contains("<div id=\"root\"></div>");
+      final HttpResponse<String> heatmap =
+          send(client, app, "GET", "/heatmap?at=59.3,18.1,13&limit=60", cookie);
+      assertThat(heatmap.statusCode()).isEqualTo(200);
+      assertThat(heatmap.body()).contains("<div id=\"root\"></div>");
       assertThat(send(client, app, "GET", "/api/unknown", cookie).statusCode()).isEqualTo(404);
     }
   }

@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 @Controller
 class FrontendController {
-  @GetMapping({"/map", "/map/"})
+  @GetMapping({"/map", "/map/", "/heatmap", "/heatmap/"})
   String map() {
     return "forward:/index.html";
   }

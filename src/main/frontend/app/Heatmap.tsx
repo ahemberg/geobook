@@ -7,6 +7,8 @@ import DateFilter from './DateFilter';
 import { addHeatLayer } from './heatLayer';
 import type { HeatLayer } from './heatLayer';
 import { duration } from './heatScale';
+import { formatPosition, readHeatView, rememberHeatView } from './heatView';
+import type { Position, Scale } from './heatView';
 import { mapCredit } from './mapCredit';
 
 function period(range: NonNullable<DateRange>) {
@@ -26,8 +28,6 @@ function message(summary: HeatSummary | null, error: boolean, range: DateRange) 
 }
 
 type Loaded = { query: string; summary: HeatSummary };
-
-type Scale = 'screen' | 'global';
 
 const limits: [string, string][] = [
   ['0', 'None'],
@@ -77,17 +77,47 @@ export default function Heatmap({
   years: number[];
   filter: (range: DateRange) => void;
 }) {
-  const [limit, setLimit] = useState('15');
-  const [scale, setScale] = useState<Scale>('screen');
+  const [initial] = useState(() => readHeatView(window.location.search));
+  const [limit, setLimit] = useState(initial.limit);
+  const [scale, setScale] = useState<Scale>(initial.scale);
+  const [expanded, setExpanded] = useState(false);
   return (
     <>
       <div className="scope">
         <h1>Heatmap</h1>
         <DateFilter range={range} years={years} apply={filter} />
-        <Choice label="Daily limit" options={limits} value={limit} choose={setLimit} />
-        <Choice label="Scale" options={scales} value={scale} choose={setScale} />
+        <button
+          className="heat-options-toggle"
+          aria-expanded={expanded}
+          aria-controls="heat-options"
+          onClick={() => setExpanded(!expanded)}
+        >
+          Limit and scale
+        </button>
+        <div id="heat-options" className={`heat-options${expanded ? ' expanded' : ''}`}>
+          <Choice
+            label="Daily limit"
+            options={limits}
+            value={limit}
+            choose={(next) => {
+              setLimit(next);
+              rememberHeatView('limit', next);
+            }}
+          />
+          <Choice
+            label="Scale"
+            options={scales}
+            value={scale}
+            choose={(next) => {
+              setScale(next);
+              rememberHeatView('scale', next);
+            }}
+          />
+        </div>
       </div>
-      {config && <HeatmapMap config={config} range={range} limit={limit} scale={scale} />}
+      {config && (
+        <HeatmapMap config={config} range={range} limit={limit} scale={scale} at={initial.at} />
+      )}
     </>
   );
 }
@@ -125,20 +155,66 @@ function Choice<T extends string>({
   );
 }
 
+function createMap(element: HTMLElement, url: string, credit: string, at: Position | null) {
+  const created = L.map(element);
+  L.tileLayer(url, { attribution: credit, className: 'heatmap-basemap', maxZoom: 19 }).addTo(
+    created,
+  );
+  const pane = created.createPane('heat');
+  pane.style.zIndex = '450';
+  pane.style.pointerEvents = 'none';
+  created.on('moveend', () => {
+    const centre = created.getCenter().wrap();
+    rememberHeatView('at', formatPosition(centre.lat, centre.lng, created.getZoom()));
+  });
+  if (at) created.setView(at.centre, at.zoom);
+  return created;
+}
+
+function observeSize(element: HTMLElement, map: L.Map) {
+  if (typeof ResizeObserver === 'undefined') return null;
+  const resize = new ResizeObserver(() => map.invalidateSize());
+  resize.observe(element);
+  return resize;
+}
+
+function useHeatmapMap(
+  container: RefObject<HTMLDivElement | null>,
+  credit: string,
+  url: string,
+  at: Position | null,
+) {
+  const map = useRef<L.Map | null>(null);
+  const placed = useRef(false);
+  useEffect(() => {
+    if (!container.current) return;
+    const created = createMap(container.current, url, credit, at);
+    map.current = created;
+    placed.current = at !== null;
+    const resize = observeSize(container.current, created);
+    return () => {
+      resize?.disconnect();
+      map.current = null;
+      created.remove();
+    };
+  }, [container, url, credit, at]);
+  return { map, placed };
+}
+
 function HeatmapMap({
   config,
   range,
   limit,
   scale,
+  at,
 }: {
   config: MapConfig;
   range: DateRange;
   limit: string;
   scale: Scale;
+  at: Position | null;
 }) {
   const container = useRef<HTMLDivElement>(null);
-  const map = useRef<L.Map | null>(null);
-  const placed = useRef(false);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const heat = useRef<HeatLayer | null>(null);
@@ -146,30 +222,7 @@ function HeatmapMap({
   const { url, attribution, attributionUrl } = config;
   const query = `?${new URLSearchParams({ ...range, limit }).toString()}`;
 
-  useEffect(() => {
-    if (!container.current) return;
-    const created = L.map(container.current);
-    L.tileLayer(url, {
-      attribution: mapCredit(attribution, attributionUrl),
-      className: 'heatmap-basemap',
-      maxZoom: 19,
-    }).addTo(created);
-    const pane = created.createPane('heat');
-    pane.style.zIndex = '450';
-    pane.style.pointerEvents = 'none';
-    map.current = created;
-    placed.current = false;
-    const resize =
-      typeof ResizeObserver === 'undefined'
-        ? null
-        : new ResizeObserver(() => created.invalidateSize());
-    resize?.observe(container.current);
-    return () => {
-      resize?.disconnect();
-      map.current = null;
-      created.remove();
-    };
-  }, [url, attribution, attributionUrl]);
+  const { map, placed } = useHeatmapMap(container, mapCredit(attribution, attributionUrl), url, at);
 
   useEffect(() => {
     const current = map.current;
@@ -198,7 +251,7 @@ function HeatmapMap({
       heat.current = null;
       layer.remove();
     };
-  }, [query, url, attribution, attributionUrl]);
+  }, [query, map, placed, url, attribution, attributionUrl]);
 
   usePolling(loaded, setLoaded, heat);
 

@@ -315,6 +315,49 @@ p {
   background: #fff0ee;
   color: #8a271c;
 }
+.heat-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
+.heat-options-toggle {
+  display: none;
+}
+.heat-options-toggle[aria-expanded='true'] {
+  background: var(--selection);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+@media (max-width: 700px) {
+  .heat-options-toggle {
+    display: block;
+    font-size: 14px;
+    padding-inline: 10px;
+  }
+  .heat-options {
+    display: none;
+    width: 100%;
+    gap: 8px;
+    padding-bottom: 4px;
+  }
+  .heat-options.expanded {
+    display: grid;
+  }
+  .heat-options .heat-choice {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+  .heat-options .segments label {
+    flex: 1;
+  }
+  .heat-options .segments span {
+    justify-content: center;
+    width: 100%;
+    padding: 0 6px;
+    font-size: 14px;
+  }
+}
 .heat-choice {
   display: flex;
   align-items: center;
