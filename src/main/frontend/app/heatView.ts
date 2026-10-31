@@ -27,7 +27,11 @@ export function readHeatView(search: string) {
 export function rememberHeatView(name: 'at' | 'limit' | 'scale', value: string) {
   const params = new URLSearchParams(window.location.search);
   params.set(name, value);
-  window.history.replaceState(window.history.state, '', `/heatmap?${params.toString()}`);
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `/heatmap?${params.toString().replaceAll('%2C', ',')}`,
+  );
 }
 
 export function formatPosition(lat: number, lon: number, zoom: number) {
