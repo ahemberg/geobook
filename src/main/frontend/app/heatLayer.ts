@@ -55,6 +55,7 @@ export function addHeatLayer(
   let full = 0;
   let fixed: number | null = null;
   let timer = 0;
+  let generation = 0;
   const key = (coords: L.Coords) => `${coords.x}:${coords.y}:${coords.z}`;
 
   function visibleFull() {
@@ -78,16 +79,19 @@ export function addHeatLayer(
     timer = window.setTimeout(rescale, 80);
   }
 
-  function load(coords: L.Coords, canvas: HTMLCanvasElement) {
+  function load(coords: L.Coords, canvas: HTMLCanvasElement): Promise<void> {
     const count = 2 ** coords.z;
     const x = ((coords.x % count) + count) % count;
     const controller = new AbortController();
+    const started = generation;
     requests.get(key(coords))?.abort();
     requests.set(key(coords), controller);
     return request<HeatTile>(`/api/heatmap/tiles/${coords.z}/${x}/${coords.y}${query}`, {
       signal: controller.signal,
     })
       .then((data) => {
+        // A tile asked for before the last refresh may hold the previous generation.
+        if (started !== generation) return load(coords, canvas);
         const tile = { ...data, canvas, coords };
         tiles.set(key(coords), tile);
         draw(tile, full || 1);
@@ -118,6 +122,7 @@ export function addHeatLayer(
   map.on('moveend', schedule);
   layer.addTo(map);
   const refresh = () => {
+    generation++;
     tiles.forEach((tile) => {
       load(tile.coords, tile.canvas).catch(() => undefined);
     });
