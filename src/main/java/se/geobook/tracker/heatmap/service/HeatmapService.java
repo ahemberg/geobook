@@ -58,7 +58,7 @@ public class HeatmapService implements DisposableBean {
       HeatRepository repository,
       TransactionTemplate transactions,
       Clock clock,
-      @Value("${geobook.heatmap.quiet-delay:2s}") Duration quietDelay) {
+      @Value("${geobook.heatmap.quiet-delay:10s}") Duration quietDelay) {
     this.repository = repository;
     this.transactions = transactions;
     this.clock = clock;

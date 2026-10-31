@@ -42,12 +42,15 @@ test('the heatmap shows time spent on a greyed map and rescales without refetchi
   });
   expect(upload.status()).toBe(201);
   await expect
-    .poll(async () => {
-      const summary = (await (await page.request.get('/api/heatmap/summary')).json()) as {
-        building: boolean;
-      };
-      return summary.building;
-    })
+    .poll(
+      async () => {
+        const summary = (await (await page.request.get('/api/heatmap/summary')).json()) as {
+          building: boolean;
+        };
+        return summary.building;
+      },
+      { timeout: 30_000 },
+    )
     .toBe(false);
 
   const tiles: string[] = [];
@@ -138,13 +141,16 @@ test('the heatmap shares the period with Map and says when a period has no trave
   });
   expect(upload.status()).toBe(201);
   await expect
-    .poll(async () => {
-      const response = await page.request.get(
-        `/api/heatmap/summary?from=${year}-01-01&to=${year}-12-31`,
-      );
-      const summary = (await response.json()) as { building: boolean; cells: number };
-      return !summary.building && summary.cells > 0;
-    })
+    .poll(
+      async () => {
+        const response = await page.request.get(
+          `/api/heatmap/summary?from=${year}-01-01&to=${year}-12-31`,
+        );
+        const summary = (await response.json()) as { building: boolean; cells: number };
+        return !summary.building && summary.cells > 0;
+      },
+      { timeout: 30_000 },
+    )
     .toBe(true);
 
   const tiles: string[] = [];
@@ -211,10 +217,13 @@ test('the daily limit and scale change the legend, and the scale redraws without
     return ((await response.json()) as { building: boolean; globalFull: number }).globalFull;
   };
   await expect
-    .poll(async () => {
-      const response = await page.request.get('/api/heatmap/summary');
-      return ((await response.json()) as { building: boolean }).building;
-    })
+    .poll(
+      async () => {
+        const response = await page.request.get('/api/heatmap/summary');
+        return ((await response.json()) as { building: boolean }).building;
+      },
+      { timeout: 30_000 },
+    )
     .toBe(false);
 
   const tiles: string[] = [];
@@ -280,10 +289,13 @@ test('the heatmap keeps position, zoom, limit and scale in the URL across a relo
   });
   expect(upload.status()).toBe(201);
   await expect
-    .poll(async () => {
-      const response = await page.request.get('/api/heatmap/summary');
-      return ((await response.json()) as { building: boolean }).building;
-    })
+    .poll(
+      async () => {
+        const response = await page.request.get('/api/heatmap/summary');
+        return ((await response.json()) as { building: boolean }).building;
+      },
+      { timeout: 30_000 },
+    )
     .toBe(false);
   await page.goto('/');
   await page.getByRole('button', { name: 'Heatmap', exact: true }).click();
