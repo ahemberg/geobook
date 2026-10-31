@@ -10,6 +10,7 @@ import { duration } from './heatScale';
 import { dailyLimits, formatPosition, readHeatView, rememberHeatView } from './heatView';
 import type { Position, Scale } from './heatView';
 import { mapCredit } from './mapCredit';
+import { worldView } from './mapGeometry';
 
 function period(range: NonNullable<DateRange>) {
   const year = range.from.slice(0, 4);
@@ -232,12 +233,12 @@ function HeatmapMap({
       .then((summary) => {
         setLoaded({ query, summary });
         if (summary.hottest) place(summary.hottest, 13);
-        else place([25, 10], 2);
+        else place(worldView.centre, worldView.zoom);
       })
       .catch(() => {
         if (controller.signal.aborted) return;
         setFailed(query);
-        place([25, 10], 2);
+        place(worldView.centre, worldView.zoom);
       });
     return () => {
       controller.abort();

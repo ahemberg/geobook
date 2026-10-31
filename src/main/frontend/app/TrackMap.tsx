@@ -3,7 +3,7 @@ import L from 'leaflet';
 import type { Country, HistoryDisplay, MapConfig, MapTrack, PlaceVisit } from './api';
 import { visitTimes } from './HistoryDay';
 import { mapCredit } from './mapCredit';
-import { mapGeometry } from './mapGeometry';
+import { mapGeometry, worldView } from './mapGeometry';
 
 const noStops: PlaceVisit[] = [];
 
@@ -50,7 +50,10 @@ export default function TrackMap({
   const { url, attribution, attributionUrl } = config;
   useEffect(() => {
     if (!container.current) return;
-    const map = L.map(container.current, { preferCanvas: false }).setView([25, 10], 2);
+    const map = L.map(container.current, { preferCanvas: false }).setView(
+      worldView.centre,
+      worldView.zoom,
+    );
     mapRef.current = map;
     map.createPane('history').style.zIndex = '350';
     const tiles = L.tileLayer(url, {
