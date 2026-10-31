@@ -78,10 +78,6 @@ public class HeatRepository {
         generation);
   }
 
-  public void markBuilding() {
-    jdbc.update("UPDATE heat_build SET building = 1 WHERE singleton = 1");
-  }
-
   public void insert(long generation, HeatEntries entries, int from, int to) {
     jdbc.batchUpdate(
         "INSERT INTO heat_entry (generation, cell_x, cell_y, local_date, seconds)"
@@ -106,7 +102,7 @@ public class HeatRepository {
 
   public void swap(long generation, Instant builtAt) {
     jdbc.update(
-        "UPDATE heat_build SET generation = ?, built_at = ?, building = 0 WHERE singleton = 1",
+        "UPDATE heat_build SET generation = ?, built_at = ? WHERE singleton = 1",
         generation,
         builtAt.toString());
   }

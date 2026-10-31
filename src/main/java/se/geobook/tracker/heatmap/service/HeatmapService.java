@@ -126,7 +126,6 @@ public class HeatmapService implements DisposableBean {
 
   private void build() {
     final Instant started = clock.instant();
-    repository.markBuilding();
     deleteStale();
     final HeatEntries.Builder builder = HeatEntries.builder();
     final HeatTrace trace = new HeatTrace(builder);
