@@ -57,12 +57,19 @@ public final class HeatTrace {
 
   private void line(HeatPosition from, HeatPosition to, double seconds) {
     final List<Long> cells = new ArrayList<>();
+    final double fromX = HeatGrid.column(from.longitude());
+    final double toX = HeatGrid.column(to.longitude());
+    // A pair across ±180° is stepped half a world round, where it doesn't wrap, then turned back.
+    final int turn = Math.abs(toX - fromX) > HeatGrid.CELLS / 2.0 ? HeatGrid.CELLS / 2 : 0;
     HeatGrid.line(
-        HeatGrid.column(from.longitude()),
+        (fromX + turn) % HeatGrid.CELLS,
         HeatGrid.row(from.latitude()),
-        HeatGrid.column(to.longitude()),
+        (toX + turn) % HeatGrid.CELLS,
         HeatGrid.row(to.latitude()),
-        cells::add);
+        cell ->
+            cells.add(
+                HeatGrid.key(
+                    (HeatGrid.cellX(cell) + turn) % HeatGrid.CELLS, HeatGrid.cellY(cell))));
     final double share = seconds / cells.size();
     cells.forEach(cell -> entries.add(cell, from.date().toEpochDay(), share));
   }
@@ -70,7 +77,7 @@ public final class HeatTrace {
   private static double metres(HeatPosition from, HeatPosition to) {
     final double north = Math.toRadians(to.latitude() - from.latitude());
     final double east =
-        Math.toRadians(to.longitude() - from.longitude())
+        Math.toRadians(Math.IEEEremainder(to.longitude() - from.longitude(), 360))
             * Math.cos(Math.toRadians((from.latitude() + to.latitude()) / 2));
     return EARTH_RADIUS * Math.hypot(north, east);
   }
