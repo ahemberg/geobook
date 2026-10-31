@@ -87,7 +87,7 @@
     "freshJvmFirstRun": true,
     "restartReadySeconds": 7.698376178741455,
     "storedHeatLoadedSecondsAfterReady": 4.879292249679565,
-    "summaryBeforeRuns": {
+    "summaryAtReady": {
       "cells": 0,
       "hottest": null,
       "building": true,

@@ -104,3 +104,24 @@ included the synthetic Takeout. Raw samples are in [results](results).
 Return to All time has the least headroom. The server answers in about 0.6 seconds, and the
 rest is the browser rebuilding the library rows and the map. Peak server memory was about
 2 GiB, so do not read these numbers as valid for a smaller host.
+
+### Heatmap, 31 October 2026
+
+Same Pi and client, with Temurin 27.0.1, `-Xmx1g` and a fresh data directory. The workload
+included the synthetic Takeout. The JVM was restarted before the browser series, and it loaded
+the stored heat without a rebuild. OS caches were not flushed. Raw samples, heap readings and
+every build from the server log are in [results/heatmap-121](results/heatmap-121).
+
+| Operation | Minimum | Median | Maximum |
+| --- | ---: | ---: | ---: |
+| First Heatmap load, from navigation | 1.277 s | 1.570 s | 3.071 s |
+| Heatmap period change, one year | 0.119 s | 0.219 s | 0.623 s |
+| Heatmap return to All time | 0.214 s | 0.246 s | 0.463 s |
+
+The last rebuild covered all tracks and the Takeout: 595,843 heat entries in 38.8 s. The
+collection alone took 30.4 s for 115,350 entries. After the Takeout import the heap held
+465 MiB of the 1 GiB limit, and the process peaked at 1.4 GiB RSS. The slowest first load
+was the first run on the fresh JVM.
+
+The collection import took 375 s, against 221 s for the same workload and heap before the
+heatmap. Every imported file starts another full rebuild, and 22 of them ran during the import.
