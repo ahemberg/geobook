@@ -35,6 +35,7 @@ import tools.jackson.databind.json.JsonMapper;
 // Grid coordinates read as x and y; polling the asynchronous build sleeps between reads.
 @SuppressWarnings({
   "PMD.TooManyMethods",
+  "PMD.GodClass",
   "PMD.AvoidDuplicateLiterals",
   "PMD.UnitTestContainsTooManyAsserts",
   "PMD.ShortVariable",
