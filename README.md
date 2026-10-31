@@ -110,8 +110,8 @@ format that Geobook does not read yet.
 
 Geobook is a Spring Boot application with a React frontend, built together by
 Maven into one jar and one container image. It needs JDK 27; Maven fetches Node
-itself. Run `./mvnw verify` to build and test everything. [HELP.md](HELP.md)
-covers the build checks, running from source and how the features behave.
+itself. Run `./mvnw verify` to build and test everything. [docs/development.md](docs/development.md)
+covers the build checks, running from source and the test scripts.
 
 ## License
 

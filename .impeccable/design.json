@@ -365,7 +365,7 @@
   ],
   "narrative": {
     "northStar": "Travel timetable",
-    "overview": "Geobook puts a detailed travel map beside a compact library. A blue header anchors the page; white panels and pale blue selection keep saved recordings easy to scan. Source Sans 3 carries headings, controls and recording details.\n\nThis system records the rendered upload, date-filter, track-library controls, point inspection, playback, elevation plot, gap settings, country visit review and original-export archive, including confirmed removal. The [approved MVP brief](docs/design/mvp.md) records the approved MVP direction.",
+    "overview": "Geobook puts a detailed travel map beside a compact library. A blue header anchors the page; white panels and pale blue selection keep saved recordings easy to scan. Source Sans 3 carries headings, controls and recording details.\n\nThis system records the rendered upload, date-filter, track-library controls, point inspection, playback, elevation plot, gap settings, country visit review and original-export archive, including confirmed removal.",
     "keyCharacteristics": [
       "Independently scrolling library beside the map on desktop; a collapsible library on mobile.",
       "Selected recording plot docked below the map within the viewport.",

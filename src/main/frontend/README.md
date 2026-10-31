@@ -1,17 +1,17 @@
 # Geobook frontend
 
-React/Vite and Leaflet implement the approved [Travel timetable design](../../../docs/design/mvp.md).
+React/Vite and Leaflet. [DESIGN.md](../../../DESIGN.md) describes the design system.
 
-Use the Node version in `.nvmrc`. Run `npm ci`, then `npm run dev`.
-Vite serves port 5173 and proxies `/api` to Spring Boot on port 8080.
+Use the Node version in `.nvmrc`. Run `npm ci`, then `npm run dev`. Vite serves
+port 5173 and proxies `/api` to Spring Boot on port 8080.
 
-`npm run build` checks formatting, typed ESLint, accessibility rules, TypeScript,
-Fallow and Vitest before producing `dist/`. Maven packages those assets in the application JAR.
-Run `npm run format` to format frontend files.
+`npm run build` runs `npm run check` (Prettier, typed ESLint, TypeScript, Fallow,
+Vitest) before producing `dist/`, which Maven packages into the jar. `npm run format`
+applies Prettier. [Development](../../../docs/development.md#browser-tests) covers the Playwright tests.
 
-After `./mvnw verify` from the repository root, run `npx playwright install chromium`
-and `npm run test:e2e` here. Playwright starts the packaged app with a temporary SQLite
-directory and checks desktop and touch-enabled mobile. Only external map tiles are stubbed.
+## Design tooling
 
-Source Sans 3 is bundled locally. Map tiles default to OpenStreetMap; provider configuration
-comes from `/api/map-config`. See [running Geobook](../../../HELP.md#running-geobook).
+UI work uses Impeccable. Install it for this project with
+its `install --project --providers=codex,claude --yes` command, then run
+`/impeccable hooks on`. The hooks in `.codex/hooks.json` check UI edits and skip
+when Impeccable is not installed. The installed skill stays out of Git.
