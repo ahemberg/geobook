@@ -71,15 +71,16 @@ public class HeatmapService implements DisposableBean {
   }
 
   void start() {
-    submit(
-        () -> {
-          final Optional<HeatRepository.Generation> current = repository.current();
-          if (current.isPresent()) {
-            load(current.orElseThrow());
-          } else {
-            requestBuild();
-          }
-        });
+    submit(() -> attempt(this::loadOrBuild, "The stored heatmap could not be loaded."));
+  }
+
+  private void loadOrBuild() {
+    final Optional<HeatRepository.Generation> current = repository.current();
+    if (current.isPresent()) {
+      load(current.orElseThrow());
+    } else {
+      requestBuild();
+    }
   }
 
   private void requestBuild() {
@@ -91,11 +92,7 @@ public class HeatmapService implements DisposableBean {
 
   private void drain() {
     while (!Thread.currentThread().isInterrupted() && dirty.getAndSet(false)) {
-      try {
-        build();
-      } catch (RuntimeException exception) {
-        LOG.error("The heatmap could not be built.", exception);
-      }
+      attempt(this::build, "The heatmap could not be built.");
     }
     scheduled.set(false);
     // A change that arrived after the last check but before the flag cleared still gets a build.
@@ -110,12 +107,18 @@ public class HeatmapService implements DisposableBean {
         () -> {
           try {
             task.run();
-          } catch (RuntimeException exception) {
-            LOG.error("The heatmap could not be built.", exception);
           } finally {
             pending.decrementAndGet();
           }
         });
+  }
+
+  private static void attempt(Runnable task, String failure) {
+    try {
+      task.run();
+    } catch (RuntimeException exception) {
+      LOG.error(failure, exception);
+    }
   }
 
   private void load(HeatRepository.Generation generation) {

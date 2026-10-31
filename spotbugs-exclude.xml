@@ -66,6 +66,11 @@
         <Class name="se.geobook.tracker.access.controller.PlainHttpWarning"/>
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
+    <!-- Heatmap failures log one of the service's constant messages. -->
+    <Match>
+        <Class name="se.geobook.tracker.heatmap.service.HeatmapService"/>
+        <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
     <!-- InetAddress is immutable. -->
     <Match>
         <Class name="se.geobook.tracker.access.domain.TrustedProxies$Block"/>
