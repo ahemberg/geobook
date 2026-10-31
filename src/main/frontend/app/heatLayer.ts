@@ -64,6 +64,7 @@ export function addHeatLayer(
   }
 
   function rescale() {
+    if (fixed === null && !tiles.size) return;
     const next = fixed ?? visibleFull();
     if (full && Math.abs(next - full) / full <= 0.02) return;
     full = next;

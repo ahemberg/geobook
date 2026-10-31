@@ -239,12 +239,12 @@ test('the daily limit and scale change the legend, and the scale redraws without
 
   await page.waitForTimeout(300);
   const loaded = tiles.length;
-  await scale.getByText('Global', { exact: true }).click();
+  await scale.getByRole('radio', { name: 'Global' }).click();
   await expect(scale.getByRole('radio', { name: 'Global' })).toBeChecked();
   await expect(legend).toHaveText(`Full colour at ≥ ${duration(await globalFull('15'))}`);
   expect(tiles).toHaveLength(loaded);
 
-  await limit.getByText('None', { exact: true }).click();
+  await limit.getByRole('radio', { name: 'None' }).click();
   const unlimited = `Full colour at ≥ ${duration(await globalFull('0'))}`;
   expect(unlimited).not.toBe(`Full colour at ≥ ${duration(await globalFull('15'))}`);
   await expect(legend).toHaveText(unlimited);
