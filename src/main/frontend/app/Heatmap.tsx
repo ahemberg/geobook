@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 import L from 'leaflet';
 import { request } from './api';
 import type { DateRange, HeatSummary, MapConfig } from './api';
@@ -20,6 +21,33 @@ function message(summary: HeatSummary | null, error: boolean, range: DateRange) 
   if (summary.building) return 'Updating heatmap…';
   if (summary.cells > 0) return '';
   return range ? `No travel recorded in ${period(range)}` : 'No travel recorded yet.';
+}
+
+type Loaded = { query: string; summary: HeatSummary };
+
+function usePolling(
+  loaded: Loaded | null,
+  setLoaded: (next: Loaded) => void,
+  refreshHeat: RefObject<(() => void) | null>,
+) {
+  useEffect(() => {
+    if (!loaded?.summary.building) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      request<HeatSummary>(`/api/heatmap/summary${loaded.query}`, { signal: controller.signal })
+        .then((next) => {
+          if (!next.building) refreshHeat.current?.();
+          setLoaded({ query: loaded.query, summary: next });
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setLoaded({ ...loaded });
+        });
+    }, 1000);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [loaded, setLoaded, refreshHeat]);
 }
 
 export default function Heatmap({
@@ -48,7 +76,7 @@ function HeatmapMap({ config, range }: { config: MapConfig; range: DateRange }) 
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const placed = useRef(false);
-  const [loaded, setLoaded] = useState<{ query: string; summary: HeatSummary } | null>(null);
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const refreshHeat = useRef<(() => void) | null>(null);
   const { url, attribution, attributionUrl } = config;
@@ -108,40 +136,36 @@ function HeatmapMap({ config, range }: { config: MapConfig; range: DateRange }) 
     };
   }, [query, url, attribution, attributionUrl]);
 
-  useEffect(() => {
-    if (!loaded?.summary.building) return;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      request<HeatSummary>(`/api/heatmap/summary${loaded.query}`, { signal: controller.signal })
-        .then((next) => {
-          if (!next.building) refreshHeat.current?.();
-          setLoaded({ query: loaded.query, summary: next });
-        })
-        .catch(() => {
-          if (!controller.signal.aborted) setLoaded({ ...loaded });
-        });
-    }, 1000);
-    return () => {
-      controller.abort();
-      window.clearTimeout(timer);
-    };
-  }, [loaded]);
+  usePolling(loaded, setLoaded, refreshHeat);
 
   const error = failed === query;
   const summary = loaded?.query === query ? loaded.summary : null;
-  const notice = message(summary, error, range);
-  const updating = !error && summary?.building === true && summary.builtAt !== null;
   return (
     <main id="heatmap" tabIndex={-1} className="heatmap-panel" aria-label="Heatmap">
       <div ref={container} className="map" aria-label="Interactive heatmap" />
-      {notice && (
-        <p
-          className={`heatmap-message${error ? ' error' : ''}${updating ? ' updating' : ''}`}
-          role={error ? 'alert' : 'status'}
-        >
-          {notice}
-        </p>
-      )}
+      <HeatNotice summary={summary} error={error} range={range} />
     </main>
+  );
+}
+
+function HeatNotice({
+  summary,
+  error,
+  range,
+}: {
+  summary: HeatSummary | null;
+  error: boolean;
+  range: DateRange;
+}) {
+  const notice = message(summary, error, range);
+  if (!notice) return null;
+  const updating = !error && summary?.building === true && summary.builtAt !== null;
+  return (
+    <p
+      className={`heatmap-message${error ? ' error' : ''}${updating ? ' updating' : ''}`}
+      role={error ? 'alert' : 'status'}
+    >
+      {notice}
+    </p>
   );
 }
