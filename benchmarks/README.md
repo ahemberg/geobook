@@ -124,4 +124,4 @@ collection alone took 30.4 s for 115,350 entries. After the Takeout import the h
 was the first run on the fresh JVM.
 
 The collection import took 375 s, against 221 s for the same workload and heap before the
-heatmap. Every imported file starts another full rebuild, and 22 of them ran during the import.
+heatmap. Imports keep triggering full rebuilds, and 22 ran during the 50-file import.
