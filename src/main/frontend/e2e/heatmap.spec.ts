@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { duration } from '../app/heatScale';
 import { openDateFilters } from './workspaceControls';
 
 async function painted(page: Page) {
@@ -90,7 +91,7 @@ test('the heatmap shows an update status while rebuilding and reloads its tiles 
 }) => {
   await page.route('https://tile.openstreetmap.org/**', (route) => route.fulfill({ status: 204 }));
   let first = true;
-  await page.route('**/api/heatmap/summary', async (route) => {
+  await page.route(/\/api\/heatmap\/summary/, async (route) => {
     const response = await route.fetch();
     const summary = (await response.json()) as Record<string, unknown>;
     const building = first;
@@ -163,7 +164,9 @@ test('the heatmap shares the period with Map and says when a period has no trave
     page.getByRole('button', { name: `Date filters: ${year}-01-01 to ${year}-12-31` }),
   ).toBeVisible();
   await expect.poll(() => painted(page)).toBe(true);
-  expect(tiles.some((url) => url.endsWith(`?from=${year}-01-01&to=${year}-12-31`))).toBe(true);
+  expect(tiles.some((url) => url.endsWith(`?from=${year}-01-01&to=${year}-12-31&limit=15`))).toBe(
+    true,
+  );
 
   await openDateFilters(page);
   await page.getByLabel('From', { exact: true }).fill('1901-01-01');
@@ -181,4 +184,76 @@ test('the heatmap shares the period with Map and says when a period has no trave
   await expect(
     page.getByRole('button', { name: 'Date filters: 1901-01-01 to 1901-12-31' }),
   ).toBeVisible();
+});
+
+test('the daily limit and scale change the legend, and the scale redraws without refetching', async ({
+  page,
+}, testInfo) => {
+  await page.route('https://tile.openstreetmap.org/**', (route) => route.fulfill({ status: 204 }));
+  const longitude = testInfo.project.name === 'mobile' ? '11.97' : '11.98';
+  const upload = await page.request.post('/api/tracks', {
+    multipart: {
+      file: {
+        name: 'limit.gpx',
+        mimeType: 'application/gpx+xml',
+        buffer: Buffer.from(`<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk>
+          <name>Synthetic long stay ${testInfo.project.name}</name><trkseg>
+          <trkpt lat="57.70" lon="${longitude}"><time>2020-03-02T08:00:00Z</time></trkpt>
+          <trkpt lat="57.7001" lon="${longitude}"><time>2020-03-02T18:00:00Z</time></trkpt>
+          <trkpt lat="57.7002" lon="${longitude}"><time>2020-03-02T18:05:00Z</time></trkpt>
+          </trkseg></trk></gpx>`),
+      },
+    },
+  });
+  expect(upload.status()).toBe(201);
+  const globalFull = async (limit: string) => {
+    const response = await page.request.get(`/api/heatmap/summary?limit=${limit}`);
+    return ((await response.json()) as { building: boolean; globalFull: number }).globalFull;
+  };
+  await expect
+    .poll(async () => {
+      const response = await page.request.get('/api/heatmap/summary');
+      return ((await response.json()) as { building: boolean }).building;
+    })
+    .toBe(false);
+
+  const tiles: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/api/heatmap/tiles/')) tiles.push(request.url());
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Heatmap', exact: true }).click();
+  const limit = page.getByRole('radiogroup', { name: 'Daily limit' });
+  const scale = page.getByRole('radiogroup', { name: 'Scale' });
+  for (const option of ['None', '60 min', '15 min', '5 min']) {
+    await expect(limit.getByText(option, { exact: true })).toBeVisible();
+  }
+  await expect(limit.getByRole('radio', { name: '15 min' })).toBeChecked();
+  await expect(scale.getByRole('radio', { name: 'On screen' })).toBeChecked();
+  await expect(scale.getByRole('radio', { name: 'Global' })).not.toBeChecked();
+  await expect(page.getByRole('button', { name: 'Date filters: All time' })).toBeVisible();
+  const legend = page.getByRole('group', { name: 'Colour legend' });
+  await expect(legend).toHaveText(/^Full colour at ≥ \d+(\.\d)? (min|h)$/);
+  await expect.poll(() => tiles.length).toBeGreaterThan(0);
+  expect(tiles.every((url) => url.endsWith('?limit=15'))).toBe(true);
+
+  await page.waitForTimeout(300);
+  const loaded = tiles.length;
+  await scale.getByRole('radio', { name: 'Global' }).click();
+  await expect(scale.getByRole('radio', { name: 'Global' })).toBeChecked();
+  await expect(legend).toHaveText(`Full colour at ≥ ${duration(await globalFull('15'))}`);
+  expect(tiles).toHaveLength(loaded);
+
+  await limit.getByRole('radio', { name: 'None' }).click();
+  const unlimited = `Full colour at ≥ ${duration(await globalFull('0'))}`;
+  expect(unlimited).not.toBe(`Full colour at ≥ ${duration(await globalFull('15'))}`);
+  await expect(legend).toHaveText(unlimited);
+  await expect.poll(() => tiles.some((url) => url.endsWith('?limit=0'))).toBe(true);
+
+  await page.keyboard.press('ArrowRight');
+  await expect(limit.getByRole('radio', { name: '60 min' })).toBeChecked();
+  await expect(legend).toHaveText(`Full colour at ≥ ${duration(await globalFull('60'))}`);
+  await page.screenshot({
+    path: `../../../.impeccable/review/heatmap-controls-${testInfo.project.name}.png`,
+  });
 });

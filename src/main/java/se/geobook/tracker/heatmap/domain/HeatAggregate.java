@@ -12,14 +12,24 @@ public final class HeatAggregate {
   private static final int PIXEL_LEVEL = 8;
   private final long[] cells;
   private final double[] values;
+  private final long fullValue;
 
   HeatAggregate(long[] cells, double[] values) {
     this.cells = cells;
     this.values = values;
+    final double[] sorted = values.clone();
+    Arrays.sort(sorted);
+    this.fullValue =
+        sorted.length == 0 ? 0 : Math.max(1, Math.round(sorted[(int) (sorted.length * 0.999)]));
   }
 
   public int count() {
     return cells.length;
+  }
+
+  /** The 99.9th percentile of the cell values in seconds, or 0 when no cell has time. */
+  public long globalFull() {
+    return fullValue;
   }
 
   /** Returns the latitude and longitude of the cell with the most time. */

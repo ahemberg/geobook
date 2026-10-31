@@ -120,8 +120,55 @@ class HeatmapHttpTests {
       upload(
           client, app, track("Long night", segment(86_400, WEST + 9, ROW, WEST + 11, ROW, 72_000)));
       assertThat(built(client, app).get("cells").asInt()).isEqualTo(2);
-      assertThat(cells(client, app, TILE))
+      assertThat(cells(client, app, TILE + "?limit=0"))
           .containsExactly(cell(144, 176, 8 * 3600), cell(153, 176, 12 * 3600));
+    }
+  }
+
+  @Test
+  void dailyLimitCapsEachCellPerDayBeforeSumming() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      upload(client, app, track("Lodge", segment(0, WEST, ROW, WEST + 2, ROW, 8 * 3600)));
+      final StringBuilder passes = new StringBuilder();
+      for (int day = 1; day <= 30; day++) {
+        passes.append(segment(day * 86_400, WEST + 20, ROW, WEST + 20, ROW, 600));
+      }
+      upload(client, app, track("Daily pass", passes.toString()));
+      built(client, app);
+
+      assertThat(cells(client, app, TILE))
+          .containsExactly(cell(144, 176, 15 * 60), cell(164, 176, 300 * 60));
+      assertThat(cells(client, app, TILE + "?limit=15")).isEqualTo(cells(client, app, TILE));
+      assertThat(cells(client, app, TILE + "?limit=60"))
+          .containsExactly(cell(144, 176, 60 * 60), cell(164, 176, 300 * 60));
+      assertThat(cells(client, app, TILE + "?limit=5"))
+          .containsExactly(cell(144, 176, 5 * 60), cell(164, 176, 150 * 60));
+      assertThat(cells(client, app, TILE + "?limit=0"))
+          .containsExactly(cell(144, 176, 8 * 3600), cell(164, 176, 300 * 60));
+    }
+  }
+
+  @Test
+  void summaryReturnsGlobalFullForThePeriodAndLimit() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      upload(client, app, track("Lodge", segment(0, WEST, ROW, WEST + 2, ROW, 8 * 3600)));
+      upload(client, app, track("2022", walk("2022-06-01", WEST + 5, WEST + 6)));
+      assertThat(built(client, app).get("globalFull").asLong()).isEqualTo(15 * 60);
+      assertThat(globalFull(client, app, "?limit=60")).isEqualTo(60 * 60);
+      assertThat(globalFull(client, app, "?limit=0")).isEqualTo(8 * 3600);
+      assertThat(globalFull(client, app, "?from=2022-01-01&to=2022-12-31&limit=0")).isEqualTo(30);
+      assertThat(globalFull(client, app, "?from=2019-01-01&to=2019-12-31")).isZero();
+
+      for (String limit : List.of("10", "-15", "abc", "15.0")) {
+        for (String path : List.of("/api/heatmap/summary", TILE)) {
+          final HttpResponse<String> response =
+              send(client, app, "GET", path + "?limit=" + limit, null);
+          assertThat(response.statusCode()).as(path + limit).isEqualTo(400);
+          assertThat(response.body()).as(path + limit).contains("daily limit");
+        }
+      }
     }
   }
 
@@ -408,6 +455,12 @@ class HeatmapHttpTests {
       Thread.sleep(50);
     }
     throw new AssertionError("The heatmap build did not finish within 30 seconds.");
+  }
+
+  private static long globalFull(
+      HttpClient client, ConfigurableApplicationContext app, String query)
+      throws IOException, InterruptedException {
+    return json(client, app, "/api/heatmap/summary" + query).get("globalFull").asLong();
   }
 
   private static List<List<Long>> cells(

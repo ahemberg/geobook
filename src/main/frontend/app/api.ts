@@ -68,6 +68,7 @@ export type Status = { authMode: 'password' | 'public' };
 export type HeatTile = { cellSize: number; cells: number[] };
 
 export type HeatSummary = {
+  globalFull: number;
   cells: number;
   hottest: LatLngTuple | null;
   building: boolean;
