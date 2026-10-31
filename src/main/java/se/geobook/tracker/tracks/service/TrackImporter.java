@@ -24,7 +24,7 @@ public class TrackImporter {
 
   public Track.Imported upload(String filename, byte[] bytes) {
     Recording recording = GpxReader.read(bytes);
-    Track.Imported imported =
+    final Track.Imported imported =
         collection.save(collection.retainOriginal(filename, bytes), recording);
     events.publishEvent(new CollectionChanged());
     return imported;

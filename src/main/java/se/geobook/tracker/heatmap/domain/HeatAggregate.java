@@ -3,6 +3,7 @@ package se.geobook.tracker.heatmap.domain;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 /** The non-zero value of each cell for one query, sorted by cell. */
 // Tile coordinates follow the z/x/y convention; only HeatEntries hands over fresh arrays.
@@ -75,7 +76,7 @@ public final class HeatAggregate {
             .boxed()
             .flatMapToLong(
                 pixel ->
-                    java.util.stream.LongStream.of(
+                    LongStream.of(
                         pixel % grid, pixel / grid, Math.max(1, Math.round(pixels[pixel]))))
             .toArray());
   }
