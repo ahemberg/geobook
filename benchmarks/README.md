@@ -125,3 +125,9 @@ was the first run on the fresh JVM.
 
 The collection import took 375 s, against 221 s for the same workload and heap before the
 heatmap. Imports keep triggering full rebuilds, and 22 ran during the 50-file import.
+
+These results measured commit e0de2fe. That was before the daily limit, the quiet delay before
+heat builds and the review fixes. A rerun on the final commit is pending. It was attempted on
+1 November 2026 and stopped at file 24 of 50, because the Pi had about 600 MB of memory free
+during the import, against about 1 GB in this run. The database no longer fit in the page cache,
+and the run would not have been comparable.
