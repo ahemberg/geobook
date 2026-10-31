@@ -1,6 +1,7 @@
 package se.geobook.tracker.heatmap.service;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -8,10 +9,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -26,11 +29,13 @@ import se.geobook.tracker.tracks.service.events.CollectionChanged;
 // Builds run on one background thread so requests never compute heat. Tile coordinates are z/x/y.
 // The worker logs any failed build and stays available for the next one.
 // Changes during a build set the dirty flag, so at most one more build follows the running one.
+// A build waits until no change has arrived for the quiet delay, so a bulk import builds rarely.
 @SuppressWarnings({
   "PMD.DoNotUseThreads",
   "PMD.ShortVariable",
   "PMD.AvoidCatchingGenericException",
-  "PMD.TooManyMethods"
+  "PMD.TooManyMethods",
+  "PMD.CouplingBetweenObjects"
 })
 @Service
 public class HeatmapService implements DisposableBean {
@@ -39,6 +44,8 @@ public class HeatmapService implements DisposableBean {
   private final HeatRepository repository;
   private final TransactionTemplate transactions;
   private final Clock clock;
+  private final long quietNanos;
+  private final AtomicLong lastChange = new AtomicLong(System.nanoTime());
   private final ExecutorService worker =
       Executors.newSingleThreadExecutor(Thread.ofPlatform().name("heatmap-build").factory());
   private final AtomicInteger pending = new AtomicInteger();
@@ -47,10 +54,15 @@ public class HeatmapService implements DisposableBean {
   private final AtomicReference<Snapshot> served =
       new AtomicReference<>(new Snapshot(HeatEntries.builder().build(), null));
 
-  HeatmapService(HeatRepository repository, TransactionTemplate transactions, Clock clock) {
+  HeatmapService(
+      HeatRepository repository,
+      TransactionTemplate transactions,
+      Clock clock,
+      @Value("${geobook.heatmap.quiet-delay:2s}") Duration quietDelay) {
     this.repository = repository;
     this.transactions = transactions;
     this.clock = clock;
+    this.quietNanos = quietDelay.toNanos();
   }
 
   /** What readers see: one complete generation and its aggregates. */
@@ -67,6 +79,7 @@ public class HeatmapService implements DisposableBean {
 
   @EventListener
   void collectionChanged(CollectionChanged change) {
+    lastChange.set(System.nanoTime());
     requestBuild();
   }
 
@@ -91,7 +104,7 @@ public class HeatmapService implements DisposableBean {
   }
 
   private void drain() {
-    while (!Thread.currentThread().isInterrupted() && dirty.getAndSet(false)) {
+    while (quiet() && dirty.getAndSet(false)) {
       attempt(this::build, "The heatmap could not be built.");
     }
     scheduled.set(false);
@@ -99,6 +112,21 @@ public class HeatmapService implements DisposableBean {
     if (dirty.get() && !worker.isShutdown()) {
       requestBuild();
     }
+  }
+
+  // Waits until the last change is the quiet delay old; false when the worker is stopping.
+  private boolean quiet() {
+    long wait = lastChange.get() + quietNanos - System.nanoTime();
+    while (wait > 0) {
+      try {
+        TimeUnit.NANOSECONDS.sleep(wait);
+      } catch (InterruptedException exception) {
+        Thread.currentThread().interrupt();
+        return false;
+      }
+      wait = lastChange.get() + quietNanos - System.nanoTime();
+    }
+    return !Thread.currentThread().isInterrupted();
   }
 
   private void submit(Runnable task) {

@@ -326,6 +326,27 @@ class HeatmapHttpTests {
   }
 
   @Test
+  void changesInQuickSuccessionWaitForQuietAndBuildOnce()
+      throws IOException, InterruptedException, SQLException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start(Clock.systemUTC(), "1s")) {
+      upload(client, app, track("Walk", segment(0, WEST, ROW, WEST + 1, ROW, 60)));
+      assertThat(built(client, app).get("cells").asInt()).isEqualTo(2);
+      final long before = generation();
+
+      for (String visible : List.of("false", "true", "false")) {
+        send(client, app, "PATCH", "/api/tracks/1", "{\"visible\":" + visible + "}");
+        Thread.sleep(200);
+      }
+      assertThat(json(client, app, "/api/heatmap/summary").get("building").asBoolean()).isTrue();
+      assertThat(generation()).isEqualTo(before);
+
+      assertThat(built(client, app).get("cells").asInt()).isZero();
+      assertThat(generation()).isEqualTo(before + 1);
+    }
+  }
+
+  @Test
   void restartServesStoredHeatAndRebuildsWhenItIsMissing()
       throws IOException, InterruptedException, SQLException {
     final String first;
@@ -592,11 +613,16 @@ class HeatmapHttpTests {
   }
 
   private ConfigurableApplicationContext start(Clock clock) {
+    return start(clock, "0s");
+  }
+
+  private ConfigurableApplicationContext start(Clock clock, String quietDelay) {
     return new SpringApplicationBuilder(TrackerApplication.class)
         .initializers(context -> context.getBeanFactory().registerSingleton("clock", clock))
         .run(
             "--server.port=0",
             "--geobook.data-directory=" + directory,
+            "--geobook.heatmap.quiet-delay=" + quietDelay,
             "--GEOBOOK_AUTH_MODE=public");
   }
 
