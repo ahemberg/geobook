@@ -194,6 +194,25 @@ class HeatmapHttpTests {
   }
 
   @Test
+  void zeroSecondMarksOfGapsAndSegmentStartsStayOffTheMap()
+      throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      upload(
+          client,
+          app,
+          track(
+              "Logger off then on",
+              trkseg(point(WEST, ROW, after(0)), point(WEST + 257, ROW, after(3600)))));
+      final JsonNode summary = built(client, app);
+      assertThat(summary.get("cells").asInt()).isZero();
+      assertThat(summary.get("hottest").isNull()).isTrue();
+      assertThat(cells(client, app, TILE)).isEmpty();
+      assertThat(cells(client, app, "/api/heatmap/tiles/12/2254/1204")).isEmpty();
+    }
+  }
+
+  @Test
   void flightsLeaveNoHeatWhileFastTrainsCount() throws IOException, InterruptedException {
     try (HttpClient client = HttpClient.newHttpClient();
         ConfigurableApplicationContext app = start()) {
