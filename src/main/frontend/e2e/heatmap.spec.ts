@@ -272,8 +272,8 @@ test('the heatmap keeps position, zoom, limit and scale in the URL across a relo
         mimeType: 'application/gpx+xml',
         buffer: Buffer.from(`<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk>
           <name>Synthetic URL walk ${testInfo.project.name}</name><trkseg>
-          <trkpt lat="55.60" lon="${mobile ? '13.00' : '13.01'}"><time>2019-04-02T08:00:00Z</time></trkpt>
-          <trkpt lat="55.601" lon="${mobile ? '13.00' : '13.01'}"><time>2019-04-02T08:10:00Z</time></trkpt>
+          <trkpt lat="55.60" lon="${mobile ? '13.00' : '13.01'}"><time>2022-04-02T08:00:00Z</time></trkpt>
+          <trkpt lat="55.601" lon="${mobile ? '13.00' : '13.01'}"><time>2022-04-02T08:10:00Z</time></trkpt>
           </trkseg></trk></gpx>`),
       },
     },
