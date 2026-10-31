@@ -26,17 +26,6 @@ final class HeatmapController {
   record Summary(
       long globalFull, int cells, List<Double> hottest, boolean building, String builtAt) {}
 
-  record Tile(int cellSize, long[] cells) {
-    Tile {
-      cells = cells.clone();
-    }
-
-    @Override
-    public long[] cells() {
-      return cells.clone();
-    }
-  }
-
   @GetMapping("/api/heatmap/summary")
   Summary summary(
       @RequestParam(required = false) String from,
@@ -56,15 +45,14 @@ final class HeatmapController {
   }
 
   @GetMapping("/api/heatmap/tiles/{z}/{x}/{y}")
-  Tile tile(
+  HeatTile tile(
       @PathVariable int z,
       @PathVariable int x,
       @PathVariable int y,
       @RequestParam(required = false) String from,
       @RequestParam(required = false) String to,
       @RequestParam(defaultValue = DEFAULT_LIMIT) String limit) {
-    final HeatTile tile = heatmap.tile(HeatQuery.period(from, to).limit(limit), z, x, y);
-    return new Tile(tile.cellSize(), tile.cells());
+    return heatmap.tile(HeatQuery.period(from, to).limit(limit), z, x, y);
   }
 
   @ExceptionHandler(IllegalArgumentException.class)
