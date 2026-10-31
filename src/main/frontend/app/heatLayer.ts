@@ -36,7 +36,7 @@ function onScreen(tile: Loaded, bounds: L.Bounds) {
  * Adds canvas heat tiles coloured against the 99th percentile of the cells on screen.
  * `refresh` refetches loaded tiles into their canvases, so the old heat stays until new data arrives.
  */
-export function addHeatLayer(map: L.Map, pane: string) {
+export function addHeatLayer(map: L.Map, pane: string, query: string) {
   const tiles = new Map<string, Loaded>();
   const requests = new Map<string, AbortController>();
   let full = 1;
@@ -64,7 +64,9 @@ export function addHeatLayer(map: L.Map, pane: string) {
     const controller = new AbortController();
     requests.get(key(coords))?.abort();
     requests.set(key(coords), controller);
-    return fetch(`/api/heatmap/tiles/${coords.z}/${x}/${coords.y}`, { signal: controller.signal })
+    return fetch(`/api/heatmap/tiles/${coords.z}/${x}/${coords.y}${query}`, {
+      signal: controller.signal,
+    })
       .then((response) => {
         if (!response.ok) throw new Error('Heat tile could not load.');
         return response.json() as Promise<HeatTile>;

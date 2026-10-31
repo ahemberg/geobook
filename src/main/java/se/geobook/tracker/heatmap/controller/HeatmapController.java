@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import se.geobook.tracker.heatmap.domain.HeatQuery;
 import se.geobook.tracker.heatmap.domain.HeatTile;
@@ -35,8 +36,9 @@ final class HeatmapController {
   }
 
   @GetMapping("/api/heatmap/summary")
-  Summary summary() {
-    final HeatmapService.Summary summary = heatmap.summary(HeatQuery.ALL_TIME);
+  Summary summary(
+      @RequestParam(required = false) String from, @RequestParam(required = false) String to) {
+    final HeatmapService.Summary summary = heatmap.summary(HeatQuery.period(from, to));
     return new Summary(
         summary.aggregate().count(),
         summary
@@ -49,8 +51,13 @@ final class HeatmapController {
   }
 
   @GetMapping("/api/heatmap/tiles/{z}/{x}/{y}")
-  Tile tile(@PathVariable int z, @PathVariable int x, @PathVariable int y) {
-    final HeatTile tile = heatmap.tile(HeatQuery.ALL_TIME, z, x, y);
+  Tile tile(
+      @PathVariable int z,
+      @PathVariable int x,
+      @PathVariable int y,
+      @RequestParam(required = false) String from,
+      @RequestParam(required = false) String to) {
+    final HeatTile tile = heatmap.tile(HeatQuery.period(from, to), z, x, y);
     return new Tile(tile.cellSize(), tile.cells());
   }
 

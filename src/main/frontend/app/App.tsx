@@ -90,7 +90,7 @@ export default function App() {
 
   const pages: Partial<Record<View, ReactNode>> = {
     originals: <OriginalArchive reload={reload} onRemoved={removed} />,
-    heatmap: <Heatmap config={config} />,
+    heatmap: <Heatmap config={config} range={range} years={years} filter={filter} />,
   };
   return (
     <div className={`app ${view}-view`}>

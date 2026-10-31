@@ -2,9 +2,7 @@ package se.geobook.tracker.heatmap.service;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -172,14 +170,14 @@ public class HeatmapService implements DisposableBean {
     }
   }
 
-  private record Snapshot(
-      HeatEntries entries, Instant builtAt, Map<HeatQuery, HeatAggregate> aggregates) {
+  // A new generation gets a new snapshot, so swapping it in drops the cached aggregates.
+  private record Snapshot(HeatEntries entries, Instant builtAt, AggregateCache aggregates) {
     Snapshot(HeatEntries entries, Instant builtAt) {
-      this(entries, builtAt, new ConcurrentHashMap<>());
+      this(entries, builtAt, new AggregateCache(entries::aggregate));
     }
 
     HeatAggregate aggregate(HeatQuery query) {
-      return aggregates.computeIfAbsent(query, entries::aggregate);
+      return aggregates.get(query);
     }
   }
 }

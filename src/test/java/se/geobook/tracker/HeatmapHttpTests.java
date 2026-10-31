@@ -326,6 +326,77 @@ class HeatmapHttpTests {
     }
   }
 
+  @Test
+  void periodKeepsOnlyHeatOnItsLocalDates() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      upload(client, app, track("2022", walk("2022-06-01", WEST, WEST + 1)));
+      upload(client, app, track("2023", walk("2023-06-01", WEST + 5, WEST + 6)));
+      assertThat(built(client, app).get("cells").asInt()).isEqualTo(4);
+      final String year = "?from=2022-01-01&to=2022-12-31";
+      assertThat(json(client, app, "/api/heatmap/summary" + year).get("cells").asInt())
+          .isEqualTo(2);
+      assertThat(cells(client, app, TILE + year))
+          .containsExactly(cell(144, 176, 30), cell(145, 176, 30));
+      assertThat(cells(client, app, TILE + "?from=2023-06-01&to=2023-06-01"))
+          .containsExactly(cell(149, 176, 30), cell(150, 176, 30));
+      assertThat(cells(client, app, "/api/heatmap/tiles/10/563/301" + year))
+          .containsExactly(cell(100, 44, 60));
+
+      final JsonNode empty =
+          json(client, app, "/api/heatmap/summary?from=2019-01-01&to=2019-12-31");
+      assertThat(empty.get("cells").asInt()).isZero();
+      assertThat(empty.get("hottest").isNull()).isTrue();
+      assertThat(cells(client, app, TILE + "?from=2019-01-01&to=2019-12-31")).isEmpty();
+    }
+  }
+
+  @Test
+  void rebuildDropsCachedPeriods() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      upload(client, app, track("First", walk("2022-06-01", WEST, WEST + 1)));
+      built(client, app);
+      final String year = "/api/heatmap/summary?from=2022-01-01&to=2022-12-31";
+      assertThat(json(client, app, year).get("cells").asInt()).isEqualTo(2);
+      upload(client, app, track("Second", walk("2022-07-01", WEST + 5, WEST + 6)));
+      built(client, app);
+      assertThat(json(client, app, year).get("cells").asInt()).isEqualTo(4);
+      assertThat(cells(client, app, TILE + "?from=2022-07-01&to=2022-07-01"))
+          .containsExactly(cell(149, 176, 30), cell(150, 176, 30));
+    }
+  }
+
+  @Test
+  void periodFollowsTheDateFilterContract() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      for (String query :
+          List.of(
+              "?from=2022-01-01",
+              "?to=2022-12-31",
+              "?from=2022-1-01&to=2022-12-31",
+              "?from=2022-02-30&to=2022-12-31",
+              "?from=0000-01-01&to=2022-12-31",
+              "?from=2023-01-01&to=2022-12-31")) {
+        for (String path : List.of("/api/heatmap/summary", TILE)) {
+          final HttpResponse<String> response = send(client, app, "GET", path + query, null);
+          assertThat(response.statusCode()).as(path + query).isEqualTo(400);
+          assertThat(response.body()).as(path + query).contains("\"message\"");
+        }
+      }
+    }
+  }
+
+  /** A one-minute walk east along {@link #ROW} from 10:00 UTC on {@code date}. */
+  private static String walk(String date, int fromX, int toX) {
+    final Instant start = Instant.parse(date + "T10:00:00Z");
+    return "<trkseg>"
+        + point(fromX, ROW, start)
+        + point(toX, ROW, start.plusSeconds(60))
+        + "</trkseg>";
+  }
+
   private static JsonNode built(HttpClient client, ConfigurableApplicationContext app)
       throws IOException, InterruptedException {
     final Instant deadline = Instant.now().plus(Duration.ofSeconds(30));
