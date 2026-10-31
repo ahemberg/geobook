@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
@@ -26,7 +27,13 @@ import se.geobook.tracker.tracks.service.events.CollectionChanged;
 
 // Builds run on one background thread so requests never compute heat. Tile coordinates are z/x/y.
 // The worker logs any failed build and stays available for the next one.
-@SuppressWarnings({"PMD.DoNotUseThreads", "PMD.ShortVariable", "PMD.AvoidCatchingGenericException"})
+// Changes during a build set the dirty flag, so at most one more build follows the running one.
+@SuppressWarnings({
+  "PMD.DoNotUseThreads",
+  "PMD.ShortVariable",
+  "PMD.AvoidCatchingGenericException",
+  "PMD.TooManyMethods"
+})
 @Service
 public class HeatmapService implements DisposableBean {
   private static final Logger LOG = LoggerFactory.getLogger(HeatmapService.class);
@@ -37,6 +44,8 @@ public class HeatmapService implements DisposableBean {
   private final ExecutorService worker =
       Executors.newSingleThreadExecutor(Thread.ofPlatform().name("heatmap-build").factory());
   private final AtomicInteger pending = new AtomicInteger();
+  private final AtomicBoolean dirty = new AtomicBoolean();
+  private final AtomicBoolean scheduled = new AtomicBoolean();
   private final AtomicReference<Snapshot> served =
       new AtomicReference<>(new Snapshot(HeatEntries.builder().build(), null));
 
@@ -60,7 +69,7 @@ public class HeatmapService implements DisposableBean {
 
   @EventListener
   void collectionChanged(CollectionChanged change) {
-    submit(this::build);
+    requestBuild();
   }
 
   void start() {
@@ -70,9 +79,31 @@ public class HeatmapService implements DisposableBean {
           if (current.isPresent()) {
             load(current.orElseThrow());
           } else {
-            build();
+            requestBuild();
           }
         });
+  }
+
+  private void requestBuild() {
+    dirty.set(true);
+    if (scheduled.compareAndSet(false, true)) {
+      submit(this::drain);
+    }
+  }
+
+  private void drain() {
+    while (!Thread.currentThread().isInterrupted() && dirty.getAndSet(false)) {
+      try {
+        build();
+      } catch (RuntimeException exception) {
+        LOG.error("The heatmap could not be built.", exception);
+      }
+    }
+    scheduled.set(false);
+    // A change that arrived after the last check but before the flag cleared still gets a build.
+    if (dirty.get() && !worker.isShutdown()) {
+      requestBuild();
+    }
   }
 
   private void submit(Runnable task) {

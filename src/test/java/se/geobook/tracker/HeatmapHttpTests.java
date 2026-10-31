@@ -13,12 +13,15 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -44,6 +47,7 @@ class HeatmapHttpTests {
   private static final int WEST = 576_912;
   private static final int ROW = 308_400;
   private static final String TILE = "/api/heatmap/tiles/12/2253/1204";
+  private static final String HISTORY_TILE = "/api/heatmap/tiles/12/2253/1203";
   @TempDir Path directory;
 
   @Test
@@ -185,31 +189,91 @@ class HeatmapHttpTests {
   }
 
   @Test
-  void hiddenTracksAndHistoryContributeNothing() throws IOException, InterruptedException {
+  void hidingAndShowingTrackRebuildsTheHeatmap() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      upload(client, app, track("Walk", segment(0, WEST, ROW, WEST + 1, ROW, 60)));
+      built(client, app);
+      assertThat(send(client, app, "PATCH", "/api/tracks/1", "{\"visible\":false}").statusCode())
+          .isEqualTo(200);
+      assertThat(built(client, app).get("cells").asInt()).isZero();
+      assertThat(cells(client, app, TILE)).isEmpty();
+
+      send(client, app, "PATCH", "/api/tracks/1", "{\"visible\":true}");
+      built(client, app);
+      assertThat(cells(client, app, TILE)).containsExactly(cell(144, 176, 30), cell(145, 176, 30));
+    }
+  }
+
+  @Test
+  void historyDisplayAndHiddenYearsRebuildTheHeatmap() throws IOException, InterruptedException {
     try (HttpClient client = HttpClient.newHttpClient();
         ConfigurableApplicationContext app = start()) {
       upload(client, app, track("Hidden", segment(0, WEST, ROW, WEST + 1, ROW, 60)));
-      assertThat(send(client, app, "PATCH", "/api/tracks/1", "{\"visible\":false}").statusCode())
-          .isEqualTo(200);
+      send(client, app, "PATCH", "/api/tracks/1", "{\"visible\":false}");
       final String history =
           upload(client, app, "/api/imports", historyArchive(List.of(0, 60, 120)));
       assertThat(history).contains("\"status\":\"complete\"").doesNotContain("\"failed\"");
-      assertThat(built(client, app).get("cells").asInt()).isPositive();
+      final int cells = built(client, app).get("cells").asInt();
+      assertThat(cells).isPositive();
       assertThat(cells(client, app, TILE)).isEmpty();
-      assertThat(cells(client, app, "/api/heatmap/tiles/12/2253/1203")).isNotEmpty();
+      assertThat(cells(client, app, HISTORY_TILE)).isNotEmpty();
 
       send(client, app, "PATCH", "/api/history-display", "{\"showHistory\":false}");
-      upload(client, app, track("Trigger one", segment(0, WEST + 9, ROW, WEST + 9, ROW, 0)));
       assertThat(built(client, app).get("cells").asInt()).isZero();
-
       send(client, app, "PATCH", "/api/history-display", "{\"showHistory\":true}");
-      send(client, app, "PATCH", "/api/history-display", "{\"year\":2024,\"visible\":false}");
-      upload(client, app, track("Trigger two", segment(0, WEST + 8, ROW, WEST + 8, ROW, 0)));
-      assertThat(built(client, app).get("cells").asInt()).isZero();
+      assertThat(built(client, app).get("cells").asInt()).isEqualTo(cells);
 
+      send(client, app, "PATCH", "/api/history-display", "{\"year\":2024,\"visible\":false}");
+      assertThat(built(client, app).get("cells").asInt()).isZero();
+      assertThat(cells(client, app, HISTORY_TILE)).isEmpty();
       send(client, app, "PATCH", "/api/history-display", "{\"year\":2024,\"visible\":true}");
-      upload(client, app, track("Trigger three", segment(0, WEST + 7, ROW, WEST + 7, ROW, 0)));
-      assertThat(built(client, app).get("cells").asInt()).isPositive();
+      assertThat(built(client, app).get("cells").asInt()).isEqualTo(cells);
+    }
+  }
+
+  @Test
+  void removingTrackOrItsOriginalRemovesItsHeat() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      upload(client, app, track("First", segment(0, WEST, ROW, WEST + 1, ROW, 60)));
+      upload(client, app, track("Second", segment(0, WEST, ROW + 2, WEST + 1, ROW + 2, 60)));
+      assertThat(built(client, app).get("cells").asInt()).isEqualTo(4);
+
+      assertThat(remove(client, app, "/api/tracks/1", trackRevision(client, app, 1)))
+          .isEqualTo(200);
+      built(client, app);
+      assertThat(cells(client, app, TILE)).containsExactly(cell(144, 178, 30), cell(145, 178, 30));
+
+      final String revision =
+          json(client, app, "/api/originals/2/removal").get("revision").asString();
+      assertThat(remove(client, app, "/api/originals/2", revision)).isEqualTo(200);
+      assertThat(built(client, app).get("cells").asInt()).isZero();
+    }
+  }
+
+  @Test
+  void changesDuringBuildServePreviousHeatAndCauseOneMoreBuild()
+      throws IOException, InterruptedException, SQLException {
+    final GatedClock clock = new GatedClock();
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start(clock)) {
+      upload(client, app, track("Walk", segment(0, WEST, ROW, WEST + 1, ROW, 60)));
+      built(client, app);
+      final long before = generation();
+
+      clock.hold();
+      send(client, app, "PATCH", "/api/tracks/1", "{\"visible\":false}");
+      assertThat(clock.held()).isTrue();
+      for (String visible : List.of("true", "false", "true", "false")) {
+        send(client, app, "PATCH", "/api/tracks/1", "{\"visible\":" + visible + "}");
+      }
+      assertThat(json(client, app, "/api/heatmap/summary").get("building").asBoolean()).isTrue();
+      assertThat(cells(client, app, TILE)).containsExactly(cell(144, 176, 30), cell(145, 176, 30));
+
+      clock.release();
+      assertThat(built(client, app).get("cells").asInt()).isZero();
+      assertThat(generation()).isEqualTo(before + 2);
     }
   }
 
@@ -365,8 +429,46 @@ class HeatmapHttpTests {
     return bytes.toByteArray();
   }
 
+  private long generation() throws SQLException {
+    try (Connection connection =
+            DriverManager.getConnection("jdbc:sqlite:" + directory.resolve("geobook.db"));
+        Statement statement = connection.createStatement();
+        java.sql.ResultSet row = statement.executeQuery("SELECT generation FROM heat_build")) {
+      return row.next() ? row.getLong(1) : 0;
+    }
+  }
+
+  private static String trackRevision(
+      HttpClient client, ConfigurableApplicationContext app, long id)
+      throws IOException, InterruptedException {
+    for (JsonNode track : json(client, app, "/api/tracks")) {
+      if (track.get("id").asLong() == id) {
+        return track.get("revision").asString();
+      }
+    }
+    throw new AssertionError("Expected track " + id + " in the library.");
+  }
+
+  private static int remove(
+      HttpClient client, ConfigurableApplicationContext app, String path, String revision)
+      throws IOException, InterruptedException {
+    return client
+        .send(
+            HttpRequest.newBuilder(URI.create(base(app) + path))
+                .header("If-Match", revision)
+                .DELETE()
+                .build(),
+            HttpResponse.BodyHandlers.ofString())
+        .statusCode();
+  }
+
   private ConfigurableApplicationContext start() {
+    return start(Clock.systemUTC());
+  }
+
+  private ConfigurableApplicationContext start(Clock clock) {
     return new SpringApplicationBuilder(TrackerApplication.class)
+        .initializers(context -> context.getBeanFactory().registerSingleton("clock", clock))
         .run(
             "--server.port=0",
             "--geobook.data-directory=" + directory,
@@ -436,5 +538,47 @@ class HeatmapHttpTests {
                         HttpRequest.BodyPublishers.ofString("\r\n--fixture--\r\n"))
                     .toArray(HttpRequest.BodyPublisher[]::new)))
         .build();
+  }
+
+  // While held, every caller waits for release; in public mode only heatmap builds read the clock.
+  private static final class GatedClock extends Clock {
+    private final AtomicReference<Gate> gate =
+        new AtomicReference<>(new Gate(new CountDownLatch(0), new CountDownLatch(0)));
+
+    private record Gate(CountDownLatch reached, CountDownLatch released) {}
+
+    void hold() {
+      gate.set(new Gate(new CountDownLatch(1), new CountDownLatch(1)));
+    }
+
+    boolean held() throws InterruptedException {
+      return gate.get().reached().await(30, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
+    void release() {
+      gate.get().released().countDown();
+    }
+
+    @Override
+    public Instant instant() {
+      final Gate current = gate.get();
+      current.reached().countDown();
+      try {
+        current.released().await();
+      } catch (InterruptedException exception) {
+        Thread.currentThread().interrupt();
+      }
+      return Instant.now();
+    }
+
+    @Override
+    public java.time.ZoneId getZone() {
+      return java.time.ZoneOffset.UTC;
+    }
+
+    @Override
+    public Clock withZone(java.time.ZoneId zone) {
+      return this;
+    }
   }
 }
