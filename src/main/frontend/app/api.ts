@@ -64,6 +64,16 @@ export type MapConfig = {
 
 export type Status = { authMode: 'password' | 'public' };
 
+/** Raw seconds per grid unit: x, y and seconds repeated, each unit `cellSize` pixels wide. */
+export type HeatTile = { cellSize: number; cells: number[] };
+
+export type HeatSummary = {
+  cells: number;
+  hottest: LatLngTuple | null;
+  building: boolean;
+  builtAt: string | null;
+};
+
 /** Fetches from Geobook and sends the browser to the login page when the session has ended. */
 export async function send(url: string, options?: RequestInit): Promise<Response> {
   const response = await fetch(url, options);

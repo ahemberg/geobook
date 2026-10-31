@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import L from 'leaflet';
 import type { Country, HistoryDisplay, MapConfig, MapTrack, PlaceVisit } from './api';
 import { visitTimes } from './HistoryDay';
+import { mapCredit } from './mapCredit';
 import { mapGeometry } from './mapGeometry';
 
 const noStops: PlaceVisit[] = [];
@@ -52,14 +53,10 @@ export default function TrackMap({
     const map = L.map(container.current, { preferCanvas: false }).setView([25, 10], 2);
     mapRef.current = map;
     map.createPane('history').style.zIndex = '350';
-    const credit = document.createElement('a');
-    credit.textContent = attribution;
-    credit.href = /^https?:\/\//.test(attributionUrl)
-      ? attributionUrl
-      : 'https://www.openstreetmap.org/copyright';
-    credit.target = '_blank';
-    credit.rel = 'noopener noreferrer';
-    const tiles = L.tileLayer(url, { attribution: credit.outerHTML, maxZoom: 19 }).addTo(map);
+    const tiles = L.tileLayer(url, {
+      attribution: mapCredit(attribution, attributionUrl),
+      maxZoom: 19,
+    }).addTo(map);
     tilesRef.current = tiles;
     tiles.on('tileerror', () => setTileFailed(true));
     const resize =

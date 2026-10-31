@@ -21,7 +21,7 @@ class TrackImporterTests {
   @Test
   void rejectedHistoryDayReportsWhyItWasRejected() throws IOException {
     final TrackService collection =
-        new TrackService(null, null, null) {
+        new TrackService(null, null, null, null) {
           @Override
           OriginalExport.Source retainOriginal(String filename, byte[] bytes) {
             return new OriginalExport.Source(1, "identity");
@@ -33,7 +33,7 @@ class TrackImporterTests {
           }
         };
     final List<TrackImporter.ImportEvent> events = new ArrayList<>();
-    new TrackImporter(collection).importFile("takeout.zip", takeout(), events::add);
+    new TrackImporter(collection, event -> {}).importFile("takeout.zip", takeout(), events::add);
     assertThat(events)
         .filteredOn(event -> "failed".equals(event.status()))
         .singleElement()

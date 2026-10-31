@@ -14,6 +14,10 @@
         <Bug pattern="SPRING_ENDPOINT"/>
     </Match>
     <Match>
+        <Class name="se.geobook.tracker.heatmap.controller.HeatmapController"/>
+        <Bug pattern="SPRING_ENDPOINT"/>
+    </Match>
+    <Match>
         <Or>
             <Class name="se.geobook.tracker.access.controller.SessionController"/>
             <Class name="se.geobook.tracker.access.controller.StatusController"/>
@@ -69,5 +73,10 @@
             <Bug pattern="EI_EXPOSE_REP"/>
             <Bug pattern="EI_EXPOSE_REP2"/>
         </Or>
+    </Match>
+    <!-- A heat trace writes into the builder it is given; sharing it is the point. -->
+    <Match>
+        <Class name="se.geobook.tracker.heatmap.domain.HeatTrace"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
 </FindBugsFilter>
