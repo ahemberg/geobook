@@ -39,7 +39,8 @@ export function screenFull(values: number[]) {
 
 /** Shows seconds in whole minutes below an hour, otherwise in hours. */
 export function duration(seconds: number) {
-  if (seconds < 3600) return `${Math.max(1, Math.round(seconds / 60))} min`;
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  if (minutes < 60) return `${minutes} min`;
   const hours = seconds / 3600;
   return `${hours < 10 ? Number(hours.toFixed(1)) : Math.round(hours)} h`;
 }
