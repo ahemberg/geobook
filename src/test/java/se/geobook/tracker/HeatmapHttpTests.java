@@ -108,6 +108,83 @@ class HeatmapHttpTests {
   }
 
   @Test
+  void stayCreditsTheEarlierCellUpToTwelveHours() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      upload(client, app, track("Lodge", segment(0, WEST, ROW, WEST + 2, ROW, 8 * 3600)));
+      upload(
+          client, app, track("Long night", segment(86_400, WEST + 9, ROW, WEST + 11, ROW, 72_000)));
+      assertThat(built(client, app).get("cells").asInt()).isEqualTo(2);
+      assertThat(cells(client, app, TILE))
+          .containsExactly(cell(144, 176, 8 * 3600), cell(153, 176, 12 * 3600));
+    }
+  }
+
+  @Test
+  void gapWithMovementAddsNoLineButLaterPairsStillCount() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      upload(
+          client,
+          app,
+          track(
+              "Logger off",
+              trkseg(
+                  point(WEST, ROW, after(0)),
+                  point(WEST + 257, ROW, after(3600)),
+                  point(WEST + 260, ROW, after(3660)))));
+      assertThat(built(client, app).get("cells").asInt()).isEqualTo(4);
+      assertThat(cells(client, app, TILE)).isEmpty();
+      assertThat(cells(client, app, "/api/heatmap/tiles/12/2254/1204"))
+          .containsExactly(
+              cell(145, 176, 15), cell(146, 176, 15), cell(147, 176, 15), cell(148, 176, 15));
+    }
+  }
+
+  @Test
+  void flightsLeaveNoHeatWhileFastTrainsCount() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      final String[] flight = new String[10];
+      for (int index = 0; index < flight.length; index++) {
+        flight[index] = point(WEST + 24 * index, ROW, after(2L * index));
+      }
+      upload(client, app, track("Flight at 234 m/s", trkseg(flight)));
+      upload(client, app, track("Just too fast", segment(600, WEST, ROW, WEST + 92, ROW, 17)));
+      assertThat(built(client, app).get("cells").asInt()).isZero();
+      assertThat(cells(client, app, TILE)).isEmpty();
+
+      upload(client, app, track("Train at 90 m/s", segment(1200, WEST, ROW, WEST + 92, ROW, 20)));
+      assertThat(built(client, app).get("cells").asInt()).isEqualTo(93);
+      assertThat(cells(client, app, TILE))
+          .hasSize(93)
+          .allSatisfy(value -> assertThat(value.get(2)).isEqualTo(1L))
+          .first()
+          .isEqualTo(cell(144, 176, 1));
+    }
+  }
+
+  @Test
+  void recordingWithoutTimestampsAddsNoTime() throws IOException, InterruptedException {
+    try (HttpClient client = HttpClient.newHttpClient();
+        ConfigurableApplicationContext app = start()) {
+      assertThat(
+              upload(
+                  client,
+                  app,
+                  track(
+                      "Untimed",
+                      trkseg(
+                          point(WEST, ROW, null),
+                          point(WEST + 3, ROW, null),
+                          point(WEST, ROW, null)))))
+          .isEqualTo(201);
+      assertThat(built(client, app).get("cells").asInt()).isZero();
+      assertThat(cells(client, app, TILE)).isEmpty();
+    }
+  }
+
+  @Test
   void hiddenTracksAndHistoryContributeNothing() throws IOException, InterruptedException {
     try (HttpClient client = HttpClient.newHttpClient();
         ConfigurableApplicationContext app = start()) {
@@ -237,13 +314,22 @@ class HeatmapHttpTests {
         + "</trkseg>";
   }
 
+  private static String trkseg(String... points) {
+    return "<trkseg>" + String.join("", points) + "</trkseg>";
+  }
+
+  private static Instant after(long seconds) {
+    return Instant.parse("2024-06-01T10:00:00Z").plusSeconds(seconds);
+  }
+
+  /** A position at a cell centre, untimed when {@code time} is null. */
   private static String point(int x, int y, Instant time) {
     return String.format(
         Locale.ROOT,
-        "<trkpt lat='%.8f' lon='%.8f'><time>%s</time></trkpt>",
+        "<trkpt lat='%.8f' lon='%.8f'>%s</trkpt>",
         latitude(y),
         longitude(x),
-        time);
+        time == null ? "" : "<time>" + time + "</time>");
   }
 
   private static double longitude(int x) {
