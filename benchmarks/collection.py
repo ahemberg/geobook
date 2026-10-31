@@ -66,6 +66,26 @@ class ReadProbe:
         self.worker.join()
 
 
+def heat_summary(url):
+    with urllib.request.urlopen(url + '/api/heatmap/summary', timeout=60) as response:
+        return json.load(response)
+
+
+def wait_for_heatmap(read, previous, timeout=3600, interval=.5, clock=time.monotonic, sleep=time.sleep):
+    """Polls the heatmap summary until no build runs and the served build differs from `previous`."""
+    started = clock()
+    polls = 0
+    while True:
+        summary = read()
+        polls += 1
+        waited = clock() - started
+        if not summary['building'] and summary['builtAt'] not in (None, previous):
+            return {'secondsAfterImport': waited, 'builtAt': summary['builtAt'], 'cells': summary['cells'],
+                    'polls': polls}
+        assert waited < timeout, f'The heatmap was still building after {timeout} s'
+        sleep(interval)
+
+
 def post(url, path, content_type, started, on_event):
     boundary = 'geobook-benchmark'
     body = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{path.name}"\r\n'
@@ -90,6 +110,9 @@ def upload(url, paths, content_type):
     started = time.monotonic()
     first_progress = None
     outcomes = {}
+    import_seconds = None
+    heatmap = None
+    previous = heat_summary(url)['builtAt']
 
     def record(event):
         nonlocal first_progress
@@ -102,9 +125,12 @@ def upload(url, paths, content_type):
         try:
             for path in paths:
                 post(url, path, content_type, started, record)
+            import_seconds = time.monotonic() - started
+            heatmap = wait_for_heatmap(lambda: heat_summary(url), previous if outcomes.get('imported') else None)
         finally:
-            print(json.dumps({'importSeconds': time.monotonic() - started, 'firstProgressSeconds': first_progress,
-                              'outcomes': outcomes, 'collectionReads': probe.reads,
+            print(json.dumps({'importSeconds': import_seconds or time.monotonic() - started,
+                              'firstProgressSeconds': first_progress, 'outcomes': outcomes, 'heatmap': heatmap,
+                              'collectionReads': probe.reads,
                               'readFailures': probe.failures}), flush=True)
     assert not probe.failures, probe.failures
     return events, outcomes
