@@ -32,7 +32,10 @@ function onScreen(tile: Loaded, bounds: L.Bounds) {
   return values;
 }
 
-/** Adds canvas heat tiles coloured against the 99th percentile of the cells on screen. */
+/**
+ * Adds canvas heat tiles coloured against the 99th percentile of the cells on screen.
+ * `refresh` refetches loaded tiles into their canvases, so the old heat stays until new data arrives.
+ */
 export function addHeatLayer(map: L.Map, pane: string) {
   const tiles = new Map<string, Loaded>();
   const requests = new Map<string, AbortController>();
@@ -55,12 +58,13 @@ export function addHeatLayer(map: L.Map, pane: string) {
     timer = window.setTimeout(rescale, 80);
   }
 
-  function load(coords: L.Coords, canvas: HTMLCanvasElement, done: L.DoneCallback) {
+  function load(coords: L.Coords, canvas: HTMLCanvasElement) {
     const count = 2 ** coords.z;
     const x = ((coords.x % count) + count) % count;
     const controller = new AbortController();
+    requests.get(key(coords))?.abort();
     requests.set(key(coords), controller);
-    fetch(`/api/heatmap/tiles/${coords.z}/${x}/${coords.y}`, { signal: controller.signal })
+    return fetch(`/api/heatmap/tiles/${coords.z}/${x}/${coords.y}`, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error('Heat tile could not load.');
         return response.json() as Promise<HeatTile>;
@@ -70,10 +74,10 @@ export function addHeatLayer(map: L.Map, pane: string) {
         tiles.set(key(coords), tile);
         draw(tile, full);
         schedule();
-        done(undefined, canvas);
       })
-      .catch((error: Error) => done(error, canvas))
-      .finally(() => requests.delete(key(coords)));
+      .finally(() => {
+        if (requests.get(key(coords)) === controller) requests.delete(key(coords));
+      });
   }
 
   const Layer = L.GridLayer.extend({
@@ -81,7 +85,10 @@ export function addHeatLayer(map: L.Map, pane: string) {
       const canvas = document.createElement('canvas');
       canvas.width = size;
       canvas.height = size;
-      load(coords, canvas, done);
+      load(coords, canvas).then(
+        () => done(undefined, canvas),
+        (error: Error) => done(error, canvas),
+      );
       return canvas;
     },
   }) as unknown as new (options: L.GridLayerOptions) => L.GridLayer;
@@ -92,9 +99,15 @@ export function addHeatLayer(map: L.Map, pane: string) {
   });
   map.on('moveend', schedule);
   layer.addTo(map);
-  return () => {
+  const refresh = () => {
+    tiles.forEach((tile) => {
+      load(tile.coords, tile.canvas).catch(() => undefined);
+    });
+  };
+  const remove = () => {
     window.clearTimeout(timer);
     map.off('moveend', schedule);
     layer.remove();
   };
+  return { refresh, remove };
 }

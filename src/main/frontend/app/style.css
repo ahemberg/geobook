@@ -306,6 +306,11 @@ p {
   border-radius: 6px;
   box-shadow: 0 2px 8px #20312d24;
 }
+.heatmap-message.updating {
+  padding: 6px 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
 .heatmap-message.error {
   background: #fff0ee;
   color: #8a271c;

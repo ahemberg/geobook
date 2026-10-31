@@ -83,3 +83,35 @@ test('the heatmap shows time spent on a greyed map and rescales without refetchi
     path: `../../../.impeccable/review/heatmap-${testInfo.project.name}.png`,
   });
 });
+
+test('the heatmap shows an update status while rebuilding and reloads its tiles after', async ({
+  page,
+}) => {
+  await page.route('https://tile.openstreetmap.org/**', (route) => route.fulfill({ status: 204 }));
+  let first = true;
+  await page.route('**/api/heatmap/summary', async (route) => {
+    const response = await route.fetch();
+    const summary = (await response.json()) as Record<string, unknown>;
+    const building = first;
+    first = false;
+    await route.fulfill({
+      response,
+      json: { ...summary, building, builtAt: summary.builtAt ?? '2026-01-01T00:00:00Z' },
+    });
+  });
+  const tiles: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/api/heatmap/tiles/')) tiles.push(request.url());
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Heatmap', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Updating heatmap…' })).toBeVisible();
+  await expect.poll(() => tiles.length).toBeGreaterThan(0);
+  const loaded = [...tiles];
+
+  await expect(page.getByText('Updating heatmap…')).toBeHidden();
+  await expect
+    .poll(() => loaded.every((url) => tiles.indexOf(url) !== tiles.lastIndexOf(url)))
+    .toBe(true);
+});
