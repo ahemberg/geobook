@@ -9,6 +9,11 @@
   --muted: #52645e;
   --line: #d8e1dc;
   --surface: #fff;
+  --control-border: #9baca4;
+  --focus: #2768ba;
+  --error-background: #fff0ee;
+  --error-text: #8a271c;
+  --map-dark: #2a302e;
 }
 * {
   box-sizing: border-box;
@@ -288,7 +293,7 @@ p {
   min-height: 0;
 }
 .heatmap-panel .leaflet-container {
-  background: #2a302e;
+  background: var(--map-dark);
 }
 .heatmap-basemap {
   filter: grayscale(1) brightness(0.55);
@@ -312,8 +317,8 @@ p {
   font-size: 14px;
 }
 .heatmap-message.error {
-  background: #fff0ee;
-  color: #8a271c;
+  background: var(--error-background);
+  color: var(--error-text);
 }
 .heat-options {
   display: flex;
@@ -387,7 +392,7 @@ p {
   align-items: center;
   min-height: 44px;
   padding: 0 12px;
-  border: 1px solid #9baca4;
+  border: 1px solid var(--control-border);
   margin-left: -1px;
   background: var(--surface);
   white-space: nowrap;
@@ -412,8 +417,8 @@ p {
 .segments input:focus-visible + span {
   position: relative;
   z-index: 1;
-  outline: 3px solid #2768ba;
-  outline-offset: 0;
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
 }
 .heat-legend {
   position: absolute;
@@ -441,7 +446,7 @@ p {
       rgb(250 160 30 / 0.83) 80%,
       rgb(252 255 164 / 0.95)
     ),
-    #2a302e;
+    var(--map-dark);
 }
 .heat-legend p {
   margin: 0;
