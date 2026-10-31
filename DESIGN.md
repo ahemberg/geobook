@@ -102,8 +102,8 @@ A blue header, white panels and pale blue selection states separate navigation,
 saved recordings and the active selection. Source Sans 3 is used throughout.
 
 This document describes the implemented map, recording and history-day controls,
-country review, original-export archive, sign-in and account pages. The
-[MVP brief](docs/design/mvp.md) records the original design decisions.
+country review, original-export archive, sign-in and account pages.
+
 
 ## Colors
 

@@ -14,9 +14,8 @@ loopback default unless you have read that section. Back up before changing rele
 Install Docker Engine with the Compose plugin. Use a published release image, or
 build one yourself. Published images are at `ghcr.io/ahemberg/geobook:VERSION`,
 for example `ghcr.io/ahemberg/geobook:0.0.1`. The [README quick start](../README.md#quick-start)
-downloads the Compose and environment files for that release. See [releasing](releasing.md) for how
-they are built. To build from a reviewed release tag or commit instead, use JDK 27
-and the repository's Maven wrapper:
+downloads the Compose and environment files for that release. To build from a
+reviewed release tag or commit instead, use JDK 27:
 
 ```bash
 ./mvnw verify
@@ -284,16 +283,10 @@ There is no bulk download or prefetch. Keep normal browser referrers enabled.
 
 Offline timezone data and licence texts are served at `/notices/timezones.md`;
 frontend copyright/licence texts are at `/notices/frontend.txt`. The latter includes
-React, React DOM, Scheduler, Leaflet and Source Sans 3. Refresh these texts when
-updating those packages. Backend notices are at `/notices/backend.txt` and inside
+React, React DOM, Scheduler, Leaflet and Source Sans 3. Backend notices are at `/notices/backend.txt` and inside
 the nested JARs in `/app/app.jar`. Java notices are under `/opt/java/openjdk/legal`,
 and OS package notices are under `/usr/share/doc` in the image. Geobook's own MIT
 licence is at `/app/LICENSE` in the image and `LICENSE` in the source.
-
-`/` and `/map`, including `/map/`, serve the bundled application, and `/login`
-serves the login page. Unknown paths,
-unknown `/api` endpoints and missing assets return errors. Frontend development's
-Vite proxy is not part of the deployment.
 
 ## Explicit manual updates
 
@@ -401,66 +394,3 @@ docker compose up -d --force-recreate
 Adjust ownership to your configured UID/GID. Verify saved controls and original
 downloads before removing the pre-restore directory. Keep all instances stopped
 until the copy finishes.
-
-## pinas
-
-The owner's Raspberry Pi, reached over SSH as `pinas`, runs Compose from `~/geobook`
-with its data in `~/geobook/data`. Check out a merged commit in a clean working tree and deploy it:
-
-```bash
-git switch --detach COMMIT
-scripts/deploy-pinas.sh COMMIT
-```
-
-The script builds the jar with JDK 27. It skips tests when the backend checks already
-passed in CI for that commit. It copies the build files to `~/geobook/releases/<sha>/`,
-builds `geobook:<sha>` there and refuses an image that is not arm64. Then it shows any
-`compose.yaml` changes, stops the app and backs up `data`, `.env` and `compose.yaml` to
-`~/geobook/backups/pre-<sha>-<UTC time>/`. It starts the new image and waits for
-`Started TrackerApplication`.
-
-The smoke test runs on the Pi with a read-only app password that it revokes afterwards.
-The script then records the deployment in `~/geobook/deployment.json` and copies that
-file to the release directory. It prints the backup path, the track and history day counts and a rollback
-command that restores the backup with the previous image. A failed startup or smoke
-test keeps the backup and prints the same rollback command.
-
-## Deployment checks and release evidence
-
-After building an image, run the isolated smoke test. It creates a temporary bind
-mount and Compose project, exercises the real HTTP interface, restarts/recreates
-the container and restores a stopped-app directory copy. It removes only its own
-containers and temporary data. It never uses your deployment's `.env` or directory.
-Python 3 and Docker Compose are required.
-
-```bash
-python3 scripts/container-smoke.py "geobook:$version"
-```
-
-For an update check, start with the previous compatible image and replace it with
-the candidate. Both images must already be built on the host:
-
-```bash
-python3 scripts/container-smoke.py geobook:PREVIOUS --replacement-image "geobook:$version"
-```
-
-The checks retain original bytes, names, colours, visibility, confirmed/excluded
-country days and gap settings across restart, replacement and stopped-app restore.
-
-To also run the desktop and touch-mobile Playwright journeys against that container,
-install Chromium with `npx playwright install --with-deps chromium` from
-`src/main/frontend`, then append `--browser` to the smoke command. Tiles are stubbed;
-the frontend, HTTP interface, database and timezone data are real. The existing
-standalone JAR browser tests still run. `GEOBOOK_TEST_URL` points Playwright at an
-already running disposable server in public mode when needed; these tests write
-fixture data. The smoke test runs its container in public mode, and the login
-journey runs only against the standalone JAR.
-
-CI runs Maven/frontend quality checks, then the same container and browser checks
-on native `ubuntu-24.04` x86-64 and `ubuntu-24.04-arm` ARM64 runners. An ARM runner
-pass validates driver and resource compatibility, but is not a Raspberry Pi measurement.
-
-See [MVP acceptance](mvp-acceptance.md) for the 12 October 2026 checks and
-remaining limits, and [deployment validation](deployment-validation.md) for the
-earlier issue #32 observations. The separate 500-track/five-million-point workload
-is documented in [the benchmark guide](../benchmarks/README.md).
