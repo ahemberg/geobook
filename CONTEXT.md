@@ -31,6 +31,10 @@ The exact file supplied for import, preserved as it was uploaded. An original ex
 
 Changes to a track's name, colour, or visibility do not change its original exports.
 
+**Heatmap**:
+How much time the owner spent in each small area, from tracks and history days together. Time in one area counts only up to a daily limit, so one long stay does not outweigh years of passing through. Time in flight does not count.
+_Avoid_: Density map, visit map
+
 **Owner**:
 The one person who signs in to a Geobook instance and owns its whole collection. An instance has exactly one owner.
 _Avoid_: Admin, user, account

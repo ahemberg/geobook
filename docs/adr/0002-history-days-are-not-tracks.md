@@ -1,6 +1,6 @@
 # History days are not tracks
 
-Imported Google location history has no recording sessions, so it can't be a Track without breaking that term's meaning. We model it as History days: one per local calendar day, identified by date, so a newer export updates the same days instead of creating duplicates. History days reuse the track storage, library, colours, visibility, overview and country attribution through a kind column, but they never get playback or elevation, and they are always drawn and listed separately from recorded tracks.
+Imported Google location history has no recording sessions, so it can't be a Track without breaking that term's meaning. We model it as History days: one per local calendar day, identified by date, so a newer export updates the same days instead of creating duplicates. History days reuse the track storage, library, colours, visibility, overview and country attribution through a kind column, but they never get playback or elevation, and they are always drawn and listed separately from recorded tracks. The heatmap is the one exception: it merges both into one picture of where time was spent, because where a position came from does not change whether the owner was there.
 
 ## Considered options
 
