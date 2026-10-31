@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import L from 'leaflet';
 import { request } from './api';
@@ -172,27 +172,26 @@ function observeSize(element: HTMLElement, map: L.Map) {
   return resize;
 }
 
-function useHeatmapMap(
-  container: RefObject<HTMLDivElement | null>,
-  credit: string,
-  url: string,
-  at: Position | null,
-) {
-  const map = useRef<L.Map | null>(null);
+// The map lives as long as its container element, so effects that add to it depend on the map.
+function useHeatmapMap(credit: string, url: string, at: Position | null) {
+  const [map, setMap] = useState<L.Map | null>(null);
   const placed = useRef(false);
-  useEffect(() => {
-    if (!container.current) return;
-    const created = createMap(container.current, url, credit, at);
-    map.current = created;
-    placed.current = at !== null;
-    const resize = observeSize(container.current, created);
-    return () => {
-      resize?.disconnect();
-      map.current = null;
-      created.remove();
-    };
-  }, [container, url, credit, at]);
-  return { map, placed };
+  const container = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (!element) return;
+      const created = createMap(element, url, credit, at);
+      setMap(created);
+      placed.current = at !== null;
+      const resize = observeSize(element, created);
+      return () => {
+        resize?.disconnect();
+        setMap(null);
+        created.remove();
+      };
+    },
+    [url, credit, at],
+  );
+  return { container, map, placed };
 }
 
 function HeatmapMap({
@@ -208,7 +207,6 @@ function HeatmapMap({
   scale: Scale;
   at: Position | null;
 }) {
-  const container = useRef<HTMLDivElement>(null);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const heat = useRef<HeatLayer | null>(null);
@@ -216,10 +214,10 @@ function HeatmapMap({
   const { url, attribution, attributionUrl } = config;
   const query = `?${new URLSearchParams({ ...range, limit }).toString()}`;
 
-  const { map, placed } = useHeatmapMap(container, mapCredit(attribution, attributionUrl), url, at);
+  const { container, map, placed } = useHeatmapMap(mapCredit(attribution, attributionUrl), url, at);
 
   useEffect(() => {
-    const current = map.current;
+    const current = map;
     if (!current) return;
     const layer = addHeatLayer(current, 'heat', query, setFull);
     heat.current = layer;
@@ -245,7 +243,7 @@ function HeatmapMap({
       heat.current = null;
       layer.remove();
     };
-  }, [query, map, placed, url, attribution, attributionUrl]);
+  }, [query, map, placed]);
 
   usePolling(loaded, setLoaded, heat);
 
@@ -254,7 +252,7 @@ function HeatmapMap({
   const fixed = scale === 'global' ? (summary?.globalFull ?? null) : null;
   useEffect(() => {
     heat.current?.fix(fixed);
-  }, [fixed, query, url, attribution, attributionUrl]);
+  }, [fixed, query, map]);
   return (
     <main id="heatmap" tabIndex={-1} className="heatmap-panel" aria-label="Heatmap">
       <div ref={container} className="map" aria-label="Interactive heatmap" />
