@@ -17,17 +17,21 @@ import Countries from './Countries';
 import OriginalArchive from './OriginalArchive';
 import TrackLibrary from './TrackLibrary';
 import { useUpload, UploadFeedback } from './Upload';
+import { HeatmapPage, PrototypeSwitcher, setHeatRange, useVariant } from './HeatmapPrototype';
 
-type View = 'map' | 'countries' | 'originals';
+type View = 'map' | 'heatmap' | 'countries' | 'originals';
 
 export default function App() {
   const [settingsReload, setSettingsReload] = useState(0);
   const [country, setCountry] = useState<Country | null>(null);
-  const [view, setView] = useState<View>('map');
+  const { placement } = useVariant();
+  const [view, setView] = useState<View>(placement === 'page' ? 'heatmap' : 'map');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reload, setReload] = useState(0);
   const [importedIds, setImportedIds] = useState<number[]>([]);
   const [range, setRange] = useState<DateRange>(null);
+  useEffect(() => setHeatRange(range), [range]);
+  useEffect(() => setView(placement === 'page' ? 'heatmap' : 'map'), [placement]);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const {
@@ -89,9 +93,24 @@ export default function App() {
 
   return (
     <div className={`app ${view}-view`}>
-      <AppHeader view={view} setView={setView} uploadState={uploadState} fileInput={fileInput} />
+      <AppHeader
+        view={view}
+        setView={setView}
+        heatmap={placement === 'page'}
+        uploadState={uploadState}
+        fileInput={fileInput}
+      />
       <UploadFeedback {...uploadState} />
-      {view === 'originals' ? (
+      <PrototypeSwitcher />
+      {view === 'heatmap' && placement === 'page' ? (
+        <>
+          <div className="scope">
+            <h1>Heatmap</h1>
+            <DateFilter range={range} years={years} apply={filter} />
+          </div>
+          {config && <HeatmapPage config={config} range={range} />}
+        </>
+      ) : view === 'originals' ? (
         <OriginalArchive reload={reload} onRemoved={removed} />
       ) : (
         <>
@@ -207,11 +226,13 @@ async function signOut() {
 function AppHeader({
   view,
   setView,
+  heatmap,
   uploadState,
   fileInput,
 }: {
   view: View;
   setView: (view: View) => void;
+  heatmap: boolean;
   uploadState: ReturnType<typeof useUpload>;
   fileInput: RefObject<HTMLInputElement | null>;
 }) {
@@ -221,21 +242,38 @@ function AppHeader({
     <>
       <a
         className="skip-link"
-        href={`#${{ map: 'tracks', countries: 'country-visits', originals: 'originals' }[view]}`}
+        href={`#${{ map: 'tracks', heatmap: 'tracks', countries: 'country-visits', originals: 'originals' }[view]}`}
       >
         Skip to{' '}
-        {{ map: 'tracks', countries: 'country visits', originals: 'original exports' }[view]}
+        {
+          {
+            map: 'tracks',
+            heatmap: 'heatmap',
+            countries: 'country visits',
+            originals: 'original exports',
+          }[view]
+        }
       </a>
       <header className="app-header">
         <span className="brand">Geobook</span>
         <nav aria-label="Main navigation">
-          {(['map', 'countries', 'originals'] as const).map((destination) => (
+          {(heatmap
+            ? (['map', 'heatmap', 'countries', 'originals'] as const)
+            : (['map', 'countries', 'originals'] as const)
+          ).map((destination) => (
             <button
               key={destination}
               aria-current={view === destination ? 'page' : undefined}
               onClick={() => setView(destination)}
             >
-              {{ map: 'Map', countries: 'Countries', originals: 'Original exports' }[destination]}
+              {
+                {
+                  map: 'Map',
+                  heatmap: 'Heatmap',
+                  countries: 'Countries',
+                  originals: 'Original exports',
+                }[destination]
+              }
             </button>
           ))}
         </nav>

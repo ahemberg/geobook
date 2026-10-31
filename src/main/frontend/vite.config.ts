@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react()],
-  server: { proxy: { '/api': 'http://localhost:8080' } },
+  server: { proxy: { '/api': process.env.GEOBOOK_API ?? 'http://localhost:8080' } },
   build: {
     rollupOptions: {
       input: {

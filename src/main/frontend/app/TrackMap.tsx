@@ -3,6 +3,7 @@ import L from 'leaflet';
 import type { Country, HistoryDisplay, MapConfig, MapTrack, PlaceVisit } from './api';
 import { visitTimes } from './HistoryDay';
 import { mapGeometry } from './mapGeometry';
+import { HeatOverLinesLegend, useHeatOverLines } from './HeatmapPrototype';
 
 const noStops: PlaceVisit[] = [];
 
@@ -74,6 +75,7 @@ export default function TrackMap({
   }, [url, attribution, attributionUrl]);
 
   useTrackLayers(mapRef, { tracks, selectedId, importedIds, config, country }, openedDay);
+  useHeatOverLines(mapRef);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -110,6 +112,7 @@ export default function TrackMap({
   return (
     <section className="map-panel" aria-label="Recorded travel map">
       <div ref={container} className="map" aria-label="Interactive map" />
+      <HeatOverLinesLegend />
       {tracks.some((item) => item.kind !== 'history') && (
         <button className="fit-map" onClick={fitAll}>
           Fit all tracks
