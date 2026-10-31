@@ -32,25 +32,43 @@ function onScreen(tile: Loaded, bounds: L.Bounds) {
   return values;
 }
 
+export type HeatLayer = {
+  refresh: () => void;
+  fix: (full: number | null) => void;
+  remove: () => void;
+};
+
 /**
- * Adds canvas heat tiles coloured against the 99th percentile of the cells on screen.
+ * Adds canvas heat tiles coloured against the 99th percentile of the cells on screen,
+ * or against a fixed full value. `onFull` hears each full value the tiles are drawn with.
  * `refresh` refetches loaded tiles into their canvases, so the old heat stays until new data arrives.
  */
-export function addHeatLayer(map: L.Map, pane: string, query: string) {
+export function addHeatLayer(
+  map: L.Map,
+  pane: string,
+  query: string,
+  onFull: (full: number) => void,
+): HeatLayer {
   const tiles = new Map<string, Loaded>();
   const requests = new Map<string, AbortController>();
-  let full = 1;
+  let full = 0;
+  let fixed: number | null = null;
   let timer = 0;
   const key = (coords: L.Coords) => `${coords.x}:${coords.y}:${coords.z}`;
 
-  function rescale() {
+  function visibleFull() {
     const bounds = map.getPixelBounds();
     const zoom = map.getZoom();
     const visible = [...tiles.values()].filter((tile) => tile.coords.z === zoom);
-    const next = screenFull(visible.flatMap((tile) => onScreen(tile, bounds)));
-    if (Math.abs(next - full) / full <= 0.02) return;
+    return screenFull(visible.flatMap((tile) => onScreen(tile, bounds)));
+  }
+
+  function rescale() {
+    const next = fixed ?? visibleFull();
+    if (full && Math.abs(next - full) / full <= 0.02) return;
     full = next;
     tiles.forEach((tile) => draw(tile, full));
+    onFull(full);
   }
 
   function schedule() {
@@ -74,7 +92,7 @@ export function addHeatLayer(map: L.Map, pane: string, query: string) {
       .then((data) => {
         const tile = { ...data, canvas, coords };
         tiles.set(key(coords), tile);
-        draw(tile, full);
+        draw(tile, full || 1);
         schedule();
       })
       .finally(() => {
@@ -106,10 +124,15 @@ export function addHeatLayer(map: L.Map, pane: string, query: string) {
       load(tile.coords, tile.canvas).catch(() => undefined);
     });
   };
+  const fix = (next: number | null) => {
+    fixed = next === null ? null : Math.max(1, next);
+    window.clearTimeout(timer);
+    rescale();
+  };
   const remove = () => {
     window.clearTimeout(timer);
     map.off('moveend', schedule);
     layer.remove();
   };
-  return { refresh, remove };
+  return { refresh, fix, remove };
 }

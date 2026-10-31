@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { intensity, palette, screenFull } from './heatScale';
+import { duration, intensity, palette, screenFull } from './heatScale';
 
 test('intensity follows a log scale that saturates at full colour', () => {
   expect(intensity(0, 60)).toBe(1);
@@ -20,4 +20,14 @@ test('the palette runs from dark violet to pale yellow and grows more opaque', (
   expect(palette[0]).toBe('rgba(40, 11, 84, 0.350)');
   expect(palette[255]).toBe('rgba(252, 255, 164, 0.950)');
   expect(palette).toHaveLength(256);
+});
+
+test('durations read in minutes below an hour and in hours above', () => {
+  expect(duration(20)).toBe('1 min');
+  expect(duration(42 * 60 + 10)).toBe('42 min');
+  expect(duration(3599)).toBe('60 min');
+  expect(duration(3600)).toBe('1 h');
+  expect(duration(5.5 * 3600)).toBe('5.5 h');
+  expect(duration(300 * 60)).toBe('5 h');
+  expect(duration(26 * 3600)).toBe('26 h');
 });

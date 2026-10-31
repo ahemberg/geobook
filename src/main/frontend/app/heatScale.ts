@@ -36,3 +36,10 @@ export function screenFull(values: number[]) {
   const sorted = Float64Array.from(values).sort();
   return Math.max(1, sorted[Math.floor(sorted.length * 0.99)]!);
 }
+
+/** Shows seconds in whole minutes below an hour, otherwise in hours. */
+export function duration(seconds: number) {
+  if (seconds < 3600) return `${Math.max(1, Math.round(seconds / 60))} min`;
+  const hours = seconds / 3600;
+  return `${hours < 10 ? Number(hours.toFixed(1)) : Math.round(hours)} h`;
+}
