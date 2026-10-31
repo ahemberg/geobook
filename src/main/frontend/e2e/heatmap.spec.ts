@@ -223,6 +223,8 @@ test('the daily limit and scale change the legend, and the scale redraws without
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Heatmap', exact: true }).click();
+  if (testInfo.project.name === 'mobile')
+    await page.getByRole('button', { name: 'Limit and scale' }).click();
   const limit = page.getByRole('radiogroup', { name: 'Daily limit' });
   const scale = page.getByRole('radiogroup', { name: 'Scale' });
   for (const option of ['None', '60 min', '15 min', '5 min']) {
@@ -256,4 +258,98 @@ test('the daily limit and scale change the legend, and the scale redraws without
   await page.screenshot({
     path: `../../../.impeccable/review/heatmap-controls-${testInfo.project.name}.png`,
   });
+});
+
+test('the heatmap keeps position, zoom, limit and scale in the URL across a reload', async ({
+  page,
+}, testInfo) => {
+  await page.route('https://tile.openstreetmap.org/**', (route) => route.fulfill({ status: 204 }));
+  const mobile = testInfo.project.name === 'mobile';
+  const upload = await page.request.post('/api/tracks', {
+    multipart: {
+      file: {
+        name: 'url.gpx',
+        mimeType: 'application/gpx+xml',
+        buffer: Buffer.from(`<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk>
+          <name>Synthetic URL walk ${testInfo.project.name}</name><trkseg>
+          <trkpt lat="55.60" lon="${mobile ? '13.00' : '13.01'}"><time>2019-04-02T08:00:00Z</time></trkpt>
+          <trkpt lat="55.601" lon="${mobile ? '13.00' : '13.01'}"><time>2019-04-02T08:10:00Z</time></trkpt>
+          </trkseg></trk></gpx>`),
+      },
+    },
+  });
+  expect(upload.status()).toBe(201);
+  await expect
+    .poll(async () => {
+      const response = await page.request.get('/api/heatmap/summary');
+      return ((await response.json()) as { building: boolean }).building;
+    })
+    .toBe(false);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Heatmap', exact: true }).click();
+  await expect(page).toHaveURL(/\/heatmap\?at=-?\d+\.\d{5},-?\d+\.\d{5},13$/);
+
+  if (mobile) await page.getByRole('button', { name: 'Limit and scale' }).click();
+  await page.getByRole('radio', { name: '60 min' }).click();
+  await page.getByRole('radio', { name: 'Global' }).click();
+  await page.locator('.heatmap-panel .leaflet-container').focus();
+  await page.keyboard.press('Minus');
+  await page.keyboard.press('ArrowRight');
+  await expect(page).toHaveURL(/at=-?\d+\.\d{5},-?\d+\.\d{5},12&limit=60&scale=global$/);
+  const view = page.url();
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Heatmap', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  if (mobile) await page.getByRole('button', { name: 'Limit and scale' }).click();
+  await expect(page.getByRole('radio', { name: '60 min' })).toBeChecked();
+  await expect(page.getByRole('radio', { name: 'Global' })).toBeChecked();
+  await expect(page.getByRole('group', { name: 'Colour legend' })).toBeVisible();
+  expect(page.url()).toBe(view);
+
+  const beijing = '/heatmap?at=39.90420,116.40740,14';
+  await page.goto(beijing);
+  await expect(page.getByRole('radio', { name: '15 min', includeHidden: true })).toBeChecked();
+  await expect(page.getByRole('status').filter({ hasText: 'No travel recorded' })).toBeHidden();
+  await page.waitForTimeout(300);
+  expect(page.url()).toMatch(/\/heatmap\?at=39\.90420,116\.40740,14$/);
+
+  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Recorded travel' })).toBeVisible();
+});
+
+test('the heatmap controls sit behind a toggle on mobile and stay visible on desktop', async ({
+  page,
+}, testInfo) => {
+  await page.route('https://tile.openstreetmap.org/**', (route) => route.fulfill({ status: 204 }));
+  await page.goto('/heatmap');
+  const toggle = page.getByRole('button', { name: 'Limit and scale' });
+  const limit = page.getByRole('radiogroup', { name: 'Daily limit' });
+  const scale = page.getByRole('radiogroup', { name: 'Scale' });
+  await expect(page.getByRole('button', { name: 'Date filters: All time' })).toBeVisible();
+  if (testInfo.project.name !== 'mobile') {
+    await expect(toggle).toBeHidden();
+    await expect(limit).toBeVisible();
+    await expect(scale).toBeVisible();
+    return;
+  }
+
+  await expect(limit).toBeHidden();
+  await expect(scale).toBeHidden();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(toggle).toHaveAttribute('aria-controls', 'heat-options');
+  await toggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(limit).toBeVisible();
+  await expect(scale).toBeVisible();
+  await expect(page.locator('#heat-options')).toBeVisible();
+  await page.screenshot({ path: '../../../.impeccable/review/heatmap-options-mobile.png' });
+  await page.keyboard.press('Space');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(limit).toBeHidden();
 });

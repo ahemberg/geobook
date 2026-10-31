@@ -24,7 +24,7 @@ type View = 'map' | 'countries' | 'heatmap' | 'originals';
 export default function App() {
   const [settingsReload, setSettingsReload] = useState(0);
   const [country, setCountry] = useState<Country | null>(null);
-  const [view, setView] = useState<View>('map');
+  const [view, setView] = useView();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [reload, setReload] = useState(0);
   const [importedIds, setImportedIds] = useState<number[]>([]);
@@ -162,6 +162,16 @@ export default function App() {
       )}
     </div>
   );
+}
+
+function useView() {
+  const onHeatmap = () => window.location.pathname.startsWith('/heatmap');
+  const [view, setView] = useState<View>(() => (onHeatmap() ? 'heatmap' : 'map'));
+  useEffect(() => {
+    if (onHeatmap() !== (view === 'heatmap'))
+      window.history.replaceState(null, '', view === 'heatmap' ? '/heatmap' : '/');
+  }, [view]);
+  return [view, setView] as const;
 }
 
 function TravelScope({
