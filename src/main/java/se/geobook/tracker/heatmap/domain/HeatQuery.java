@@ -7,6 +7,7 @@ import java.util.List;
 /** A period of local dates, open when null, and a daily limit in minutes, where 0 is none. */
 public record HeatQuery(LocalDate from, LocalDate through, int limitMinutes) {
   public static final HeatQuery ALL_TIME = new HeatQuery(null, null, 0);
+  public static final String DEFAULT_LIMIT = "15";
   private static final List<String> LIMITS = List.of("0", "60", "15", "5");
 
   /** Reads an inclusive period of YYYY-MM-DD dates the way the date filter sends it. */

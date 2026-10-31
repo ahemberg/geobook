@@ -7,7 +7,7 @@ import DateFilter from './DateFilter';
 import { addHeatLayer } from './heatLayer';
 import type { HeatLayer } from './heatLayer';
 import { duration } from './heatScale';
-import { formatPosition, readHeatView, rememberHeatView } from './heatView';
+import { dailyLimits, formatPosition, readHeatView, rememberHeatView } from './heatView';
 import type { Position, Scale } from './heatView';
 import { mapCredit } from './mapCredit';
 
@@ -28,13 +28,6 @@ function message(summary: HeatSummary | null, error: boolean, range: DateRange) 
 }
 
 type Loaded = { query: string; summary: HeatSummary };
-
-const limits: [string, string][] = [
-  ['0', 'None'],
-  ['60', '60 min'],
-  ['15', '15 min'],
-  ['5', '5 min'],
-];
 
 const scales: [Scale, string][] = [
   ['screen', 'On screen'],
@@ -97,7 +90,7 @@ export default function Heatmap({
         <div id="heat-options" className={`heat-options${expanded ? ' expanded' : ''}`}>
           <Choice
             label="Daily limit"
-            options={limits}
+            options={dailyLimits}
             value={limit}
             choose={(next) => {
               setLimit(next);

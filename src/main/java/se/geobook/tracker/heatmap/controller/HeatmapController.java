@@ -16,7 +16,6 @@ import se.geobook.tracker.heatmap.service.HeatmapService;
 @SuppressWarnings("PMD.ShortVariable")
 @RestController
 final class HeatmapController {
-  private static final String DEFAULT_LIMIT = "15";
   private final HeatmapService heatmap;
 
   HeatmapController(HeatmapService heatmap) {
@@ -30,7 +29,7 @@ final class HeatmapController {
   Summary summary(
       @RequestParam(required = false) String from,
       @RequestParam(required = false) String to,
-      @RequestParam(defaultValue = DEFAULT_LIMIT) String limit) {
+      @RequestParam(defaultValue = HeatQuery.DEFAULT_LIMIT) String limit) {
     final HeatmapService.Summary summary = heatmap.summary(HeatQuery.period(from, to).limit(limit));
     return new Summary(
         summary.aggregate().globalFull(),
@@ -51,7 +50,7 @@ final class HeatmapController {
       @PathVariable int y,
       @RequestParam(required = false) String from,
       @RequestParam(required = false) String to,
-      @RequestParam(defaultValue = DEFAULT_LIMIT) String limit) {
+      @RequestParam(defaultValue = HeatQuery.DEFAULT_LIMIT) String limit) {
     return heatmap.tile(HeatQuery.period(from, to).limit(limit), z, x, y);
   }
 

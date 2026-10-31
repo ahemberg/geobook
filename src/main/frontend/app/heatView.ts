@@ -2,7 +2,13 @@ export type Scale = 'screen' | 'global';
 
 export type Position = { centre: [number, number]; zoom: number };
 
-const limits = ['0', '60', '15', '5'];
+/** Daily limits in minutes, where 0 is none, with their labels. */
+export const dailyLimits: [string, string][] = [
+  ['0', 'None'],
+  ['60', '60 min'],
+  ['15', '15 min'],
+  ['5', '5 min'],
+];
 
 function position(at: string | null): Position | null {
   const parts = (at ?? '').split(',').map(Number);
@@ -18,7 +24,7 @@ export function readHeatView(search: string) {
   const limit = params.get('limit') ?? '';
   return {
     at: position(params.get('at')),
-    limit: limits.includes(limit) ? limit : '15',
+    limit: dailyLimits.some(([value]) => value === limit) ? limit : '15',
     scale: params.get('scale') === 'global' ? ('global' as const) : ('screen' as const),
   };
 }
