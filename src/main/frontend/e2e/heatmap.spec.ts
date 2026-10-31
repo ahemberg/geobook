@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openDateFilters } from './workspaceControls';
 
 async function painted(page: Page) {
   return page.locator('.leaflet-heat-pane canvas').evaluateAll((canvases) =>
@@ -82,4 +83,70 @@ test('the heatmap shows time spent on a greyed map and rescales without refetchi
   await page.screenshot({
     path: `../../../.impeccable/review/heatmap-${testInfo.project.name}.png`,
   });
+});
+
+test('the heatmap shares the period with Map and says when a period has no travel', async ({
+  page,
+}, testInfo) => {
+  await page.route('https://tile.openstreetmap.org/**', (route) => route.fulfill({ status: 204 }));
+  const year = testInfo.project.name === 'mobile' ? '2008' : '2009';
+  const upload = await page.request.post('/api/tracks', {
+    multipart: {
+      file: {
+        name: 'period.gpx',
+        mimeType: 'application/gpx+xml',
+        buffer: Buffer.from(`<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk>
+          <name>Synthetic period walk ${testInfo.project.name}</name><trkseg>
+          <trkpt lat="63.82" lon="20.25"><time>${year}-08-02T08:00:00Z</time></trkpt>
+          <trkpt lat="63.821" lon="20.25"><time>${year}-08-02T08:10:00Z</time></trkpt>
+          </trkseg></trk></gpx>`),
+      },
+    },
+  });
+  expect(upload.status()).toBe(201);
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(
+        `/api/heatmap/summary?from=${year}-01-01&to=${year}-12-31`,
+      );
+      const summary = (await response.json()) as { building: boolean; cells: number };
+      return !summary.building && summary.cells > 0;
+    })
+    .toBe(true);
+
+  const tiles: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/api/heatmap/tiles/')) tiles.push(request.url());
+  });
+  await page.goto('/');
+  const heatmap = page.getByRole('button', { name: 'Heatmap', exact: true });
+  await heatmap.click();
+  await expect(page.getByRole('button', { name: 'Date filters: All time' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  await openDateFilters(page);
+  await page.getByRole('combobox', { name: 'Year', exact: true }).selectOption(year);
+  await heatmap.click();
+  await expect(
+    page.getByRole('button', { name: `Date filters: ${year}-01-01 to ${year}-12-31` }),
+  ).toBeVisible();
+  await expect.poll(() => painted(page)).toBe(true);
+  expect(tiles.some((url) => url.endsWith(`?from=${year}-01-01&to=${year}-12-31`))).toBe(true);
+
+  await openDateFilters(page);
+  await page.getByLabel('From', { exact: true }).fill('1901-01-01');
+  await page.getByLabel('To', { exact: true }).fill('1901-12-31');
+  await page.getByRole('button', { name: 'Apply dates' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'No travel recorded' })).toHaveText(
+    'No travel recorded in 1901',
+  );
+  await expect.poll(() => painted(page)).toBe(false);
+  await page.screenshot({
+    path: `../../../.impeccable/review/heatmap-empty-${testInfo.project.name}.png`,
+  });
+
+  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Date filters: 1901-01-01 to 1901-12-31' }),
+  ).toBeVisible();
 });

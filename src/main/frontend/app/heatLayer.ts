@@ -33,7 +33,7 @@ function onScreen(tile: Loaded, bounds: L.Bounds) {
 }
 
 /** Adds canvas heat tiles coloured against the 99th percentile of the cells on screen. */
-export function addHeatLayer(map: L.Map, pane: string) {
+export function addHeatLayer(map: L.Map, pane: string, query: string) {
   const tiles = new Map<string, Loaded>();
   const requests = new Map<string, AbortController>();
   let full = 1;
@@ -60,7 +60,7 @@ export function addHeatLayer(map: L.Map, pane: string) {
     const x = ((coords.x % count) + count) % count;
     const controller = new AbortController();
     requests.set(key(coords), controller);
-    fetch(`/api/heatmap/tiles/${coords.z}/${x}/${coords.y}`, { signal: controller.signal })
+    fetch(`/api/heatmap/tiles/${coords.z}/${x}/${coords.y}${query}`, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error('Heat tile could not load.');
         return response.json() as Promise<HeatTile>;
