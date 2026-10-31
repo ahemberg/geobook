@@ -16,13 +16,15 @@ import se.geobook.tracker.heatmap.service.HeatmapService;
 @SuppressWarnings("PMD.ShortVariable")
 @RestController
 final class HeatmapController {
+  private static final String DEFAULT_LIMIT = "15";
   private final HeatmapService heatmap;
 
   HeatmapController(HeatmapService heatmap) {
     this.heatmap = heatmap;
   }
 
-  record Summary(int cells, List<Double> hottest, boolean building, String builtAt) {}
+  record Summary(
+      long globalFull, int cells, List<Double> hottest, boolean building, String builtAt) {}
 
   record Tile(int cellSize, long[] cells) {
     Tile {
@@ -37,9 +39,12 @@ final class HeatmapController {
 
   @GetMapping("/api/heatmap/summary")
   Summary summary(
-      @RequestParam(required = false) String from, @RequestParam(required = false) String to) {
-    final HeatmapService.Summary summary = heatmap.summary(HeatQuery.period(from, to));
+      @RequestParam(required = false) String from,
+      @RequestParam(required = false) String to,
+      @RequestParam(defaultValue = DEFAULT_LIMIT) String limit) {
+    final HeatmapService.Summary summary = heatmap.summary(HeatQuery.period(from, to).limit(limit));
     return new Summary(
+        summary.aggregate().globalFull(),
         summary.aggregate().count(),
         summary
             .aggregate()
@@ -56,8 +61,9 @@ final class HeatmapController {
       @PathVariable int x,
       @PathVariable int y,
       @RequestParam(required = false) String from,
-      @RequestParam(required = false) String to) {
-    final HeatTile tile = heatmap.tile(HeatQuery.period(from, to), z, x, y);
+      @RequestParam(required = false) String to,
+      @RequestParam(defaultValue = DEFAULT_LIMIT) String limit) {
+    final HeatTile tile = heatmap.tile(HeatQuery.period(from, to).limit(limit), z, x, y);
     return new Tile(tile.cellSize(), tile.cells());
   }
 

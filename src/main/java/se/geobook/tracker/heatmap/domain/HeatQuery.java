@@ -2,10 +2,12 @@ package se.geobook.tracker.heatmap.domain;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 
 /** A period of local dates, open when null, and a daily limit in minutes, where 0 is none. */
 public record HeatQuery(LocalDate from, LocalDate through, int limitMinutes) {
   public static final HeatQuery ALL_TIME = new HeatQuery(null, null, 0);
+  private static final List<String> LIMITS = List.of("0", "60", "15", "5");
 
   /** Reads an inclusive period of YYYY-MM-DD dates the way the date filter sends it. */
   public static HeatQuery period(String from, String through) {
@@ -21,6 +23,14 @@ public record HeatQuery(LocalDate from, LocalDate through, int limitMinutes) {
       throw new IllegalArgumentException("The start date must be on or before the end date.");
     }
     return new HeatQuery(start, end, 0);
+  }
+
+  /** Returns this period with a daily limit of 0, 60, 15 or 5 minutes, as the client sends it. */
+  public HeatQuery limit(String minutes) {
+    if (!LIMITS.contains(minutes)) {
+      throw new IllegalArgumentException("Choose a daily limit of 0, 60, 15 or 5 minutes.");
+    }
+    return new HeatQuery(from, through, Integer.parseInt(minutes));
   }
 
   private static LocalDate date(String date) {
