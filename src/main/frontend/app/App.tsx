@@ -14,11 +14,12 @@ import RecordingWorkspace from './RecordingWorkspace';
 import GapSettings from './GapSettings';
 import DateFilter from './DateFilter';
 import Countries from './Countries';
+import Heatmap from './Heatmap';
 import OriginalArchive from './OriginalArchive';
 import TrackLibrary from './TrackLibrary';
 import { useUpload, UploadFeedback } from './Upload';
 
-type View = 'map' | 'countries' | 'originals';
+type View = 'map' | 'countries' | 'heatmap' | 'originals';
 
 export default function App() {
   const [settingsReload, setSettingsReload] = useState(0);
@@ -87,13 +88,15 @@ export default function App() {
     clear();
   }
 
+  const pages: Partial<Record<View, ReactNode>> = {
+    originals: <OriginalArchive reload={reload} onRemoved={removed} />,
+    heatmap: <Heatmap config={config} />,
+  };
   return (
     <div className={`app ${view}-view`}>
       <AppHeader view={view} setView={setView} uploadState={uploadState} fileInput={fileInput} />
       <UploadFeedback {...uploadState} />
-      {view === 'originals' ? (
-        <OriginalArchive reload={reload} onRemoved={removed} />
-      ) : (
+      {pages[view] ?? (
         <>
           <TravelScope
             country={country}
@@ -221,21 +224,35 @@ function AppHeader({
     <>
       <a
         className="skip-link"
-        href={`#${{ map: 'tracks', countries: 'country-visits', originals: 'originals' }[view]}`}
+        href={`#${{ map: 'tracks', countries: 'country-visits', heatmap: 'heatmap', originals: 'originals' }[view]}`}
       >
         Skip to{' '}
-        {{ map: 'tracks', countries: 'country visits', originals: 'original exports' }[view]}
+        {
+          {
+            map: 'tracks',
+            countries: 'country visits',
+            heatmap: 'heatmap',
+            originals: 'original exports',
+          }[view]
+        }
       </a>
       <header className="app-header">
         <span className="brand">Geobook</span>
         <nav aria-label="Main navigation">
-          {(['map', 'countries', 'originals'] as const).map((destination) => (
+          {(['map', 'countries', 'heatmap', 'originals'] as const).map((destination) => (
             <button
               key={destination}
               aria-current={view === destination ? 'page' : undefined}
               onClick={() => setView(destination)}
             >
-              {{ map: 'Map', countries: 'Countries', originals: 'Original exports' }[destination]}
+              {
+                {
+                  map: 'Map',
+                  countries: 'Countries',
+                  heatmap: 'Heatmap',
+                  originals: 'Original exports',
+                }[destination]
+              }
             </button>
           ))}
         </nav>

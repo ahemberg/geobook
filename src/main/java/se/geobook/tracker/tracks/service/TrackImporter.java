@@ -2,25 +2,32 @@ package se.geobook.tracker.tracks.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import se.geobook.tracker.tracks.domain.HistoryDay;
 import se.geobook.tracker.tracks.domain.OriginalExport;
 import se.geobook.tracker.tracks.domain.Recording;
 import se.geobook.tracker.tracks.domain.Track;
+import se.geobook.tracker.tracks.service.events.CollectionChanged;
 
 @Service
 public class TrackImporter {
   private static final String FAILED = "failed";
   private static final String HISTORY = "history";
   private final TrackService collection;
+  private final ApplicationEventPublisher events;
 
-  TrackImporter(TrackService collection) {
+  TrackImporter(TrackService collection, ApplicationEventPublisher events) {
     this.collection = collection;
+    this.events = events;
   }
 
   public Track.Imported upload(String filename, byte[] bytes) {
     Recording recording = GpxReader.read(bytes);
-    return collection.save(collection.retainOriginal(filename, bytes), recording);
+    Track.Imported imported =
+        collection.save(collection.retainOriginal(filename, bytes), recording);
+    events.publishEvent(new CollectionChanged());
+    return imported;
   }
 
   public record ImportEvent(
@@ -72,6 +79,16 @@ public class TrackImporter {
   }
 
   public void importFile(String filename, byte[] bytes, Progress progress)
+      throws java.io.IOException {
+    // Saves commit one by one, so the collection may have changed even if delivery fails.
+    try {
+      importSource(filename, bytes, progress);
+    } finally {
+      events.publishEvent(new CollectionChanged());
+    }
+  }
+
+  private void importSource(String filename, byte[] bytes, Progress progress)
       throws java.io.IOException {
     if (TakeoutReader.isArchive(bytes)) {
       importHistory(filename, bytes, progress);
