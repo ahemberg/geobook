@@ -1,4 +1,5 @@
 import L from 'leaflet';
+import { request } from './api';
 import type { HeatTile } from './api';
 import { intensity, palette, screenFull } from './heatScale';
 
@@ -83,13 +84,9 @@ export function addHeatLayer(
     const controller = new AbortController();
     requests.get(key(coords))?.abort();
     requests.set(key(coords), controller);
-    return fetch(`/api/heatmap/tiles/${coords.z}/${x}/${coords.y}${query}`, {
+    return request<HeatTile>(`/api/heatmap/tiles/${coords.z}/${x}/${coords.y}${query}`, {
       signal: controller.signal,
     })
-      .then((response) => {
-        if (!response.ok) throw new Error('Heat tile could not load.');
-        return response.json() as Promise<HeatTile>;
-      })
       .then((data) => {
         const tile = { ...data, canvas, coords };
         tiles.set(key(coords), tile);
