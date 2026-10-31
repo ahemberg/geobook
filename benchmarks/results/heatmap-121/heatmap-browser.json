@@ -1,0 +1,117 @@
+{
+  "url": "http://PI_LAN_IP:18121",
+  "workload": {
+    "tracks": 500,
+    "pointsPerTrack": 10000,
+    "points": 5000000,
+    "from": "2024-01-01",
+    "to": "2024-01-01",
+    "filteredTracks": 1,
+    "filteredPoints": 10000,
+    "filteredName": "Benchmark 0000"
+  },
+  "period": "?from=2024-01-01&to=2024-12-31",
+  "client": {
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz",
+    "memoryBytes": 16626151424,
+    "chromium": "156.0.8078.4",
+    "viewport": "1440x900",
+    "conditions": "Headless Chromium, fresh context per run, external tiles stubbed, no CPU/network throttling"
+  },
+  "results": [
+    {
+      "run": 1,
+      "firstLoadMs": 3070.783356,
+      "openMs": 2763.724276,
+      "periodMs": 622.9977679999997,
+      "allTimeMs": 371.8217910000003,
+      "withinTargets": true,
+      "allTimeCells": 174127,
+      "yearCells": 16989,
+      "firstLoadTiles": 24,
+      "heatCanvases": 24
+    },
+    {
+      "run": 2,
+      "firstLoadMs": 1569.881888,
+      "openMs": 1204.8414389999998,
+      "periodMs": 218.5804680000001,
+      "allTimeMs": 214.08859800000027,
+      "withinTargets": true,
+      "allTimeCells": 174127,
+      "yearCells": 16989,
+      "firstLoadTiles": 24,
+      "heatCanvases": 24
+    },
+    {
+      "run": 3,
+      "firstLoadMs": 1592.5105379999995,
+      "openMs": 1401.7300219999997,
+      "periodMs": 165.6343369999995,
+      "allTimeMs": 245.71330300000045,
+      "withinTargets": true,
+      "allTimeCells": 174127,
+      "yearCells": 16989,
+      "firstLoadTiles": 24,
+      "heatCanvases": 24
+    },
+    {
+      "run": 4,
+      "firstLoadMs": 1277.1408069999998,
+      "openMs": 923.9578329999986,
+      "periodMs": 297.6153740000009,
+      "allTimeMs": 463.449294,
+      "withinTargets": true,
+      "allTimeCells": 174127,
+      "yearCells": 16989,
+      "firstLoadTiles": 24,
+      "heatCanvases": 24
+    },
+    {
+      "run": 5,
+      "firstLoadMs": 1301.6785999999993,
+      "openMs": 1100.139255,
+      "periodMs": 119.24874900000032,
+      "allTimeMs": 229.27470899999935,
+      "withinTargets": true,
+      "allTimeCells": 174127,
+      "yearCells": 16989,
+      "firstLoadTiles": 24,
+      "heatCanvases": 24
+    }
+  ],
+  "server": {
+    "applicationCommit": "e0de2fe32c1153130d53d03b16a9bb557cac0589",
+    "freshJvmFirstRun": true,
+    "restartReadySeconds": 7.698376178741455,
+    "storedHeatLoadedSecondsAfterReady": 4.879292249679565,
+    "summaryBeforeRuns": {
+      "cells": 0,
+      "hottest": null,
+      "building": true,
+      "builtAt": null
+    },
+    "osCachesFlushed": false,
+    "java": "Temurin 27.0.1+1",
+    "heap": "-Xmx1g",
+    "device": "Raspberry Pi 5, 8 GB RAM, USB SSD",
+    "network": "Pi on LAN at 192.168.68.70, client on Wi-Fi, ping 1.5-3.8 ms",
+    "afterRuns": {
+      "heap": {
+        "committedKiB": 249856,
+        "usedKiB": 171109,
+        "jcmd": [
+          "garbage-first heap   total reserved 1048576K, committed 249856K, used 171109K [0x00000000c0000000, 0x0000000100000000)",
+          " region size 1M, 131 eden (131M), 2 survivor (2M), 22 old (22M), 14 humongous (14M), 75 free (75M)"
+        ]
+      },
+      "process": {
+        "VmHWM": "448192 kB",
+        "VmRSS": "448192 kB",
+        "VmSwap": "0 kB"
+      }
+    }
+  }
+}
