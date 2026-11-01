@@ -110,11 +110,12 @@ set -euo pipefail
 cd ~/geobook
 address=$(docker compose port geobook 8080)
 base="http://${address/0.0.0.0/127.0.0.1}"
+# exec reads stdin, which here is the rest of this script.
 created=$(docker compose exec -T geobook geobook auth add "deploy-smoke-$1" read \
-  "$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)")
-id=$(sed -n 's/.*(id \([0-9]*\),.*/\1/p' <<<"$created")
+  "$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)" </dev/null)
+id=$(sed -n 's/.*(id \([0-9a-f]*\),.*/\1/p' <<<"$created")
 token=$(tail -n 1 <<<"$created")
-trap 'docker compose exec -T geobook geobook auth rm "$id" >/dev/null' EXIT
+trap 'docker compose exec -T geobook geobook auth rm "$id" </dev/null >/dev/null' EXIT
 for path in /map /api/tracks/years /api/history-display /api/countries /api/visits /api/originals/1; do
   curl -fsS -H "Authorization: Bearer $token" "$base$path" >/dev/null
 done
