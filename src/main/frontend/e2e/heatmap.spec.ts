@@ -306,9 +306,21 @@ test('the heatmap keeps position, zoom, limit and scale in the URL across a relo
   await page.getByRole('radio', { name: 'Global' }).click();
   await page.locator('.heatmap-panel .leaflet-container').focus();
   await page.keyboard.press('Minus');
-  await page.keyboard.press('ArrowRight');
   await expect(page).toHaveURL(/at=-?\d+\.\d{5},-?\d+\.\d{5},12&limit=60&scale=global$/);
-  const view = page.url();
+  const zoomed = page.url();
+  await page.keyboard.press('ArrowRight');
+  await expect(page).not.toHaveURL(zoomed);
+  // The pan animates, so wait until the URL stops changing before reading the view.
+  let view = page.url();
+  await expect
+    .poll(async () => {
+      const previous = view;
+      await page.waitForTimeout(400);
+      view = page.url();
+      return view === previous;
+    })
+    .toBe(true);
+  expect(view).toMatch(/at=-?\d+\.\d{5},-?\d+\.\d{5},12&limit=60&scale=global$/);
 
   await page.reload();
   await expect(page.getByRole('button', { name: 'Heatmap', exact: true })).toHaveAttribute(
