@@ -124,9 +124,9 @@ EOF
 )
 counts=$(python3 -c '
 import json, sys
-tracks = json.loads(sys.argv[1])
+tracks = json.load(sys.stdin)
 history = sum(track["kind"] == "history" for track in tracks)
-print(f"{len(tracks) - history} tracks, {history} history days")' "$tracks")
+print(f"{len(tracks) - history} tracks, {history} history days")' <<<"$tracks")
 
 record=$(ssh "$host" cat geobook/deployment.json || echo '{}')
 python3 -c '

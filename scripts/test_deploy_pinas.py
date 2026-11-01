@@ -23,7 +23,10 @@ FAKES = {
     "gh": 'echo "$FAKE_CI_RUNS"',
     "curl": """
         case "$*" in
-          */api/tracks) echo '[{"kind":"recording"},{"kind":"history"},{"kind":"history"}]' ;;
+          */api/tracks)
+            # Larger than one command-line argument may be, like a real collection.
+            name=$(head -c 200000 /dev/zero | tr '\\0' x)
+            echo "[{\\"kind\\":\\"recording\\",\\"name\\":\\"$name\\"},{\\"kind\\":\\"history\\"},{\\"kind\\":\\"history\\"}]" ;;
           *) echo '{}' ;;
         esac
         """,
