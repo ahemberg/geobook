@@ -8,6 +8,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import se.geobook.tracker.tracks.domain.ContentIdentity;
@@ -28,23 +29,32 @@ import se.geobook.tracker.tracks.domain.TrackUpdate;
 import se.geobook.tracker.tracks.domain.Visit;
 import se.geobook.tracker.tracks.repository.TrackRepository;
 import se.geobook.tracker.tracks.repository.VisitRepository;
+import se.geobook.tracker.tracks.service.events.CollectionChanged;
 
 // Track, original and visit mutations share the SQLite writer lock.
-@SuppressWarnings({"PMD.ShortVariable", "PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({
+  "PMD.ShortVariable",
+  "PMD.TooManyMethods",
+  "PMD.CouplingBetweenObjects",
+  "PMD.ExcessiveImports"
+})
 @Service
 public class TrackService {
   private final ReentrantLock writerLock = new ReentrantLock();
   private final TrackRepository repository;
   private final TransactionTemplate transactions;
   private final VisitRepository visitRepository;
+  private final ApplicationEventPublisher events;
 
   TrackService(
       TrackRepository repository,
       TransactionTemplate transactions,
-      VisitRepository visitRepository) {
+      VisitRepository visitRepository,
+      ApplicationEventPublisher events) {
     this.repository = repository;
     this.transactions = transactions;
     this.visitRepository = visitRepository;
+    this.events = events;
   }
 
   OriginalExport.Source retainOriginal(String filename, byte[] bytes) {
@@ -217,12 +227,16 @@ public class TrackService {
   }
 
   public HistoryDisplay showHistory(boolean show) {
-    return write(() -> repository.showHistory(show));
+    final HistoryDisplay display = write(() -> repository.showHistory(show));
+    changed();
+    return display;
   }
 
   public HistoryDisplay showHistoryYear(int year, boolean show) {
     HistoryDisplay.validateYear(year);
-    return write(() -> repository.showHistoryYear(year, show));
+    final HistoryDisplay display = write(() -> repository.showHistoryYear(year, show));
+    changed();
+    return display;
   }
 
   public PlaybackSettings playbackSettings() {
@@ -234,13 +248,18 @@ public class TrackService {
   }
 
   public Track update(long id, TrackUpdate controls) {
-    return write(
-        () -> {
-          if (!repository.update(id, controls)) {
-            throw new TrackNotFoundException("Track not found.");
-          }
-          return find(id);
-        });
+    final Track track =
+        write(
+            () -> {
+              if (!repository.update(id, controls)) {
+                throw new TrackNotFoundException("Track not found.");
+              }
+              return find(id);
+            });
+    if (controls.visible() != null) {
+      changed();
+    }
+    return track;
   }
 
   public Track.Original original(long id) {
@@ -274,6 +293,7 @@ public class TrackService {
           repository.deleteOriginal(id);
           return true;
         });
+    changed();
   }
 
   public void deleteTrack(long id, String revision) {
@@ -285,6 +305,7 @@ public class TrackService {
           repository.deleteTrack(id);
           return true;
         });
+    changed();
   }
 
   public List<Integer> years() {
@@ -313,6 +334,11 @@ public class TrackService {
 
   private Track find(long id) {
     return repository.find(id).orElseThrow(() -> new TrackNotFoundException("Track not found."));
+  }
+
+  // Called after write returns, so listeners only see committed changes.
+  private void changed() {
+    events.publishEvent(new CollectionChanged());
   }
 
   private <T> T write(Supplier<T> operation) {

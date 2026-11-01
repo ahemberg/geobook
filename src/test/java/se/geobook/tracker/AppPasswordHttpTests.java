@@ -139,6 +139,8 @@ class AppPasswordHttpTests {
       for (String request :
           List.of(
               "GET /api/tracks",
+              "GET /api/heatmap/summary",
+              "GET /api/heatmap/tiles/1/1/1",
               "GET /map",
               "DELETE /api/tracks/1",
               "PATCH /api/playback-settings",
@@ -165,6 +167,10 @@ class AppPasswordHttpTests {
 
       assertThat(bearer(client, app, "GET", "/api/tracks", secret).statusCode()).isEqualTo(200);
       assertThat(bearer(client, app, "GET", "/api/tracks/1", secret).statusCode()).isEqualTo(200);
+      assertThat(bearer(client, app, "GET", "/api/heatmap/summary", secret).statusCode())
+          .isEqualTo(200);
+      assertThat(bearer(client, app, "GET", "/api/heatmap/tiles/1/1/1", secret).statusCode())
+          .isEqualTo(200);
       assertThat(bearer(client, app, "GET", "/map", secret).statusCode()).isEqualTo(200);
       assertThat(upload(client, app, secret).statusCode()).isEqualTo(403);
       assertThat(bearer(client, app, "DELETE", "/api/tracks/1", secret).statusCode())

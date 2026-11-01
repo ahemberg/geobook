@@ -11,6 +11,7 @@ colors:
   control-border: "#9baca4"
   surface: "#fff"
   map-placeholder: "#edf0ee"
+  map-dark: "#2a302e"
   focus: "#2768ba"
   current-page: "#bcd4f5"
   notice: "#eff4fa"
@@ -91,6 +92,19 @@ components:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
     padding: "12px 16px"
+  segment:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.control}"
+    padding: "0 12px"
+  segment-selected:
+    backgroundColor: "{colors.selection}"
+    textColor: "{colors.blue}"
+  heat-legend:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.control}"
+    padding: "10px 12px"
 ---
 
 # Geobook design
@@ -102,7 +116,7 @@ A blue header, white panels and pale blue selection states separate navigation,
 saved recordings and the active selection. Source Sans 3 is used throughout.
 
 This document describes the implemented map, recording and history-day controls,
-country review, original-export archive, sign-in and account pages.
+country review, heatmap, original-export archive, sign-in and account pages.
 
 
 ## Colors
@@ -115,7 +129,7 @@ The `blue` token belongs to the header, primary buttons and links. `selection` f
 
 ### Neutral
 
-Use `surface` for panels, `ink` for text, `muted` for supporting text, `line` for separators and `control-border` for button outlines. `map-placeholder` sits beneath map content while tiles load.
+Use `surface` for panels, `ink` for text, `muted` for supporting text, `line` for separators and `control-border` for button outlines. `map-placeholder` sits beneath map content while tiles load. `map-dark` sits beneath the Heatmap basemap and behind its legend ramp, so heat colours read against the same dark ground whether tiles have loaded or not.
 
 ### Status and focus
 
@@ -137,13 +151,15 @@ Between 701px and 1100px, the library contracts to 260px and playback controls s
 
 At widths up to 700px, the header wraps navigation below the wordmark and upload button, preserving every destination. The scope wraps its heading above the date and gap controls. A 44px library heading and toggle stay above the map. Opening the library covers the map workspace; the covered map and playback are hidden from keyboard and assistive-technology navigation. Selecting a track closes the library and focuses its toggle. Reopening retains the list's scroll position. An empty library opens automatically. The selected plot stays below the map, with an 80px chart and controls underneath. Its panel occupies at most 60% of the remaining workspace and scrolls internally when expanded.
 
+Heatmap replaces the map workspace with one full-width map below the scope strip. At widths up to 700px, its daily limit and scale controls sit behind a Limit and scale toggle in the scope strip and open as full-width rows under it.
+
 Countries places confirmed summaries beside country-day review on desktop and stacks them on mobile. Date controls and the current scope stay above both views.
 
 The archive replaces the map workspace with a full-width list padded by 24px. File details sit opposite their download and removal actions. On mobile, padding becomes 20px vertically and 16px horizontally, and each row stacks its actions beneath the file details. Long filenames wrap.
 
 ## Panels and shadows
 
-The workspace uses flat white panels and single-pixel dividers. The floating fit control and tile-failure notice use the soft shadow `0 2px 8px #20312d24`. Date and gap-setting popovers use `0 8px 32px #20312d30` to separate them from the map. Removal dialogs use a translucent dark blue backdrop to separate the confirmation from the page. Leaflet supplies its own map-control frame. The app declares no custom transitions or animations.
+The workspace uses flat white panels and single-pixel dividers. The floating fit control, tile-failure notice, heatmap messages and heat legend use the soft shadow `0 2px 8px #20312d24`. Date and gap-setting popovers use `0 8px 32px #20312d30` to separate them from the map. Removal dialogs use a translucent dark blue backdrop to separate the confirmation from the page. Leaflet supplies its own map-control frame. The app declares no custom transitions or animations.
 
 ## Shapes
 
@@ -157,7 +173,7 @@ Ordinary buttons have a white fill and a single-pixel border. Primary buttons us
 
 ### Header and scope
 
-The header contains the Geobook wordmark, Map, Countries and Original exports buttons, and Upload GPX / Takeout. Signed-in owners also see Account and Sign out. Navigation uses white text, a filled hover state and `aria-current` for the selected page. The scope strip appears in Map and Countries and contains Recorded travel, a date button showing the applied range or All time, a Recording gaps disclosure, the selected country with an All countries action when scoped, and the matching recorded-track count.
+The header contains the Geobook wordmark, Map, Countries, Heatmap and Original exports buttons, and Upload GPX / Takeout. Heatmap keeps its own `/heatmap` address. Signed-in owners also see Account and Sign out. Navigation uses white text, a filled hover state and `aria-current` for the selected page. The scope strip appears in Map, Countries and Heatmap. In Map and Countries it contains Recorded travel, a date button showing the applied range or All time, a Recording gaps disclosure, the selected country with an All countries action when scoped, and the matching recorded-track count.
 
 The date button opens a bounded, scrollable panel with labelled native date fields, a year selector, All time, Apply dates and Close dates. Applying or closing returns focus to the date button; Escape also closes it. Dates are inclusive and use local time at each point. All time includes points with unknown dates. Recording gaps opens a matching panel for the saved gap threshold and optional dashed map connections. Form controls use white fills, outlined borders and the shared focus treatment. The upload button opens a hidden native file input.
 
@@ -168,6 +184,12 @@ Confirmed summaries show a country name, distinct recorded days, and first and l
 Review rows keep country, local date and recording evidence together. Native checkboxes support bulk confirmation and exclusion; each row also offers reversible decisions. A state selector separates pending, confirmed and excluded days. Saved totals stay separate from suggestions, with uncertainty and review guidance above the controls.
 
 The skip link targets the visible view. Countries provides a focusable main landmark; Map targets the track library.
+
+### Heatmap
+
+The scope strip holds the Heatmap heading, the shared date button and two segmented controls: Daily limit (None, 60 min, 15 min, 5 min) and Scale (On screen, Global). Each segmented control is a labelled radio group drawn as joined 44px segments with `control-border` outlines and the control radius on the outer ends. The checked segment uses the `selection` fill, a blue border and blue 600-weight text; hover uses the `selection` fill. Keyboard focus draws the shared 3px `focus` outline offset by 3px around the focused segment, raised above its neighbours. On mobile the segments stretch to fill their row beside a 76px label.
+
+The basemap is greyscale and darkened over `map-dark`, so only the heat carries colour. Heat runs from dark violet through red and orange to pale yellow, growing more opaque as time increases; cells are drawn at least 2px wide. The legend floats at the lower left, above the attribution, as a white panel with the colour ramp and "Full colour at ≥ X". Loading, building and empty messages float centred at the top as white panels; "Updating heatmap…" is a smaller muted status. A load failure uses the error fill and text as an alert. The skip link and main landmark target the heatmap.
 
 ### Track rows
 

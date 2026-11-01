@@ -21,6 +21,9 @@ class StorageConfiguration {
     sqlite.setJournalMode(SQLiteConfig.JournalMode.WAL);
     sqlite.setSynchronous(SQLiteConfig.SynchronousMode.FULL);
     sqlite.setBusyTimeout(5000);
+    // Transactions take the writer lock up front, so a concurrent writer makes them wait
+    // instead of failing when a read inside them would have to upgrade.
+    sqlite.setTransactionMode(SQLiteConfig.TransactionMode.IMMEDIATE);
     HikariDataSource pool = new HikariDataSource();
     pool.setJdbcUrl("jdbc:sqlite:" + root.resolve("geobook.db"));
     pool.setDataSourceProperties(sqlite.toProperties());

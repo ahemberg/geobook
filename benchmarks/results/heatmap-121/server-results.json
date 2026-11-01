@@ -1,0 +1,647 @@
+{
+  "collection": {
+    "importSeconds": 374.82700000703335,
+    "firstProgressSeconds": 1.2358093949733302,
+    "outcomes": {
+      "progress": 50,
+      "imported": 500,
+      "complete": 50
+    },
+    "heatmap": {
+      "secondsAfterImport": 54.387143671978265,
+      "builtAt": "2026-10-31T18:42:11.314828676Z",
+      "cells": 20322,
+      "polls": 108
+    },
+    "collectionReads": [
+      {
+        "seconds": 0.05566296796314418,
+        "tracks": 0
+      },
+      {
+        "seconds": 0.32276852196082473,
+        "tracks": 0
+      },
+      {
+        "seconds": 0.31520031904801726,
+        "tracks": 0
+      },
+      {
+        "seconds": 0.02599032304715365,
+        "tracks": 4
+      },
+      {
+        "seconds": 0.02581356291193515,
+        "tracks": 13
+      },
+      {
+        "seconds": 0.032877951045520604,
+        "tracks": 25
+      },
+      {
+        "seconds": 0.20236939995083958,
+        "tracks": 34
+      },
+      {
+        "seconds": 0.12942679692059755,
+        "tracks": 46
+      },
+      {
+        "seconds": 0.05325583403464407,
+        "tracks": 51
+      },
+      {
+        "seconds": 0.14754424896091223,
+        "tracks": 58
+      },
+      {
+        "seconds": 0.09700631094165146,
+        "tracks": 68
+      },
+      {
+        "seconds": 0.11104529001750052,
+        "tracks": 78
+      },
+      {
+        "seconds": 0.7778445880394429,
+        "tracks": 82
+      },
+      {
+        "seconds": 0.12160790897905827,
+        "tracks": 92
+      },
+      {
+        "seconds": 0.5280451839789748,
+        "tracks": 100
+      },
+      {
+        "seconds": 0.08228936791419983,
+        "tracks": 110
+      },
+      {
+        "seconds": 0.18902816798072308,
+        "tracks": 120
+      },
+      {
+        "seconds": 0.28237187897320837,
+        "tracks": 129
+      },
+      {
+        "seconds": 0.11910479294601828,
+        "tracks": 136
+      },
+      {
+        "seconds": 0.5976898790104315,
+        "tracks": 146
+      },
+      {
+        "seconds": 0.39555636409204453,
+        "tracks": 155
+      },
+      {
+        "seconds": 0.5963552120374516,
+        "tracks": 161
+      },
+      {
+        "seconds": 0.5589622129919007,
+        "tracks": 171
+      },
+      {
+        "seconds": 0.3640134739689529,
+        "tracks": 180
+      },
+      {
+        "seconds": 1.4837898740079254,
+        "tracks": 189
+      },
+      {
+        "seconds": 0.7802135440288112,
+        "tracks": 190
+      },
+      {
+        "seconds": 0.12519021797925234,
+        "tracks": 201
+      },
+      {
+        "seconds": 0.5862088430440053,
+        "tracks": 210
+      },
+      {
+        "seconds": 2.5945401270873845,
+        "tracks": 216
+      },
+      {
+        "seconds": 0.7817047580610961,
+        "tracks": 227
+      },
+      {
+        "seconds": 0.48176332807634026,
+        "tracks": 239
+      },
+      {
+        "seconds": 0.2280875489814207,
+        "tracks": 249
+      },
+      {
+        "seconds": 4.801982948905788,
+        "tracks": 252
+      },
+      {
+        "seconds": 0.5000845440663397,
+        "tracks": 265
+      },
+      {
+        "seconds": 0.4388427810044959,
+        "tracks": 276
+      },
+      {
+        "seconds": 0.5275215399451554,
+        "tracks": 287
+      },
+      {
+        "seconds": 2.881200038944371,
+        "tracks": 295
+      },
+      {
+        "seconds": 0.15043859905563295,
+        "tracks": 299
+      },
+      {
+        "seconds": 0.45836642594076693,
+        "tracks": 304
+      },
+      {
+        "seconds": 0.8063651319826022,
+        "tracks": 311
+      },
+      {
+        "seconds": 0.3868030810263008,
+        "tracks": 321
+      },
+      {
+        "seconds": 0.7655099770054221,
+        "tracks": 330
+      },
+      {
+        "seconds": 4.633153734961525,
+        "tracks": 333
+      },
+      {
+        "seconds": 0.5275225309887901,
+        "tracks": 340
+      },
+      {
+        "seconds": 0.6720022100489587,
+        "tracks": 346
+      },
+      {
+        "seconds": 0.3309486849466339,
+        "tracks": 353
+      },
+      {
+        "seconds": 0.24743153096642345,
+        "tracks": 362
+      },
+      {
+        "seconds": 5.515692673972808,
+        "tracks": 371
+      },
+      {
+        "seconds": 0.28803126397542655,
+        "tracks": 375
+      },
+      {
+        "seconds": 0.3180231919977814,
+        "tracks": 382
+      },
+      {
+        "seconds": 0.47900843410752714,
+        "tracks": 390
+      },
+      {
+        "seconds": 0.7621731499675661,
+        "tracks": 400
+      },
+      {
+        "seconds": 0.49315836001187563,
+        "tracks": 409
+      },
+      {
+        "seconds": 0.4651048450032249,
+        "tracks": 416
+      },
+      {
+        "seconds": 1.697704913909547,
+        "tracks": 418
+      },
+      {
+        "seconds": 0.7752437249291688,
+        "tracks": 424
+      },
+      {
+        "seconds": 0.8663485880242661,
+        "tracks": 433
+      },
+      {
+        "seconds": 0.3824392301030457,
+        "tracks": 442
+      },
+      {
+        "seconds": 0.4442019439302385,
+        "tracks": 450
+      },
+      {
+        "seconds": 0.9931687290081754,
+        "tracks": 459
+      },
+      {
+        "seconds": 0.329326152917929,
+        "tracks": 468
+      },
+      {
+        "seconds": 4.0029779120814055,
+        "tracks": 471
+      },
+      {
+        "seconds": 0.5162351479521021,
+        "tracks": 474
+      },
+      {
+        "seconds": 0.7601890860823914,
+        "tracks": 483
+      },
+      {
+        "seconds": 0.42212776106316596,
+        "tracks": 490
+      },
+      {
+        "seconds": 0.4357958351029083,
+        "tracks": 500
+      },
+      {
+        "seconds": 0.34886120597366244,
+        "tracks": 500
+      },
+      {
+        "seconds": 0.5828823039773852,
+        "tracks": 500
+      },
+      {
+        "seconds": 4.919557388057001,
+        "tracks": 500
+      },
+      {
+        "seconds": 0.38787277007941157,
+        "tracks": 500
+      },
+      {
+        "seconds": 0.49270613107364625,
+        "tracks": 500
+      },
+      {
+        "seconds": 0.5736398019362241,
+        "tracks": 500
+      },
+      {
+        "seconds": 0.37440347799565643,
+        "tracks": 500
+      },
+      {
+        "seconds": 0.261339409975335,
+        "tracks": 500
+      }
+    ],
+    "readFailures": []
+  },
+  "takeout": {
+    "importSeconds": 135.1093635270372,
+    "firstProgressSeconds": 21.723031808971427,
+    "outcomes": {
+      "progress": 1,
+      "imported": 2919,
+      "complete": 1
+    },
+    "heatmap": {
+      "secondsAfterImport": 39.94436076900456,
+      "builtAt": "2026-10-31T18:45:50.628540031Z",
+      "cells": 174127,
+      "polls": 79
+    },
+    "collectionReads": [
+      {
+        "seconds": 0.3623955069342628,
+        "tracks": 500
+      },
+      {
+        "seconds": 0.20377472799737006,
+        "tracks": 500
+      },
+      {
+        "seconds": 0.2820140409749001,
+        "tracks": 500
+      },
+      {
+        "seconds": 0.2477380089694634,
+        "tracks": 500
+      },
+      {
+        "seconds": 0.9805935280164704,
+        "tracks": 500
+      },
+      {
+        "seconds": 0.4055981009732932,
+        "tracks": 569
+      },
+      {
+        "seconds": 0.3598813540302217,
+        "tracks": 644
+      },
+      {
+        "seconds": 0.840921206981875,
+        "tracks": 732
+      },
+      {
+        "seconds": 0.3705645489972085,
+        "tracks": 815
+      },
+      {
+        "seconds": 0.4595748350257054,
+        "tracks": 930
+      },
+      {
+        "seconds": 0.5662171470467001,
+        "tracks": 1036
+      },
+      {
+        "seconds": 0.5196036950219423,
+        "tracks": 1142
+      },
+      {
+        "seconds": 1.0469880580203608,
+        "tracks": 1275
+      },
+      {
+        "seconds": 0.5364466470200568,
+        "tracks": 1414
+      },
+      {
+        "seconds": 0.9334091000491753,
+        "tracks": 1481
+      },
+      {
+        "seconds": 0.7926391629735008,
+        "tracks": 1631
+      },
+      {
+        "seconds": 0.9302049829857424,
+        "tracks": 1810
+      },
+      {
+        "seconds": 1.0568146270234138,
+        "tracks": 2005
+      },
+      {
+        "seconds": 1.029494926915504,
+        "tracks": 2207
+      },
+      {
+        "seconds": 1.1193107720464468,
+        "tracks": 2415
+      },
+      {
+        "seconds": 0.985900352941826,
+        "tracks": 2621
+      },
+      {
+        "seconds": 0.7707978149410337,
+        "tracks": 2842
+      },
+      {
+        "seconds": 1.3260218490613624,
+        "tracks": 3063
+      },
+      {
+        "seconds": 1.3136794110760093,
+        "tracks": 3270
+      },
+      {
+        "seconds": 1.5769138359464705,
+        "tracks": 3419
+      },
+      {
+        "seconds": 1.402442588005215,
+        "tracks": 3419
+      },
+      {
+        "seconds": 1.1821908130077645,
+        "tracks": 3419
+      },
+      {
+        "seconds": 1.2992346560349688,
+        "tracks": 3419
+      },
+      {
+        "seconds": 1.4797247560927644,
+        "tracks": 3419
+      },
+      {
+        "seconds": 1.0816241659922525,
+        "tracks": 3419
+      }
+    ],
+    "readFailures": []
+  },
+  "takeoutManifest": {
+    "fixes": 612238,
+    "placeVisits": 3017,
+    "daysWithFixes": 2779,
+    "years": [
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022
+    ],
+    "from": "2013-03-01",
+    "to": "2022-10-31",
+    "archiveBytes": 28362586,
+    "historyDays": 2919
+  },
+  "freshStartupSeconds": 7.724865436553955,
+  "heatBuilds": [
+    {
+      "finished": "2026-10-31T19:34:41.217+01:00",
+      "entries": 0,
+      "milliseconds": 17
+    },
+    {
+      "finished": "2026-10-31T19:35:23.105+01:00",
+      "entries": 2302,
+      "milliseconds": 1594
+    },
+    {
+      "finished": "2026-10-31T19:35:28.368+01:00",
+      "entries": 4606,
+      "milliseconds": 1811
+    },
+    {
+      "finished": "2026-10-31T19:35:34.346+01:00",
+      "entries": 6908,
+      "milliseconds": 3138
+    },
+    {
+      "finished": "2026-10-31T19:35:39.414+01:00",
+      "entries": 9212,
+      "milliseconds": 3296
+    },
+    {
+      "finished": "2026-10-31T19:35:48.820+01:00",
+      "entries": 11514,
+      "milliseconds": 7261
+    },
+    {
+      "finished": "2026-10-31T19:35:57.206+01:00",
+      "entries": 13818,
+      "milliseconds": 6946
+    },
+    {
+      "finished": "2026-10-31T19:36:06.350+01:00",
+      "entries": 16372,
+      "milliseconds": 8756
+    },
+    {
+      "finished": "2026-10-31T19:36:15.301+01:00",
+      "entries": 19626,
+      "milliseconds": 8442
+    },
+    {
+      "finished": "2026-10-31T19:36:25.599+01:00",
+      "entries": 23110,
+      "milliseconds": 10082
+    },
+    {
+      "finished": "2026-10-31T19:36:36.835+01:00",
+      "entries": 27716,
+      "milliseconds": 11012
+    },
+    {
+      "finished": "2026-10-31T19:36:53.892+01:00",
+      "entries": 31400,
+      "milliseconds": 16455
+    },
+    {
+      "finished": "2026-10-31T19:37:14.311+01:00",
+      "entries": 37618,
+      "milliseconds": 19488
+    },
+    {
+      "finished": "2026-10-31T19:37:34.894+01:00",
+      "entries": 43836,
+      "milliseconds": 20384
+    },
+    {
+      "finished": "2026-10-31T19:38:00.617+01:00",
+      "entries": 50054,
+      "milliseconds": 19742
+    },
+    {
+      "finished": "2026-10-31T19:38:30.108+01:00",
+      "entries": 58806,
+      "milliseconds": 24559
+    },
+    {
+      "finished": "2026-10-31T19:39:04.079+01:00",
+      "entries": 69210,
+      "milliseconds": 32468
+    },
+    {
+      "finished": "2026-10-31T19:39:38.071+01:00",
+      "entries": 77340,
+      "milliseconds": 28172
+    },
+    {
+      "finished": "2026-10-31T19:40:15.341+01:00",
+      "entries": 85872,
+      "milliseconds": 36220
+    },
+    {
+      "finished": "2026-10-31T19:41:01.110+01:00",
+      "entries": 96926,
+      "milliseconds": 41597
+    },
+    {
+      "finished": "2026-10-31T19:41:40.897+01:00",
+      "entries": 109132,
+      "milliseconds": 38668
+    },
+    {
+      "finished": "2026-10-31T19:42:11.951+01:00",
+      "entries": 115350,
+      "milliseconds": 30416
+    },
+    {
+      "finished": "2026-10-31T19:45:51.369+01:00",
+      "entries": 595843,
+      "milliseconds": 38774
+    }
+  ],
+  "rebuildAfterImport": {
+    "note": "The last build covers all 500 tracks and the Takeout. It started after the Takeout import ended.",
+    "entries": 595843,
+    "milliseconds": 38774,
+    "collectionOnlyEntries": 115350,
+    "collectionOnlyMilliseconds": 30416
+  },
+  "heap": {
+    "xmx": "-Xmx1g",
+    "afterCollectionImport": {
+      "committedKiB": 963584,
+      "usedKiB": 338498,
+      "jcmd": [
+        "garbage-first heap   total reserved 1048576K, committed 963584K, used 338498K [0x00000000c0000000, 0x0000000100000000)",
+        " region size 1M, 34 eden (34M), 1 survivor (1M), 123 old (123M), 173 humongous (173M), 610 free (610M)"
+      ]
+    },
+    "afterTakeoutImport": {
+      "committedKiB": 944128,
+      "usedKiB": 465209,
+      "jcmd": [
+        "garbage-first heap   total reserved 1048576K, committed 944128K, used 465209K [0x00000000c0000000, 0x0000000100000000)",
+        " region size 1M, 132 eden (132M), 1 survivor (1M), 121 old (121M), 202 humongous (202M), 466 free (466M)"
+      ]
+    },
+    "maxAfterGcDuringFinalBuildMiB": 453,
+    "lastGcBeforeHeapReading": {
+      "epoch": 1793472348.1779165,
+      "gc": 544,
+      "kind": "Pause Young (Prepare Mixed) (G1 Evacuation Pause)",
+      "beforeMiB": 897,
+      "afterMiB": 308,
+      "committedMiB": 922
+    },
+    "maxAfterGcWholeImportMiB": 743,
+    "gcPausesDuringImport": 674
+  },
+  "processAfterTakeoutImport": {
+    "VmHWM": "1460256 kB",
+    "VmRSS": "1318896 kB",
+    "VmSwap": "0 kB"
+  },
+  "peakRssKiB": 1461840,
+  "minimumHostAvailableKiB": 881344,
+  "maximumProcessSwapKiB": 0,
+  "temperatureRangeC": [
+    46.1,
+    54.3
+  ],
+  "throttleValues": [
+    "throttled=0x0"
+  ],
+  "resourceSampleIntervalSeconds": 2,
+  "resourceSamples": 348
+}
