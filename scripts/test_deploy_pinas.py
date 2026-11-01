@@ -34,8 +34,10 @@ FAKES = {
           "compose logs"*) echo "$FAKE_STARTUP" ;;
           "compose port geobook 8080") echo 0.0.0.0:8080 ;;
           "compose exec -T geobook geobook auth add"*)
-            printf 'Created app password "deploy" (id 7, scope read, expires soon).\\n'
+            cat > /dev/null
+            printf 'Created app password "deploy" (id 16238e7e8c4e, scope read, expires soon).\\n'
             printf 'Copy it now, it is not shown again:\\nsecret-value\\n' ;;
+          "compose exec"*) cat > /dev/null ;;
         esac
         """,
 }
@@ -129,7 +131,7 @@ class DeployPinasTest(unittest.TestCase):
         for path in ["/map", "/api/tracks", "/api/tracks/years", "/api/history-display",
                      "/api/countries", "/api/visits", "/api/originals/1"]:
             self.assertIn(f"http://127.0.0.1:8080{path}", calls)
-        self.assertIn("geobook auth rm 7", calls)
+        self.assertIn("geobook auth rm 16238e7e8c4e", calls)
 
         deployment = json.loads((geobook / "deployment.json").read_text())
         self.assertEqual(deployment["host"], "pinas")
