@@ -18,6 +18,13 @@ assert(
 const workload = JSON.parse(readFileSync(manifestPath, "utf8"));
 const year = workload.from.slice(0, 4);
 const yearQuery = `?from=${year}-01-01&to=${year}-12-31`;
+// The page adds the daily limit and may send empty bounds, so compare only the period.
+const period = (address) => {
+  const params = new URL(address).searchParams;
+  const from = params.get("from") ?? "";
+  const to = params.get("to") ?? "";
+  return from || to ? `?from=${from}&to=${to}` : "";
+};
 const expect = baseExpect.configure({ timeout: 120000 });
 const browser = await chromium.launch({ headless: true });
 const results = [];
@@ -49,10 +56,9 @@ try {
     );
     const summaryFor = (query) =>
       page.waitForResponse((response) => {
-        const address = new URL(response.url());
         return (
-          address.pathname === "/api/heatmap/summary" &&
-          address.search === query
+          new URL(response.url()).pathname === "/api/heatmap/summary" &&
+          period(response.url()) === query
         );
       });
     // The new layer replaces the old one before its summary is requested, so once that
@@ -84,7 +90,7 @@ try {
             requestAnimationFrame(() => requestAnimationFrame(resolve)),
           ),
       );
-      const loaded = tiles.filter((tile) => new URL(tile.url).search === query);
+      const loaded = tiles.filter((tile) => period(tile.url) === query);
       assert(loaded.length > 0, `No heat tiles for ${query || "all time"}`);
       assert(
         loaded.every((tile) => tile.status === 200),
