@@ -23,10 +23,10 @@
   "results": [
     {
       "run": 1,
-      "firstLoadMs": 3070.783356,
-      "openMs": 2763.724276,
-      "periodMs": 622.9977679999997,
-      "allTimeMs": 371.8217910000003,
+      "firstLoadMs": 1804.914521,
+      "openMs": 1584.6517450000001,
+      "periodMs": 307.6214450000002,
+      "allTimeMs": 274.0127550000002,
       "withinTargets": true,
       "allTimeCells": 174127,
       "yearCells": 16989,
@@ -35,10 +35,10 @@
     },
     {
       "run": 2,
-      "firstLoadMs": 1569.881888,
-      "openMs": 1204.8414389999998,
-      "periodMs": 218.5804680000001,
-      "allTimeMs": 214.08859800000027,
+      "firstLoadMs": 1309.0126510000005,
+      "openMs": 1114.06227,
+      "periodMs": 120.25975500000004,
+      "allTimeMs": 257.5476550000003,
       "withinTargets": true,
       "allTimeCells": 174127,
       "yearCells": 16989,
@@ -47,10 +47,10 @@
     },
     {
       "run": 3,
-      "firstLoadMs": 1592.5105379999995,
-      "openMs": 1401.7300219999997,
-      "periodMs": 165.6343369999995,
-      "allTimeMs": 245.71330300000045,
+      "firstLoadMs": 1218.4358120000006,
+      "openMs": 1021.4900680000001,
+      "periodMs": 311.19910100000016,
+      "allTimeMs": 262.52680899999996,
       "withinTargets": true,
       "allTimeCells": 174127,
       "yearCells": 16989,
@@ -59,10 +59,10 @@
     },
     {
       "run": 4,
-      "firstLoadMs": 1277.1408069999998,
-      "openMs": 923.9578329999986,
-      "periodMs": 297.6153740000009,
-      "allTimeMs": 463.449294,
+      "firstLoadMs": 1260.6011340000005,
+      "openMs": 1066.099102000001,
+      "periodMs": 162.39101699999992,
+      "allTimeMs": 627.4358510000002,
       "withinTargets": true,
       "allTimeCells": 174127,
       "yearCells": 16989,
@@ -71,10 +71,10 @@
     },
     {
       "run": 5,
-      "firstLoadMs": 1301.6785999999993,
-      "openMs": 1100.139255,
-      "periodMs": 119.24874900000032,
-      "allTimeMs": 229.27470899999935,
+      "firstLoadMs": 1462.376984999999,
+      "openMs": 1156.2956939999985,
+      "periodMs": 183.49987200000032,
+      "allTimeMs": 336.83811699999933,
       "withinTargets": true,
       "allTimeCells": 174127,
       "yearCells": 16989,
@@ -83,33 +83,28 @@
     }
   ],
   "server": {
-    "applicationCommit": "e0de2fe32c1153130d53d03b16a9bb557cac0589",
+    "applicationCommit": "e06bbd891098fafbb22db4a3c125496111dc83ba",
     "freshJvmFirstRun": true,
-    "restartReadySeconds": 7.698376178741455,
-    "storedHeatLoadedSecondsAfterReady": 4.879292249679565,
-    "summaryAtReady": {
-      "cells": 0,
-      "hottest": null,
-      "building": true,
-      "builtAt": null
-    },
+    "restartReadySeconds": 7.341733694076538,
+    "storedHeatLoadedSecondsAfterReady": 1.5600411891937256,
     "osCachesFlushed": false,
     "java": "Temurin 27.0.1+1",
     "heap": "-Xmx1g",
     "device": "Raspberry Pi 5, 8 GB RAM, USB SSD",
-    "network": "Pi on LAN at 192.168.68.70, client on Wi-Fi, ping 1.5-3.8 ms",
+    "network": "Pi on LAN at 192.168.68.70, client on Wi-Fi, ping 1.7-6.0 ms",
+    "firstAttempt": "Timed out before the fix to benchmarks/heatmap-browser.mjs; the JVM was restarted before this series.",
     "afterRuns": {
       "heap": {
-        "committedKiB": 249856,
-        "usedKiB": 171109,
+        "committedKiB": 264192,
+        "usedKiB": 155597,
         "jcmd": [
-          "garbage-first heap   total reserved 1048576K, committed 249856K, used 171109K [0x00000000c0000000, 0x0000000100000000)",
-          " region size 1M, 131 eden (131M), 2 survivor (2M), 22 old (22M), 14 humongous (14M), 75 free (75M)"
+          "547721:",
+          "garbage-first heap   total reserved 1048576K, committed 264192K, used 155597K [0x00000000c0000000, 0x0000000100000000)"
         ]
       },
       "process": {
-        "VmHWM": "448192 kB",
-        "VmRSS": "448192 kB",
+        "VmHWM": "454752 kB",
+        "VmRSS": "454752 kB",
         "VmSwap": "0 kB"
       }
     }

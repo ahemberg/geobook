@@ -105,29 +105,27 @@ Return to All time has the least headroom. The server answers in about 0.6 secon
 rest is the browser rebuilding the library rows and the map. Peak server memory was about
 2 GiB, so do not read these numbers as valid for a smaller host.
 
-### Heatmap, 31 October 2026
+### Heatmap, 1 November 2026
 
-Same Pi and client, with Temurin 27.0.1, `-Xmx1g` and a fresh data directory. The workload
-included the synthetic Takeout. The JVM was restarted before the browser series, and it loaded
-the stored heat without a rebuild. OS caches were not flushed. Raw samples, heap readings and
-every build from the server log are in [results/heatmap-121](results/heatmap-121).
+Same Pi and client, with Temurin 27.0.1, `-Xmx1g` and a fresh data directory, on commit e06bbd8.
+The workload included the synthetic Takeout. PhotoPrism, budgy, tergo and swedishpolls were
+stopped, so the host never had less than 3.9 GiB available. The JVM was restarted before the
+browser series, and it loaded the stored heat without a rebuild. OS caches were not flushed.
+Raw samples, heap readings and every build from the server log are in
+[results/heatmap-121](results/heatmap-121).
 
 | Operation | Minimum | Median | Maximum |
 | --- | ---: | ---: | ---: |
-| First Heatmap load, from navigation | 1.277 s | 1.570 s | 3.071 s |
-| Heatmap period change, one year | 0.119 s | 0.219 s | 0.623 s |
-| Heatmap return to All time | 0.214 s | 0.246 s | 0.463 s |
+| First Heatmap load, from navigation | 1.218 s | 1.309 s | 1.805 s |
+| Heatmap period change, one year | 0.120 s | 0.183 s | 0.311 s |
+| Heatmap return to All time | 0.258 s | 0.274 s | 0.627 s |
 
-The last rebuild covered all tracks and the Takeout: 595,843 heat entries in 38.8 s. The
-collection alone took 30.4 s for 115,350 entries. After the Takeout import the heap held
-465 MiB of the 1 GiB limit, and the process peaked at 1.4 GiB RSS. The slowest first load
-was the first run on the fresh JVM.
+The collection import took 224 s and ran one heat build, after its last file: 115,350 entries in
+28.1 s. New heat was served 38.4 s after the import ended. The last rebuild covered all tracks
+and the Takeout: 595,843 entries in 33.5 s. After the Takeout import the heap held 460 MiB of the
+1 GiB limit, and the process peaked at 1.4 GiB RSS. The slowest first load was the first run on
+the fresh JVM.
 
-The collection import took 375 s, against 221 s for the same workload and heap before the
-heatmap. Imports keep triggering full rebuilds, and 22 ran during the 50-file import.
-
-These results measured commit e0de2fe. That was before the daily limit, the quiet delay before
-heat builds and the review fixes. A rerun on the final commit is pending. It was attempted on
-1 November 2026 and stopped at file 24 of 50, because the Pi had about 600 MB of memory free
-during the import, against about 1 GB in this run. The database no longer fit in the page cache,
-and the run would not have been comparable.
+The 31 October run on e0de2fe, before the 10 s quiet delay, took 375 s for the same import and ran
+22 builds during it. That run had about 0.9 GiB of host memory available against 3.9 GiB here, so
+part of the faster import may come from the page cache. The drop to one build does not.
