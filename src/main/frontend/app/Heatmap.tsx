@@ -159,7 +159,17 @@ function createMap(element: HTMLElement, url: string, credit: string, at: Positi
   pane.style.pointerEvents = 'none';
   created.on('moveend', () => {
     const centre = created.getCenter().wrap();
-    rememberHeatView('at', formatPosition(centre.lat, centre.lng, created.getZoom()));
+    const zoom = created.getZoom();
+    // Leaflet rounds the view to whole pixels, so keep the URL's position when that is all that moved.
+    const kept = readHeatView(window.location.search).at;
+    if (
+      kept?.zoom === zoom &&
+      created
+        .latLngToContainerPoint(kept.centre)
+        .distanceTo(created.latLngToContainerPoint(centre)) < 1
+    )
+      return;
+    rememberHeatView('at', formatPosition(centre.lat, centre.lng, zoom));
   });
   if (at) created.setView(at.centre, at.zoom);
   return created;
