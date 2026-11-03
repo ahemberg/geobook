@@ -2,7 +2,8 @@
 
 Geobook keeps a personal record of where you have travelled and when. Upload the
 GPS tracks you record on your phone, and your old Google location history if you
-have it, then browse them on a map by date and country or replay a single day.
+have it, then browse them on a map by date and country, replay a track, or see
+where you spent the most time on a heatmap.
 It runs on your own machine, a Raspberry Pi is enough, and keeps your data in one
 directory you control.
 
@@ -20,6 +21,8 @@ directory you control.
 - Shows everything on an OpenStreetMap map. Filter by a date range or a year.
   Dates follow the local time where each point was recorded, so an evening in
   Tokyo stays on the right day.
+- Combines tracks and location history in a heatmap of time spent. A daily limit
+  keeps long stays from drowning out places you return to.
 - Replays one track at up to 1000x speed, with an elevation plot that follows the
   marker. Gaps in a recording are shown as gaps and skipped, not drawn as travel.
 - Suggests which countries you were in on which days. You confirm or exclude each
@@ -32,6 +35,9 @@ directory you control.
 | ![Replaying a track with its elevation plot](docs/images/playback.png) | ![Confirmed country visits](docs/images/countries.png) | ![A track open on a phone](docs/images/mobile.png) |
 
 ## Quick start
+
+The commands below install the published `0.0.1` prerelease. Heatmap is on `main`
+and requires a [source build](docs/deployment.md#first-start) until the next image release.
 
 You need a Linux host (x86-64 or ARM64) with Docker Engine and the Compose plugin.
 
@@ -82,6 +88,35 @@ To get a Google Takeout archive, select *Location History (Timeline)* at
 the *Semantic Location History* folder. Since 2024 Google keeps Timeline on the
 phone instead, and the export from the phone's Timeline settings is a different
 format that Geobook does not read yet.
+
+## Heatmap
+
+Open *Heatmap* to see time spent across your visible tracks and history days.
+Brighter colours mean more time, from violet through orange to pale yellow.
+The date filter carries over from Map and Countries. Country selection does not
+filter the heatmap.
+
+![Heatmap of invented walks in Paris, using synthetic data](docs/images/heatmap.png)
+
+[Phone view](docs/images/heatmap-mobile.png). Both heatmap screenshots use
+[invented walks](docs/images/README.md), with no personal location data.
+
+- **Daily limit** caps each small area's contribution per local day before adding
+  the days together. The default is 15 minutes. Choose 5 or 60 minutes, or None
+  to count all estimated time. Lower limits make repeated travel easier to see
+  beside long stays.
+- **On screen** adjusts the colours to the area in view. **Global** keeps the
+  scale consistent across the selected period as you pan. The legend shows how
+  much time reaches full colour. On a phone, open *Limit and scale* to change them.
+
+Hidden tracks, hidden history years and history switched off in Map do not
+contribute. The heatmap estimates time between positions and skips likely flights;
+it is not an exact log of time spent. Imports, visibility changes and deletions
+rebuild it in the background. While *Updating heatmap* appears, the previous
+result stays visible.
+
+Position, zoom, daily limit and scale stay in the heatmap URL for reloads and
+bookmarks. The date filter is shared within the app but is not saved in that URL.
 
 ## Self-hosting
 

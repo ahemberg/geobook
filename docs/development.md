@@ -37,8 +37,8 @@ no Docker. These fail the build:
 From `src/main/frontend`, `npm run check` runs the frontend checks alone and
 `npm run format` applies Prettier.
 
-Java features live under `se.geobook.tracker` (`tracks`, `access`), each with
-`controller`, `service`, `repository` and `domain` packages. Controllers own HTTP
+Java features such as `tracks`, `access` and `heatmap` live under
+`se.geobook.tracker`, each with `controller`, `service`, `repository` and `domain` packages. Controllers own HTTP
 and JSON, repositories own SQL, and domain code has no framework dependencies.
 
 Never edit, rename or delete a Flyway migration that is already on `main`. Add a
@@ -76,7 +76,8 @@ npm run test:e2e
 
 Playwright starts the packaged jar with temporary SQLite and runs desktop and
 touch-mobile journeys. Only map tiles are stubbed. The journeys use a public-mode
-instance on port 18080. `login.spec.ts` uses a password-mode instance on port 18081.
+instance on port 18080. `login.spec.ts` and `account.spec.ts` use a
+password-mode instance on port 18081.
 
 To test a built image under Compose, including restart, replacement and restore:
 
