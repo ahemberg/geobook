@@ -1,6 +1,6 @@
 # Release notes
 
-## Unreleased
+## 0.1.0, 7 November 2026
 
 ### Heatmap
 
