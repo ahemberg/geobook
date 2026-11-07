@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Heatmap
+
+Open Heatmap to combine visible tracks and Google location history into a map of
+estimated time spent. Choose a daily limit of 5, 15 or 60 minutes per small area,
+or None, and an on-screen or global colour scale. It shares the date filter with
+Map and Countries, skips likely flights and rebuilds in the background when the
+collection changes. Position, zoom, limit and scale survive a reload through the
+URL. See [using the heatmap](../README.md#heatmap).
+
+### Deployment and builds
+
 - Deployment instructions now cover replacing the release's `compose.yaml` and
   keeping existing `.env` settings during an update.
 - Release images report their own version in the startup log instead of
