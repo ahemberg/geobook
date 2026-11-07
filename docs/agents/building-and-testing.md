@@ -14,7 +14,7 @@
 ## Browser and container tests
 
 - Browser tests run against the built jar: `npx playwright install chromium`, then `npm run test:e2e`.
-- Compose tests for a built image: `python3 scripts/container-smoke.py IMAGE`. Add `--replacement-image PREVIOUS` for an update check and `--browser` for the browser journeys. Needs Docker.
+- Compose tests for a built image: `python3 scripts/container-smoke.py IMAGE`. For an update check, use `python3 scripts/container-smoke.py PREVIOUS --replacement-image CANDIDATE`. Add `--browser` for the browser journeys. Needs Docker.
 
 ## Upgrades
 
