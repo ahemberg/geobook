@@ -12,7 +12,7 @@ The owner records travel with Organic Maps and explores it from desktop and mobi
 
 ## Product Purpose
 
-Geobook is a personal record of where someone travelled and when. It shows uploaded GPS recordings and imported Google location history on a map, filters them by date and country, and replays recorded tracks with their elevation.
+Geobook is a personal record of where someone travelled and when. It shows uploaded GPS recordings and imported Google location history on a map, filters them by date and country, replays recorded tracks with their elevation, and combines both sources in a heatmap of time spent.
 
 Success means importing the existing collection, understanding travel at different geographic and time scales, and inspecting a complete recording without losing its original data.
 
@@ -32,7 +32,8 @@ Success means importing the existing collection, understanding travel at differe
 - Dates and filters use the local time at each recorded point, including historical timezone rules.
 - Country/day suggestions need the owner's review. Only confirmed days count. Place visits and gray gap connections are never country-visit evidence.
 - Gaps over five minutes, a configurable threshold, break lines and the elevation plot. Playback jumps across them at 1x, 10x, 100x or 1000x and never moves the map camera.
-- History days have no playback or elevation and are always listed and drawn apart from tracks.
+- History days have no playback or elevation. Map lists and draws them apart from tracks; Heatmap combines both sources.
+- The heatmap uses visible tracks and history days, with a per-area daily limit and a choice of on-screen or global colour scale. Likely flights do not contribute.
 - Saved choices live on the server, so every device sees the same map.
 - One container runs Spring Boot, the React/Vite frontend and SQLite on Linux ARM64 or x86-64, with all state in one local directory.
 - Performance target on the reference Pi with 500 tracks and five million points: the overview is usable within five seconds and date-filter changes take under two seconds over the LAN, excluding tile downloads. See the [benchmark guide](benchmarks/README.md).

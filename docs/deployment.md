@@ -52,6 +52,19 @@ holds uploads and extracted native libraries. The data mount holds persistent st
 The Java runtime handles container signals directly; Compose allows 60 seconds for shutdown.
 If a migration is running, let it finish before stopping or replacing the container.
 
+## Heatmap updates
+
+The heatmap builds in the background after imports, visibility changes and
+removals. It waits for ten seconds without a collection change before starting,
+so a batch import can finish before the build. The previous result stays visible
+until the new one is ready. A first build shows *Building the heatmap* instead.
+
+Heatmap data lives in SQLite alongside the collection and is included in the
+stopped-app backup. Restarting loads the stored result. No separate service or
+map provider is needed. See the [heatmap guide](../README.md#heatmap) for controls
+and the [benchmark results](../benchmarks/README.md#heatmap-1-november-2026) for
+measured build time and memory use on the Pi.
+
 ## Authentication
 
 Geobook has one owner, who signs in on the login page. The browser keeps the
