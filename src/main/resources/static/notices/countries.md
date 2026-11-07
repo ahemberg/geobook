@@ -32,7 +32,9 @@ dates cannot contribute dated visits. All original GPX bytes remain unchanged.
 
 A suggestion is not a confirmed visit. The owner must confirm ground presence
 outside an airport; ground transit qualifies. Exclude flyovers and airport-only
-layovers. Geobook does not classify airports or flight automatically.
+layovers. Country review does not classify airports or flights automatically. The heatmap
+separately skips likely flights when estimating time spent; that does not confirm
+or exclude country visits.
 
 Saved reviews apply to a country and local day across its backing recordings.
 Summaries count confirmed distinct days with remaining track evidence. They do
