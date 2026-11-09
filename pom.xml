@@ -44,7 +44,7 @@
 		<spotbugs.version>4.10.5.0</spotbugs.version>
 		<findsecbugs.version>1.14.0</findsecbugs.version>
 		<pmd.version>3.28.0</pmd.version>
-		<pmd-engine.version>7.28.0</pmd-engine.version>
+		<pmd-engine.version>7.29.0</pmd-engine.version>
 	</properties>
 	<dependencies>
 		<dependency>
